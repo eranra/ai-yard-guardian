@@ -75,6 +75,70 @@
     }
     .btn-help:hover { background: #2563eb; }
 
+    /* Multi-select Combo Box Styles */
+    .combo-box-wrapper { position: relative; width: 100%; margin-top: 4px; }
+    .combo-box-btn {
+      background: #0f172a;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.82rem;
+      color: #f1f5f9;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .combo-box-btn:hover { border-color: #38bdf8; }
+    .combo-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      width: 100%;
+      background: #1e293b;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+      z-index: 50;
+      padding: 8px;
+      max-height: 240px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .combo-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      color: #cbd5e1;
+      transition: background 0.15s;
+    }
+    .combo-item:hover { background: #334155; }
+    .combo-item input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: #0284c7;
+      cursor: pointer;
+    }
+    .cutoff-note {
+      font-size: 0.72rem;
+      color: #f59e0b;
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px dashed rgba(245, 158, 11, 0.3);
+      padding: 6px 8px;
+      border-radius: 6px;
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
     .log-box { background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 0.72rem; height: 85px; overflow-y: auto; color: #a5b4fc; }
 
     /* Modal Overlay & Dialog */
@@ -202,7 +266,6 @@
         Follow these 3 easy steps to connect this app to your Smart Life sprinkler valve:
       </p>
 
-      <!-- Step 1 -->
       <div class="step-box">
         <span class="step-badge">STEP 1</span>
         <p><b>Create a Tap-to-Run Scene in Smart Life</b></p>
@@ -216,7 +279,6 @@
         </ol>
       </div>
 
-      <!-- Step 2 -->
       <div class="step-box">
         <span class="step-badge">STEP 2</span>
         <p><b>Connect Smart Life to IFTTT (Free Webhook)</b></p>
@@ -229,7 +291,6 @@
         </ol>
       </div>
 
-      <!-- Step 3 -->
       <div class="step-box">
         <span class="step-badge">STEP 3</span>
         <p><b>Get & Paste Your Webhook URL</b></p>
@@ -272,14 +333,67 @@
     </div>
 
     <div class="card">
-      <div class="card-title">Detection & Sensitivity</div>
+      <div class="card-title">Detection & Targets</div>
+      
+      <!-- Multi-select Animal Targets Combo Box -->
+      <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 10px;">
+        <label>🎯 Deterrent Target Animals</label>
+        <div class="combo-box-wrapper">
+          <div class="combo-box-btn" onclick="toggleTargetDropdown(event)">
+            <span id="comboSelectedText" style="color: #38bdf8; font-weight: 600;">🐱 Cat, 🐶 Dog, 🐦 Bird</span>
+            <span id="comboArrow">▼</span>
+          </div>
+          
+          <div id="targetDropdown" class="combo-dropdown" style="display: none;" onclick="event.stopPropagation()">
+            <label class="combo-item">
+              <input type="checkbox" class="target-checkbox" value="cat" onchange="onTargetSelectionChange()" checked>
+              <span>🐱 Cat</span>
+            </label>
+            <label class="combo-item">
+              <input type="checkbox" class="target-checkbox" value="dog" onchange="onTargetSelectionChange()" checked>
+              <span>🐶 Dog</span>
+            </label>
+            <label class="combo-item">
+              <input type="checkbox" class="target-checkbox" value="bird" onchange="onTargetSelectionChange()" checked>
+              <span>🐦 Bird</span>
+            </label>
+            <label class="combo-item">
+              <input type="checkbox" class="target-checkbox" value="sheep" onchange="onTargetSelectionChange()">
+              <span>🦌 Deer / Sheep</span>
+            </label>
+            <label class="combo-item">
+              <input type="checkbox" class="target-checkbox" value="cow" onchange="onTargetSelectionChange()">
+              <span>🐮 Cow / Cattle</span>
+            </label>
+            <label class="combo-item">
+              <input type="checkbox" class="target-checkbox" value="horse" onchange="onTargetSelectionChange()">
+              <span>🐴 Horse</span>
+            </label>
+            <label class="combo-item">
+              <input type="checkbox" class="target-checkbox" value="bear" onchange="onTargetSelectionChange()">
+              <span>🐻 Bear</span>
+            </label>
+            <label class="combo-item">
+              <input type="checkbox" class="target-checkbox" value="teddy bear" onchange="onTargetSelectionChange()">
+              <span>🧸 Toy / Plush Animal</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Human Cutoff / Safety Note -->
+        <div class="cutoff-note">
+          <span>🔒</span>
+          <span><b>Humans are Cutoff only:</b> People automatically pause spraying and cannot be selected as targets.</span>
+        </div>
+      </div>
+
       <div class="setting-row">
         <label for="confRange">Sensitivity Threshold: <b id="confVal" style="color:#38bdf8;">40%</b></label>
         <input type="range" id="confRange" min="20" max="85" value="40" oninput="updateSensitivity(this.value)">
       </div>
       <div class="setting-row">
         <label class="toggle">
-          <input type="checkbox" id="humanSafetyToggle" checked onchange="saveSettings()"> Human Safety Hold (Pause if person seen)
+          <input type="checkbox" id="humanSafetyToggle" checked onchange="saveSettings()"> Human Safety Cutoff (Pause if person seen)
         </label>
       </div>
       <div class="setting-row">
@@ -316,24 +430,79 @@
     const stealthBtn = document.getElementById('stealthBtn');
     const stealthOverlay = document.getElementById('stealthOverlay');
     const helpModal = document.getElementById('helpModal');
+    const targetDropdown = document.getElementById('targetDropdown');
+    const comboSelectedText = document.getElementById('comboSelectedText');
+    const comboArrow = document.getElementById('comboArrow');
     const logBox = document.getElementById('logBox');
     const liveDetections = document.getElementById('liveDetections');
 
     let model = null;
     let isRunning = false;
     let lastTriggerTime = 0;
-    const cooldownMs = 15000; // 15s cooldown
-    const targetClasses = ['cat', 'dog', 'bird', 'horse', 'sheep', 'bear', 'teddy bear'];
+    const cooldownMs = 15000;
+    
+    // Active targets selected by user (dynamic & persistent)
+    let activeTargets = ['cat', 'dog', 'bird'];
     const safetyClass = 'person';
     let wakeLock = null;
 
-    // Save & Load settings automatically using localStorage
+    // Animal labels display dictionary
+    const TARGET_DISPLAY = {
+      'cat': '🐱 Cat',
+      'dog': '🐶 Dog',
+      'bird': '🐦 Bird',
+      'sheep': '🦌 Deer/Sheep',
+      'cow': '🐮 Cow',
+      'horse': '🐴 Horse',
+      'bear': '🐻 Bear',
+      'teddy bear': '🧸 Toy'
+    };
+
+    // Toggle multi-select combo dropdown
+    function toggleTargetDropdown(e) {
+      if (e) e.stopPropagation();
+      const isOpen = targetDropdown.style.display === 'flex';
+      targetDropdown.style.display = isOpen ? 'none' : 'flex';
+      comboArrow.innerText = isOpen ? '▼' : '▲';
+    }
+
+    // Close dropdown when tapping anywhere else
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.combo-box-wrapper')) {
+        targetDropdown.style.display = 'none';
+        comboArrow.innerText = '▼';
+      }
+    });
+
+    function onTargetSelectionChange() {
+      const selected = [];
+      document.querySelectorAll('.target-checkbox:checked').forEach(cb => {
+        selected.push(cb.value);
+      });
+      activeTargets = selected;
+      updateComboText();
+      saveSettings();
+    }
+
+    function updateComboText() {
+      if (activeTargets.length === 0) {
+        comboSelectedText.innerText = "⚠️ None selected";
+        comboSelectedText.style.color = "#f59e0b";
+      } else {
+        const labels = activeTargets.map(t => TARGET_DISPLAY[t] || t);
+        comboSelectedText.innerText = labels.join(', ');
+        comboSelectedText.style.color = "#38bdf8";
+      }
+    }
+
+    // Persistent Settings
     function saveSettings() {
       const settings = {
         webhook: document.getElementById('webhookInput').value.trim(),
         conf: document.getElementById('confRange').value,
         humanSafety: document.getElementById('humanSafetyToggle').checked,
-        testMode: document.getElementById('testModeToggle').checked
+        testMode: document.getElementById('testModeToggle').checked,
+        targets: activeTargets
       };
       localStorage.setItem('yard_guardian_settings', JSON.stringify(settings));
     }
@@ -341,6 +510,7 @@
     function loadSettings() {
       try {
         const saved = localStorage.getItem('yard_guardian_settings');
+        let loadedTargets = ['cat', 'dog', 'bird'];
         if (saved) {
           const s = JSON.parse(saved);
           if (s.webhook !== undefined) document.getElementById('webhookInput').value = s.webhook;
@@ -350,7 +520,14 @@
           }
           if (s.humanSafety !== undefined) document.getElementById('humanSafetyToggle').checked = s.humanSafety;
           if (s.testMode !== undefined) document.getElementById('testModeToggle').checked = s.testMode;
+          if (Array.isArray(s.targets)) loadedTargets = s.targets;
         }
+
+        activeTargets = loadedTargets;
+        document.querySelectorAll('.target-checkbox').forEach(cb => {
+          cb.checked = activeTargets.includes(cb.value);
+        });
+        updateComboText();
       } catch (e) {}
     }
 
@@ -360,26 +537,16 @@
     }
 
     // Modal Controls
-    function openHelpModal() {
-      helpModal.style.display = 'flex';
-    }
-
-    function closeHelpModal() {
-      helpModal.style.display = 'none';
-    }
-
-    function closeModalOnBackdrop(e) {
-      if (e.target === helpModal) closeHelpModal();
-    }
+    function openHelpModal() { helpModal.style.display = 'flex'; }
+    function closeHelpModal() { helpModal.style.display = 'none'; }
+    function closeModalOnBackdrop(e) { if (e.target === helpModal) closeHelpModal(); }
 
     function log(msg) {
       const time = new Date().toLocaleTimeString();
       logBox.innerHTML = `[${time}] ${msg}<br>` + logBox.innerHTML;
     }
 
-    function clearLogs() {
-      logBox.innerHTML = "Logs cleared.";
-    }
+    function clearLogs() { logBox.innerHTML = "Logs cleared."; }
 
     async function requestWakeLock() {
       if ('wakeLock' in navigator) {
@@ -394,9 +561,7 @@
     }
 
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && isRunning) {
-        requestWakeLock();
-      }
+      if (document.visibilityState === 'visible' && isRunning) requestWakeLock();
     });
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -502,10 +667,11 @@
           const [x, y, w, h] = p.bbox;
           const label = p.class;
 
+          // Person is STRICTLY Safety Cutoff only
           if (label === safetyClass && enableHumanSafety) {
             humanDetected = true;
             drawBox(x, y, w, h, `Human (${scorePercent}%)`, '#f59e0b');
-          } else if (targetClasses.includes(label)) {
+          } else if (activeTargets.includes(label)) {
             targetDetected = { label, score: p.score };
             drawBox(x, y, w, h, `🎯 ${label.toUpperCase()} (${scorePercent}%)`, '#ef4444');
           } else {
@@ -518,7 +684,7 @@
           : '<span style="color:#64748b;">Scanning scene...</span>';
 
         if (humanDetected) {
-          statusBadge.innerText = "Safety Hold (Human)";
+          statusBadge.innerText = "Safety Cutoff (Human)";
           statusBadge.className = "badge human";
         } else if (targetDetected) {
           statusBadge.innerText = `Alert: ${targetDetected.label.toUpperCase()}`;
