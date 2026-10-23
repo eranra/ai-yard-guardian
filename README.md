@@ -10,7 +10,7 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
 
 - **Zero Installation (PWA):** Runs entirely in Chrome or Samsung Internet. Add it to your home screen with one tap to use it like a native app.
 - **On-Device AI Vision:** Uses TensorFlow.js (`mobilenet_v2`) running directly on your phone's GPU/NPU.
-- **🎯 Multi-Select Target Animals:** Choose exactly which animals trigger the water deterrent:
+- **🎯 Multi-Select Target Animals:** Choose exactly which animals trigger deterrents:
   - 🐱 Cat
   - 🐶 Dog
   - 🐦 Bird
@@ -19,12 +19,16 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
   - 🐴 Horse
   - 🐻 Bear
   - 🧸 Plush / Toy Animal
+- **⚡ Extensible Deterrent Activations:** Select your preferred response actions via combo box:
+  - 💦 **Sprinklers (Smart Life Webhook)** *(Default)*
+  - 🔊 **Phone Siren / Audio Alarm**
+  - ⚡ **Screen Strobe Alert**
+  - *(Easily extensible for future triggers such as flashlight, Telegram alerts, etc.)*
 - **🔒 Humans are Cutoff Only:** People strictly trigger the safety disarm / pause and cannot be selected as targets.
 - **24/7 Keep-Alive:**
   - **Screen Wake Lock API:** Prevents your phone screen from dimming, locking, or sleeping.
   - **🌙 Black Screen Stealth Mode:** Turns the screen completely pitch-black while keeping the camera and AI running at full speed to eliminate device heating and OLED burn-in.
-- **Smart Life / Tuya Integration:** Sends instant webhooks to trigger existing garden sprinklers, valves, or alarms.
-- **💾 Full Persistence:** All selections (targets, sensitivity, toggles, and webhook URL) are automatically saved to your phone's storage.
+- **💾 Full Persistence:** All selections (targets, activations, sensitivity, toggles, and webhook URL) are automatically saved to your phone's local storage.
 
 ---
 
@@ -32,7 +36,7 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
 
 1. Open **[https://eranra.github.io/ai-yard-guardian/](https://eranra.github.io/ai-yard-guardian/)** on your Android phone.
 2. When prompted, tap **"Allow Camera"**.
-3. Select your target animals from the dropdown combo box.
+3. Select your target animals and deterrent actions.
 4. Tap **"▶️ Start Guardian"**.
 5. *(Optional)* Tap the browser menu (**⋮**) $\rightarrow$ **"Add to Home Screen"** to save it as an app icon.
 6. Tap **"🌙 Black Screen"** for continuous 24/7 monitoring.

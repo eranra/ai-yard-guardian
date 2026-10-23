@@ -24,7 +24,7 @@
 
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-    .viewport-container { position: relative; width: 100%; aspect-ratio: 4/3; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+    .viewport-container { position: relative; width: 100%; aspect-ratio: 4/3; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; transition: filter 0.1s; }
     video { width: 100%; height: 100%; object-fit: contain; }
     canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 
@@ -75,7 +75,7 @@
     }
     .btn-help:hover { background: #2563eb; }
 
-    /* Multi-select Combo Box Styles */
+    /* Reusable Multi-select Combo Box Styles */
     .combo-box-wrapper { position: relative; width: 100%; margin-top: 4px; }
     .combo-box-btn {
       background: #0f172a;
@@ -333,12 +333,12 @@
     </div>
 
     <div class="card">
-      <div class="card-title">Detection & Targets</div>
+      <div class="card-title">Detection & Deterrent Settings</div>
       
-      <!-- Multi-select Animal Targets Combo Box -->
+      <!-- 1. Multi-select Animal Targets Combo Box -->
       <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 10px;">
         <label>🎯 Deterrent Target Animals</label>
-        <div class="combo-box-wrapper">
+        <div id="targetComboWrapper" class="combo-box-wrapper">
           <div class="combo-box-btn" onclick="toggleTargetDropdown(event)">
             <span id="comboSelectedText" style="color: #38bdf8; font-weight: 600;">🐱 Cat, 🐶 Dog, 🐦 Bird</span>
             <span id="comboArrow">▼</span>
@@ -380,28 +380,53 @@
           </div>
         </div>
 
-        <!-- Human Cutoff / Safety Note -->
         <div class="cutoff-note">
           <span>🔒</span>
           <span><b>Humans are Cutoff only:</b> People automatically pause spraying and cannot be selected as targets.</span>
         </div>
       </div>
 
+      <!-- 2. Multi-select Deterrent Activations Combo Box -->
+      <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 10px; border-top: 1px solid #334155; padding-top: 8px;">
+        <label>⚡ Deterrent Activation Actions</label>
+        <div id="activationComboWrapper" class="combo-box-wrapper">
+          <div class="combo-box-btn" onclick="toggleActivationDropdown(event)">
+            <span id="activationSelectedText" style="color: #38bdf8; font-weight: 600;">💦 Sprinklers Only</span>
+            <span id="activationArrow">▼</span>
+          </div>
+          
+          <div id="activationDropdown" class="combo-dropdown" style="display: none;" onclick="event.stopPropagation()">
+            <label class="combo-item">
+              <input type="checkbox" class="activation-checkbox" value="sprinklers" onchange="onActivationSelectionChange()" checked>
+              <span>💦 Sprinklers (Smart Life Webhook)</span>
+            </label>
+            <label class="combo-item">
+              <input type="checkbox" class="activation-checkbox" value="siren" onchange="onActivationSelectionChange()">
+              <span>🔊 Phone Siren / Audio Alarm</span>
+            </label>
+            <label class="combo-item">
+              <input type="checkbox" class="activation-checkbox" value="strobe" onchange="onActivationSelectionChange()">
+              <span>⚡ Screen Strobe Alert</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sensitivity Slider -->
       <div class="setting-row">
         <label for="confRange">Sensitivity Threshold: <b id="confVal" style="color:#38bdf8;">40%</b></label>
         <input type="range" id="confRange" min="20" max="85" value="40" oninput="updateSensitivity(this.value)">
       </div>
+
+      <!-- Safety Cutoff Toggle -->
       <div class="setting-row">
         <label class="toggle">
           <input type="checkbox" id="humanSafetyToggle" checked onchange="saveSettings()"> Human Safety Cutoff (Pause if person seen)
         </label>
       </div>
-      <div class="setting-row">
-        <label class="toggle">
-          <input type="checkbox" id="testModeToggle" checked onchange="saveSettings()"> Test Mode (Alarm Sound on Phone)
-        </label>
-      </div>
-      <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+
+      <!-- Webhook URL Configuration -->
+      <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 4px;">
         <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
           <label for="webhookInput">Smart Life Webhook URL</label>
           <button type="button" class="btn-help" onclick="openHelpModal()">❓ Setup Guide</button>
@@ -411,7 +436,7 @@
     </div>
 
     <div class="btn-row">
-      <button class="btn-spray" onclick="manualWaterSpray()">💦 Test Siren / Spray</button>
+      <button class="btn-spray" onclick="manualWaterSpray()">⚡ Test Activations</button>
       <button class="btn-stealth" onclick="clearLogs()">Clear Log</button>
     </div>
 
@@ -430,9 +455,16 @@
     const stealthBtn = document.getElementById('stealthBtn');
     const stealthOverlay = document.getElementById('stealthOverlay');
     const helpModal = document.getElementById('helpModal');
+    
+    // Combo Box Elements
     const targetDropdown = document.getElementById('targetDropdown');
     const comboSelectedText = document.getElementById('comboSelectedText');
     const comboArrow = document.getElementById('comboArrow');
+    
+    const activationDropdown = document.getElementById('activationDropdown');
+    const activationSelectedText = document.getElementById('activationSelectedText');
+    const activationArrow = document.getElementById('activationArrow');
+
     const logBox = document.getElementById('logBox');
     const liveDetections = document.getElementById('liveDetections');
 
@@ -441,12 +473,16 @@
     let lastTriggerTime = 0;
     const cooldownMs = 15000;
     
-    // Active targets selected by user (dynamic & persistent)
+    // Dynamic selections (persistent)
     let activeTargets = ['cat', 'dog', 'bird'];
+    
+    // Default is JUST Sprinklers, NOT the siren!
+    let activeActivations = ['sprinklers'];
+    
     const safetyClass = 'person';
     let wakeLock = null;
 
-    // Animal labels display dictionary
+    // Display mappings
     const TARGET_DISPLAY = {
       'cat': '🐱 Cat',
       'dog': '🐶 Dog',
@@ -458,27 +494,48 @@
       'teddy bear': '🧸 Toy'
     };
 
-    // Toggle multi-select combo dropdown
+    const ACTIVATION_DISPLAY = {
+      'sprinklers': '💦 Sprinklers',
+      'siren': '🔊 Siren',
+      'strobe': '⚡ Strobe'
+    };
+
+    // 1. Targets Dropdown Toggle
     function toggleTargetDropdown(e) {
       if (e) e.stopPropagation();
+      activationDropdown.style.display = 'none';
+      activationArrow.innerText = '▼';
       const isOpen = targetDropdown.style.display === 'flex';
       targetDropdown.style.display = isOpen ? 'none' : 'flex';
       comboArrow.innerText = isOpen ? '▼' : '▲';
     }
 
-    // Close dropdown when tapping anywhere else
+    // 2. Activations Dropdown Toggle
+    function toggleActivationDropdown(e) {
+      if (e) e.stopPropagation();
+      targetDropdown.style.display = 'none';
+      comboArrow.innerText = '▼';
+      const isOpen = activationDropdown.style.display === 'flex';
+      activationDropdown.style.display = isOpen ? 'none' : 'flex';
+      activationArrow.innerText = isOpen ? '▼' : '▲';
+    }
+
+    // Close dropdowns when tapping outside
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('.combo-box-wrapper')) {
+      if (!e.target.closest('#targetComboWrapper')) {
         targetDropdown.style.display = 'none';
         comboArrow.innerText = '▼';
       }
+      if (!e.target.closest('#activationComboWrapper')) {
+        activationDropdown.style.display = 'none';
+        activationArrow.innerText = '▼';
+      }
     });
 
+    // Handle Targets Selection
     function onTargetSelectionChange() {
       const selected = [];
-      document.querySelectorAll('.target-checkbox:checked').forEach(cb => {
-        selected.push(cb.value);
-      });
+      document.querySelectorAll('.target-checkbox:checked').forEach(cb => selected.push(cb.value));
       activeTargets = selected;
       updateComboText();
       saveSettings();
@@ -495,14 +552,34 @@
       }
     }
 
-    // Persistent Settings
+    // Handle Activations Selection
+    function onActivationSelectionChange() {
+      const selected = [];
+      document.querySelectorAll('.activation-checkbox:checked').forEach(cb => selected.push(cb.value));
+      activeActivations = selected;
+      updateActivationComboText();
+      saveSettings();
+    }
+
+    function updateActivationComboText() {
+      if (activeActivations.length === 0) {
+        activationSelectedText.innerText = "⚠️ None (Monitor only)";
+        activationSelectedText.style.color = "#f59e0b";
+      } else {
+        const labels = activeActivations.map(a => ACTIVATION_DISPLAY[a] || a);
+        activationSelectedText.innerText = labels.join(' + ');
+        activationSelectedText.style.color = "#38bdf8";
+      }
+    }
+
+    // Settings Persistence
     function saveSettings() {
       const settings = {
         webhook: document.getElementById('webhookInput').value.trim(),
         conf: document.getElementById('confRange').value,
         humanSafety: document.getElementById('humanSafetyToggle').checked,
-        testMode: document.getElementById('testModeToggle').checked,
-        targets: activeTargets
+        targets: activeTargets,
+        activations: activeActivations
       };
       localStorage.setItem('yard_guardian_settings', JSON.stringify(settings));
     }
@@ -511,6 +588,9 @@
       try {
         const saved = localStorage.getItem('yard_guardian_settings');
         let loadedTargets = ['cat', 'dog', 'bird'];
+        // Default: strictly JUST sprinklers, siren is OFF
+        let loadedActivations = ['sprinklers'];
+
         if (saved) {
           const s = JSON.parse(saved);
           if (s.webhook !== undefined) document.getElementById('webhookInput').value = s.webhook;
@@ -519,8 +599,8 @@
             document.getElementById('confVal').innerText = s.conf + '%';
           }
           if (s.humanSafety !== undefined) document.getElementById('humanSafetyToggle').checked = s.humanSafety;
-          if (s.testMode !== undefined) document.getElementById('testModeToggle').checked = s.testMode;
           if (Array.isArray(s.targets)) loadedTargets = s.targets;
+          if (Array.isArray(s.activations)) loadedActivations = s.activations;
         }
 
         activeTargets = loadedTargets;
@@ -528,6 +608,12 @@
           cb.checked = activeTargets.includes(cb.value);
         });
         updateComboText();
+
+        activeActivations = loadedActivations;
+        document.querySelectorAll('.activation-checkbox').forEach(cb => {
+          cb.checked = activeActivations.includes(cb.value);
+        });
+        updateActivationComboText();
       } catch (e) {}
     }
 
@@ -580,6 +666,20 @@
         osc.start();
         osc.stop(audioCtx.currentTime + 0.5);
       } catch(e) {}
+    }
+
+    function triggerStrobeEffect() {
+      const container = document.querySelector('.viewport-container');
+      if (!container) return;
+      let count = 0;
+      const interval = setInterval(() => {
+        container.style.filter = count % 2 === 0 ? 'brightness(3) contrast(2)' : 'none';
+        count++;
+        if (count > 6) {
+          clearInterval(interval);
+          container.style.filter = 'none';
+        }
+      }, 90);
     }
 
     async function setupCamera() {
@@ -710,31 +810,71 @@
       ctx.fillText(text, x + 6, Math.max(16, y - 6));
     }
 
+    // Dispatches active deterrents (Sprinklers, Siren, Strobe, etc.)
     function triggerDeterrent(label, score) {
       const now = Date.now();
       if (now - lastTriggerTime < cooldownMs) return;
 
       lastTriggerTime = now;
-      log(`🚨 <b>${label.toUpperCase()} DETECTED (${Math.round(score * 100)}%)!</b> Triggering water blast!`);
+      const scorePercent = Math.round(score * 100);
+      log(`🚨 <b>${label.toUpperCase()} DETECTED (${scorePercent}%)!</b> Triggering deterrents...`);
 
-      playAlarmSound();
+      if (activeActivations.length === 0) {
+        log("ℹ️ Target detected, but no activation actions selected in settings.");
+        return;
+      }
 
-      const isTest = document.getElementById('testModeToggle').checked;
-      const webhook = document.getElementById('webhookInput').value.trim();
+      // 1. Phone Siren
+      if (activeActivations.includes('siren')) {
+        log("🔊 Activating Phone Audio Siren!");
+        playAlarmSound();
+      }
 
-      if (isTest) {
-        log("💦 [TEST MODE] Sprinklers fired virtually for 8s.");
-      } else if (webhook) {
-        log("🌐 Sending Webhook signal to Smart Life...");
-        fetch(webhook, { method: 'POST', mode: 'no-cors' })
-          .then(() => log("✅ Webhook sent successfully!"))
-          .catch(e => log(`⚠️ Webhook error: ${e}`));
+      // 2. Screen Strobe Flash
+      if (activeActivations.includes('strobe')) {
+        log("⚡ Flashing Screen Strobe Alert!");
+        triggerStrobeEffect();
+      }
+
+      // 3. Sprinklers (Smart Life Webhook)
+      if (activeActivations.includes('sprinklers')) {
+        const webhook = document.getElementById('webhookInput').value.trim();
+        if (webhook) {
+          log("💦 Sending Webhook to activate Sprinklers!");
+          fetch(webhook, { method: 'POST', mode: 'no-cors' })
+            .then(() => log("✅ Sprinklers Webhook triggered successfully!"))
+            .catch(e => log(`⚠️ Webhook error: ${e}`));
+        } else {
+          log("⚠️ Sprinklers selected, but no Webhook URL configured in settings!");
+        }
       }
     }
 
+    // Manual test button
     function manualWaterSpray() {
-      log("💦 Manual Test Blast triggered!");
-      playAlarmSound();
+      log("🧪 <b>Testing active activations manually:</b>");
+      if (activeActivations.length === 0) {
+        log("ℹ️ No activations enabled. Select Sprinklers or Siren above.");
+        return;
+      }
+      if (activeActivations.includes('siren')) {
+        log("🔊 Testing Siren...");
+        playAlarmSound();
+      }
+      if (activeActivations.includes('strobe')) {
+        triggerStrobeEffect();
+      }
+      if (activeActivations.includes('sprinklers')) {
+        const webhook = document.getElementById('webhookInput').value.trim();
+        if (webhook) {
+          log("💦 Testing Sprinklers Webhook trigger...");
+          fetch(webhook, { method: 'POST', mode: 'no-cors' })
+            .then(() => log("✅ Webhook signal sent!"))
+            .catch(e => log(`⚠️ Webhook error: ${e}`));
+        } else {
+          log("ℹ️ Sprinklers active (virtual test - no webhook URL entered).");
+        }
+      }
     }
 
     function enterStealthMode() {
