@@ -14,6 +14,7 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
   - 🐱 Cat
   - 🐶 Dog
   - 🐦 Bird
+  - 🦔 Porcupine
   - 🦌 Deer / Sheep
   - 🐮 Cow / Cattle
   - 🐴 Horse

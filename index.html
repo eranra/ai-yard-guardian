@@ -9,6 +9,7 @@
   <link rel="manifest" href="manifest.json">
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -340,6 +341,10 @@
               <span>🐦 Bird</span>
             </label>
             <label class="combo-item">
+              <input type="checkbox" class="target-checkbox" value="porcupine" onchange="onTargetSelectionChange()">
+              <span>🦔 Porcupine</span>
+            </label>
+            <label class="combo-item">
               <input type="checkbox" class="target-checkbox" value="sheep" onchange="onTargetSelectionChange()">
               <span>🦌 Deer / Sheep</span>
             </label>
@@ -485,6 +490,7 @@
       'cat': '🐱 Cat',
       'dog': '🐶 Dog',
       'bird': '🐦 Bird',
+      'porcupine': '🦔 Porcupine',
       'sheep': '🦌 Deer/Sheep',
       'cow': '🐮 Cow',
       'horse': '🐴 Horse',
@@ -703,10 +709,48 @@
       });
     }
 
+    let classifierModel = null;
+    let frameCounter = 0;
+    const cropCanvas = document.createElement('canvas');
+    cropCanvas.width = 224;
+    cropCanvas.height = 224;
+    const cropCtx = cropCanvas.getContext('2d');
+
+    async function checkPorcupine(x, y, w, h) {
+      if (!classifierModel) return null;
+      try {
+        if (w > 10 && h > 10) {
+          const sx = Math.max(0, x);
+          const sy = Math.max(0, y);
+          const sw = Math.min(w, video.videoWidth - sx);
+          const sh = Math.min(h, video.videoHeight - sy);
+          cropCtx.drawImage(video, sx, sy, sw, sh, 0, 0, 224, 224);
+          const results = await classifierModel.classify(cropCanvas, 3);
+          const match = results.find(r => 
+            r.className.toLowerCase().includes('porcupine') || 
+            r.className.toLowerCase().includes('hedgehog') ||
+            r.className.toLowerCase().includes('echidna')
+          );
+          if (match && match.probability >= 0.20) {
+            return match.probability;
+          }
+        }
+      } catch (e) {}
+      return null;
+    }
+
     async function loadModel() {
       log("Loading AI Vision Model (High-Accuracy Animal Mode)...");
       model = await cocoSsd.load({ base: 'mobilenet_v2' });
-      log("✅ AI Model Ready!");
+      log("✅ Animal Detection Engine Ready!");
+
+      // Wildlife & Porcupine Classifier
+      if (window.mobilenet) {
+        mobilenet.load({ version: 2, alpha: 0.5 }).then(c => {
+          classifierModel = c;
+          log("✅ Porcupine & Wildlife AI Classifier Ready!");
+        }).catch(e => console.log("Wildlife classifier note:", e));
+      }
     }
 
     async function toggleGuardian() {
@@ -763,26 +807,54 @@
         let targetDetected = null;
         let seenLabels = [];
 
-        predictions.forEach(p => {
+        for (let i = 0; i < predictions.length; i++) {
+          const p = predictions[i];
           const scorePercent = Math.round(p.score * 100);
           seenLabels.push(`${p.class} (${scorePercent}%)`);
 
-          if (p.score < minScore) return;
+          if (p.score < minScore) continue;
 
           const [x, y, w, h] = p.bbox;
-          const label = p.class;
+          let label = p.class;
+          let score = p.score;
+
+          // Porcupine check if candidate animal detected and porcupine is selected
+          if (activeTargets.includes('porcupine') && classifierModel && ['cat', 'dog', 'bear', 'sheep', 'teddy bear', 'bird'].includes(label)) {
+            const porcupineProb = await checkPorcupine(x, y, w, h);
+            if (porcupineProb) {
+              label = 'porcupine';
+              score = Math.max(score, porcupineProb);
+            }
+          }
 
           // Person is STRICTLY Safety Cutoff only
           if (label === safetyClass && enableHumanSafety) {
             humanDetected = true;
-            drawBox(x, y, w, h, `Human (${scorePercent}%)`, '#f59e0b');
+            drawBox(x, y, w, h, `Human (${Math.round(score * 100)}%)`, '#f59e0b');
           } else if (activeTargets.includes(label)) {
-            targetDetected = { label, score: p.score };
-            drawBox(x, y, w, h, `🎯 ${label.toUpperCase()} (${scorePercent}%)`, '#ef4444');
+            targetDetected = { label, score };
+            drawBox(x, y, w, h, `🎯 ${label.toUpperCase()} (${Math.round(score * 100)}%)`, '#ef4444');
           } else {
-            drawBox(x, y, w, h, `${label} (${scorePercent}%)`, '#64748b');
+            drawBox(x, y, w, h, `${label} (${Math.round(score * 100)}%)`, '#64748b');
           }
-        });
+        }
+
+        // Full-frame porcupine check (periodically if porcupine selected and no target yet)
+        if (!targetDetected && !humanDetected && activeTargets.includes('porcupine') && classifierModel && frameCounter % 10 === 0) {
+          try {
+            const results = await classifierModel.classify(video, 2);
+            const pMatch = results.find(r => 
+              r.className.toLowerCase().includes('porcupine') || 
+              r.className.toLowerCase().includes('hedgehog')
+            );
+            if (pMatch && pMatch.probability >= 0.30) {
+              targetDetected = { label: 'porcupine', score: pMatch.probability };
+              seenLabels.push(`porcupine (${Math.round(pMatch.probability * 100)}%)`);
+              drawBox(video.videoWidth * 0.1, video.videoHeight * 0.1, video.videoWidth * 0.8, video.videoHeight * 0.8, `🎯 PORCUPINE (${Math.round(pMatch.probability * 100)}%)`, '#ef4444');
+            }
+          } catch (e) {}
+        }
+        frameCounter++;
 
         liveDetections.innerHTML = seenLabels.length > 0 
           ? seenLabels.map(s => `<span style="background:#1e293b; padding:2px 6px; border-radius:4px; margin-right:4px;">${s}</span>`).join('') 
