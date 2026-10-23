@@ -28,12 +28,31 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
 
 ---
 
-## ⚙️ Configuration (Inside the App)
+## 💧 How to Configure the Smart Life Webhook
 
-- **Sensitivity Threshold:** Slider to adjust detection confidence (default: 40%).
-- **Human Safety Hold:** Toggle on/off pause behavior when people are present.
-- **Test Mode:** Plays an alarm sound directly from your phone's speaker for testing (without spraying water).
-- **Webhook URL:** Enter your Smart Life / IFTTT / Home Assistant webhook URL to activate real sprinklers.
+Connecting the app to your real Smart Life water valve takes just 3 steps:
+
+### Step 1: Create a Tap-to-Run Scene in Smart Life
+1. Open the **Smart Life** app.
+2. Go to **Scene** $\rightarrow$ Tap **"+"** $\rightarrow$ Select **"Launch Tap-to-Run"**.
+3. Under *Task*: Select **Run the device** $\rightarrow$ choose your water valve $\rightarrow$ **Turn ON**.
+4. Add another task: **Delay** $\rightarrow$ set to **8 seconds**.
+5. Add final task: choose water valve $\rightarrow$ **Turn OFF**.
+6. Save and name it **"Sprinkler Blast"**.
+
+### Step 2: Connect Smart Life to IFTTT (Free Webhook)
+1. Go to [ifttt.com](https://ifttt.com) (or the IFTTT app) and tap **Create**.
+2. **If This:** Search for **Webhooks** $\rightarrow$ select *"Receive a web request"* $\rightarrow$ Event Name: `cat_detected`.
+3. **Then That:** Search for **Smart Life** $\rightarrow$ select *"Activate Scene"* $\rightarrow$ choose `Sprinkler Blast`.
+4. Tap **Finish**.
+
+### Step 3: Paste the URL in the App
+1. Go to [ifttt.com/maker_webhooks/settings](https://ifttt.com/maker_webhooks/settings) to copy your webhook key.
+2. Your URL will be:
+   ```text
+   https://maker.ifttt.com/trigger/cat_detected/with/key/YOUR_KEY
+   ```
+3. Paste it into the **Smart Life Webhook URL** field in the app. The app automatically saves it to your phone's storage.
 
 ---
 
