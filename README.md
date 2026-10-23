@@ -23,7 +23,6 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
   - 💦 **Sprinklers (Smart Life Webhook)** *(Default)*
   - 🔊 **Phone Siren / Audio Alarm**
   - ⚡ **Screen Strobe Alert**
-  - *(Easily extensible for future triggers such as flashlight, Telegram alerts, etc.)*
 - **🔒 Humans are Cutoff Only:** People strictly trigger the safety disarm / pause and cannot be selected as targets.
 - **24/7 Keep-Alive:**
   - **Screen Wake Lock API:** Prevents your phone screen from dimming, locking, or sleeping.
@@ -43,31 +42,39 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
 
 ---
 
-## 💧 How to Configure the Smart Life Webhook
+## 💧 Free Smart Life Webhook Setup (No IFTTT Pro Needed)
 
-Connecting the app to your real Smart Life water valve takes just 3 steps:
+You do **NOT** need an IFTTT Pro subscription. You can connect Smart Life for 100% free using either of these two methods:
 
-### Step 1: Create a Tap-to-Run Scene in Smart Life
-1. Open the **Smart Life** app.
-2. Go to **Scene** $\rightarrow$ Tap **"+"** $\rightarrow$ Select **"Launch Tap-to-Run"**.
-3. Under *Task*: Select **Run the device** $\rightarrow$ choose your water valve $\rightarrow$ **Turn ON**.
-4. Add another task: **Delay** $\rightarrow$ set to **8 seconds**.
-5. Add final task: choose water valve $\rightarrow$ **Turn OFF**.
-6. Save and name it **"Sprinkler Blast"**.
+### Method 1: Local on Your Android Phone via MacroDroid (Recommended)
+Because your Android phone is already running the camera, it can trigger Smart Life directly on the device!
 
-### Step 2: Connect Smart Life to IFTTT (Free Webhook)
-1. Go to [ifttt.com](https://ifttt.com) (or the IFTTT app) and tap **Create**.
-2. **If This:** Search for **Webhooks** $\rightarrow$ select *"Receive a web request"* $\rightarrow$ Event Name: `cat_detected`.
-3. **Then That:** Search for **Smart Life** $\rightarrow$ select *"Activate Scene"* $\rightarrow$ choose `Sprinkler Blast`.
-4. Tap **Finish**.
-
-### Step 3: Paste the URL in the App
-1. Go to [ifttt.com/maker_webhooks/settings](https://ifttt.com/maker_webhooks/settings) to copy your webhook key.
-2. Your URL will be:
+1. In **Smart Life**, create a *Tap-to-Run* scene called **"Sprinkler Blast"** (Turn valve ON $\rightarrow$ Delay 8s $\rightarrow$ Turn OFF).
+2. Install the free **[MacroDroid](https://play.google.com/store/apps/details?id=com.arlosoft.macrodroid)** app from Google Play Store.
+3. In MacroDroid, tap **Add Macro**:
+   - **Trigger:** Connectivity $\rightarrow$ **Webhook (HTTP Request)** $\rightarrow$ Identifier: `cat_detected`.
+   - **Action:** Apps $\rightarrow$ **Open Shortcuts** $\rightarrow$ **Smart Life** $\rightarrow$ select your `Sprinkler Blast` scene!
+4. Save the macro. MacroDroid will show your unique free URL:
    ```text
-   https://maker.ifttt.com/trigger/cat_detected/with/key/YOUR_KEY
+   https://trigger.macrodroid.com/YOUR_DEVICE_ID/cat_detected
    ```
-3. Paste it into the **Smart Life Webhook URL** field in the app. The app automatically saves it to your phone's storage.
+5. Paste this URL into the app's Webhook field. Done!
+
+---
+
+### Method 2: Free Cloud Bridge via SEQUEmatic (Zero Phone Setup)
+If you prefer a pure cloud connection without installing any automation app on the phone:
+
+1. Create a free account at **[sequematic.com](https://sequematic.com)** (100% free alternative to IFTTT).
+2. Go to **Settings** $\rightarrow$ **Linked Services** $\rightarrow$ click **Link Tuya / Smart Life** and log in.
+3. Tap **Create Sequence**:
+   - **Trigger:** Custom Webhook $\rightarrow$ Event name: `cat_detected`.
+   - **Action:** Tuya / Smart Life $\rightarrow$ choose your valve $\rightarrow$ Turn ON $\rightarrow$ Pause 8s $\rightarrow$ Turn OFF.
+4. Copy your sequence webhook URL:
+   ```text
+   https://sequematic.com/trigger-custom-webhook/USER_ID/SECRET/cat_detected
+   ```
+5. Paste it into the app's Webhook field. Completely free forever.
 
 ---
 

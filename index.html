@@ -258,49 +258,53 @@
   <div id="helpModal" class="modal-overlay" onclick="closeModalOnBackdrop(event)">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>💧 Smart Life Webhook Guide</h3>
+        <h3>💧 Free Smart Life Webhook Guide</h3>
         <button class="close-btn" onclick="closeHelpModal()">✕</button>
       </div>
 
       <p style="font-size:0.82rem; color:#94a3b8; margin-bottom:12px;">
-        Follow these 3 easy steps to connect this app to your Smart Life sprinkler valve:
+        Choose either of these <b>100% free methods</b> to trigger your Smart Life valve (no IFTTT Pro subscription required):
       </p>
 
+      <!-- Option A: MacroDroid (On the phone itself) -->
       <div class="step-box">
-        <span class="step-badge">STEP 1</span>
-        <p><b>Create a Tap-to-Run Scene in Smart Life</b></p>
-        <ol style="margin-left:18px; margin-top:4px; font-size:0.8rem; color:#cbd5e1;">
-          <li>Open the <b>Smart Life</b> app on your phone.</li>
-          <li>Go to <b>Scene</b> $\rightarrow$ Tap <b>"+"</b> $\rightarrow$ Select <b>"Launch Tap-to-Run"</b>.</li>
-          <li>Under <i>Task</i>: Add <b>Run the device</b> $\rightarrow$ Select your water valve $\rightarrow$ <b>Turn ON</b>.</li>
-          <li>Add another task: <b>Delay</b> $\rightarrow$ Set to <b>8 seconds</b>.</li>
-          <li>Add final task: Select water valve $\rightarrow$ <b>Turn OFF</b>.</li>
-          <li>Save the scene and name it <b>"Sprinkler Blast"</b>.</li>
+        <span class="step-badge" style="background:#059669;">METHOD 1: PHONE APP (MacroDroid - 100% Free)</span>
+        <p style="margin-top:4px;"><b>Control Smart Life right from the same Android phone:</b></p>
+        <ol style="margin-left:18px; margin-top:6px; font-size:0.8rem; color:#cbd5e1; display:flex; flex-direction:column; gap:4px;">
+          <li>First, inside <b>Smart Life</b>, create a <i>Tap-to-Run</i> scene called <b>"Sprinkler Blast"</b> (Valve ON $\rightarrow$ Delay 8s $\rightarrow$ Valve OFF).</li>
+          <li>Install the free <b><a href="https://play.google.com/store/apps/details?id=com.arlosoft.macrodroid" target="_blank">MacroDroid</a></b> app from Google Play Store on your phone.</li>
+          <li>In MacroDroid, tap <b>Add Macro</b>:
+            <ul style="margin-left:14px; margin-top:2px;">
+              <li><b>Trigger:</b> Connectivity $\rightarrow$ <b>Webhook (HTTP Request)</b> $\rightarrow$ Identifier: <code style="color:#38bdf8;">cat_detected</code>.</li>
+              <li><b>Action:</b> Apps $\rightarrow$ <b>Open Shortcuts</b> $\rightarrow$ Select <b>Smart Life</b> $\rightarrow$ Choose your <code style="color:#38bdf8;">Sprinkler Blast</code> scene!</li>
+            </ul>
+          </li>
+          <li>Save the macro. MacroDroid displays your unique free Webhook URL:</li>
         </ol>
-      </div>
-
-      <div class="step-box">
-        <span class="step-badge">STEP 2</span>
-        <p><b>Connect Smart Life to IFTTT (Free Webhook)</b></p>
-        <ol style="margin-left:18px; margin-top:4px; font-size:0.8rem; color:#cbd5e1;">
-          <li>Go to <a href="https://ifttt.com" target="_blank">ifttt.com</a> (or open the IFTTT mobile app).</li>
-          <li>Tap <b>Create</b> (New Applet).</li>
-          <li><b>If This:</b> Search for <b>Webhooks</b> $\rightarrow$ Select <i>"Receive a web request"</i> $\rightarrow$ Event Name: <code style="color:#38bdf8;">cat_detected</code>.</li>
-          <li><b>Then That:</b> Search for <b>Smart Life</b> $\rightarrow$ Select <i>"Activate Scene"</i> $\rightarrow$ Choose your <code style="color:#38bdf8;">Sprinkler Blast</code> scene.</li>
-          <li>Tap <b>Finish</b>.</li>
-        </ol>
-      </div>
-
-      <div class="step-box">
-        <span class="step-badge">STEP 3</span>
-        <p><b>Get & Paste Your Webhook URL</b></p>
-        <ol style="margin-left:18px; margin-top:4px; font-size:0.8rem; color:#cbd5e1;">
-          <li>Visit <a href="https://ifttt.com/maker_webhooks/settings" target="_blank">ifttt.com/maker_webhooks/settings</a> to view your key.</li>
-          <li>Your webhook URL will look like this:</li>
-        </ol>
-        <div class="code-snippet">https://maker.ifttt.com/trigger/cat_detected/with/key/YOUR_KEY</div>
+        <div class="code-snippet">https://trigger.macrodroid.com/YOUR_DEVICE_ID/cat_detected</div>
         <p style="margin-top:6px; font-size:0.78rem; color:#94a3b8;">
-          Paste this URL into the <b>Smart Life Webhook URL</b> field below. The app will automatically remember it!
+          Paste this URL below. Whenever a cat is detected, MacroDroid triggers your Smart Life valve directly on the phone!
+        </p>
+      </div>
+
+      <!-- Option B: SEQUEmatic (Free Cloud Webhook Bridge) -->
+      <div class="step-box">
+        <span class="step-badge">METHOD 2: FREE CLOUD BRIDGE (SEQUEmatic)</span>
+        <p style="margin-top:4px;"><b>Zero phone apps needed — Free cloud connection:</b></p>
+        <ol style="margin-left:18px; margin-top:6px; font-size:0.8rem; color:#cbd5e1; display:flex; flex-direction:column; gap:4px;">
+          <li>Create a free account at <b><a href="https://sequematic.com" target="_blank">sequematic.com</a></b> (100% free alternative to IFTTT).</li>
+          <li>Go to <b>Settings</b> $\rightarrow$ <b>Linked Services</b> $\rightarrow$ Click <b>Link Tuya / Smart Life</b> and authorize.</li>
+          <li>Go to <b>Create Sequence</b>:
+            <ul style="margin-left:14px; margin-top:2px;">
+              <li><b>Trigger:</b> Custom Webhook $\rightarrow$ Event: <code style="color:#38bdf8;">cat_detected</code>.</li>
+              <li><b>Action:</b> Tuya / Smart Life $\rightarrow$ Select your valve $\rightarrow$ Turn ON $\rightarrow$ Pause 8s $\rightarrow$ Turn OFF.</li>
+            </ul>
+          </li>
+          <li>Copy your generated sequence webhook URL:</li>
+        </ol>
+        <div class="code-snippet">https://sequematic.com/trigger-custom-webhook/USER_ID/SECRET/cat_detected</div>
+        <p style="margin-top:6px; font-size:0.78rem; color:#94a3b8;">
+          Paste this URL below. No subscription, no credit card required.
         </p>
       </div>
 
@@ -431,7 +435,7 @@
           <label for="webhookInput">Smart Life Webhook URL</label>
           <button type="button" class="btn-help" onclick="openHelpModal()">❓ Setup Guide</button>
         </div>
-        <input type="text" id="webhookInput" placeholder="https://maker.ifttt.com/trigger/.../with/key/..." onchange="saveSettings()" oninput="saveSettings()">
+        <input type="text" id="webhookInput" placeholder="https://trigger.macrodroid.com/... or https://sequematic.com/..." onchange="saveSettings()" oninput="saveSettings()">
       </div>
     </div>
 
