@@ -44,37 +44,18 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
 
 ## 💧 Free Smart Life Webhook Setup (No IFTTT Pro Needed)
 
-You do **NOT** need an IFTTT Pro subscription. You can connect Smart Life for 100% free using either of these two methods:
-
-### Method 1: Local on Your Android Phone via MacroDroid (Recommended)
-Because your Android phone is already running the camera, it can trigger Smart Life directly on the device!
-
-1. In **Smart Life**, create a *Tap-to-Run* scene called **"Sprinkler Blast"** (Turn valve ON $\rightarrow$ Delay 8s $\rightarrow$ Turn OFF).
-2. Install the free **[MacroDroid](https://play.google.com/store/apps/details?id=com.arlosoft.macrodroid)** app from Google Play Store.
-3. In MacroDroid, tap **Add Macro**:
-   - **Trigger:** Connectivity $\rightarrow$ **Webhook (HTTP Request)** $\rightarrow$ Identifier: `cat_detected`.
-   - **Action:** Apps $\rightarrow$ **Open Shortcuts** $\rightarrow$ **Smart Life** $\rightarrow$ select your `Sprinkler Blast` scene!
-4. Save the macro. MacroDroid will show your unique free URL:
-   ```text
-   https://trigger.macrodroid.com/YOUR_DEVICE_ID/cat_detected
-   ```
-5. Paste this URL into the app's Webhook field. Done!
-
----
-
-### Method 2: Free Cloud Bridge via SEQUEmatic (Zero Phone Setup)
-If you prefer a pure cloud connection without installing any automation app on the phone:
+You do **NOT** need an IFTTT Pro subscription. You can connect Smart Life for 100% free using **SEQUEmatic** as a cloud webhook bridge:
 
 1. Create a free account at **[sequematic.com](https://sequematic.com)** (100% free alternative to IFTTT).
 2. Go to **Settings** $\rightarrow$ **Linked Services** $\rightarrow$ click **Link Tuya / Smart Life** and log in.
 3. Tap **Create Sequence**:
-   - **Trigger:** Custom Webhook $\rightarrow$ Event name: `cat_detected`.
-   - **Action:** Tuya / Smart Life $\rightarrow$ choose your valve $\rightarrow$ Turn ON $\rightarrow$ Pause 8s $\rightarrow$ Turn OFF.
+   - **Trigger:** Webhook $\rightarrow$ Event name: `cat_detected`.
+   - **Action:** Tuya / Smart Life $\rightarrow$ choose your scene (e.g. `sprinklers_burst`) or select valve $\rightarrow$ Turn ON $\rightarrow$ Pause 8s $\rightarrow$ Turn OFF.
 4. Copy your sequence webhook URL:
    ```text
-   https://sequematic.com/trigger-custom-webhook/USER_ID/SECRET/cat_detected
+   https://sequematic.com/trigger-ifttt-webhook/YOUR_USER_ID/YOUR_SEQ_ID/cat_detected
    ```
-5. Paste it into the app's Webhook field. Completely free forever.
+5. Paste it into the app's **Smart Life Webhook URL** field. Completely free forever!
 
 ---
 

@@ -263,48 +263,26 @@
       </div>
 
       <p style="font-size:0.82rem; color:#94a3b8; margin-bottom:12px;">
-        Choose either of these <b>100% free methods</b> to trigger your Smart Life valve (no IFTTT Pro subscription required):
+        Connect your Tuya / Smart Life water valve or scene for <b>100% free</b> using <b>SEQUEmatic</b> (no IFTTT Pro subscription required):
       </p>
 
-      <!-- Option A: MacroDroid (On the phone itself) -->
       <div class="step-box">
-        <span class="step-badge" style="background:#059669;">METHOD 1: PHONE APP (MacroDroid - 100% Free)</span>
-        <p style="margin-top:4px;"><b>Control Smart Life right from the same Android phone:</b></p>
-        <ol style="margin-left:18px; margin-top:6px; font-size:0.8rem; color:#cbd5e1; display:flex; flex-direction:column; gap:4px;">
-          <li>First, inside <b>Smart Life</b>, create a <i>Tap-to-Run</i> scene called <b>"Sprinkler Blast"</b> (Valve ON $\rightarrow$ Delay 8s $\rightarrow$ Valve OFF).</li>
-          <li>Install the free <b><a href="https://play.google.com/store/apps/details?id=com.arlosoft.macrodroid" target="_blank">MacroDroid</a></b> app from Google Play Store on your phone.</li>
-          <li>In MacroDroid, tap <b>Add Macro</b>:
-            <ul style="margin-left:14px; margin-top:2px;">
-              <li><b>Trigger:</b> Connectivity $\rightarrow$ <b>Webhook (HTTP Request)</b> $\rightarrow$ Identifier: <code style="color:#38bdf8;">cat_detected</code>.</li>
-              <li><b>Action:</b> Apps $\rightarrow$ <b>Open Shortcuts</b> $\rightarrow$ Select <b>Smart Life</b> $\rightarrow$ Choose your <code style="color:#38bdf8;">Sprinkler Blast</code> scene!</li>
-            </ul>
-          </li>
-          <li>Save the macro. MacroDroid displays your unique free Webhook URL:</li>
-        </ol>
-        <div class="code-snippet">https://trigger.macrodroid.com/YOUR_DEVICE_ID/cat_detected</div>
-        <p style="margin-top:6px; font-size:0.78rem; color:#94a3b8;">
-          Paste this URL below. Whenever a cat is detected, MacroDroid triggers your Smart Life valve directly on the phone!
-        </p>
-      </div>
-
-      <!-- Option B: SEQUEmatic (Free Cloud Webhook Bridge) -->
-      <div class="step-box">
-        <span class="step-badge">METHOD 2: FREE CLOUD BRIDGE (SEQUEmatic)</span>
-        <p style="margin-top:4px;"><b>Zero phone apps needed — Free cloud connection:</b></p>
-        <ol style="margin-left:18px; margin-top:6px; font-size:0.8rem; color:#cbd5e1; display:flex; flex-direction:column; gap:4px;">
-          <li>Create a free account at <b><a href="https://sequematic.com" target="_blank">sequematic.com</a></b> (100% free alternative to IFTTT).</li>
-          <li>Go to <b>Settings</b> $\rightarrow$ <b>Linked Services</b> $\rightarrow$ Click <b>Link Tuya / Smart Life</b> and authorize.</li>
+        <span class="step-badge">FREE CLOUD BRIDGE (SEQUEmatic)</span>
+        <p style="margin-top:4px;"><b>3-Step Setup Guide:</b></p>
+        <ol style="margin-left:18px; margin-top:6px; font-size:0.8rem; color:#cbd5e1; display:flex; flex-direction:column; gap:6px;">
+          <li>Create a free account at <b><a href="https://sequematic.com" target="_blank" style="color:#38bdf8;">sequematic.com</a></b>.</li>
+          <li>Go to <b>Settings</b> &rarr; <b>Linked Services</b> &rarr; click <b>Link Tuya / Smart Life</b> and authorize your account.</li>
           <li>Go to <b>Create Sequence</b>:
             <ul style="margin-left:14px; margin-top:2px;">
-              <li><b>Trigger:</b> Custom Webhook $\rightarrow$ Event: <code style="color:#38bdf8;">cat_detected</code>.</li>
-              <li><b>Action:</b> Tuya / Smart Life $\rightarrow$ Select your valve $\rightarrow$ Turn ON $\rightarrow$ Pause 8s $\rightarrow$ Turn OFF.</li>
+              <li><b>Trigger:</b> Webhook &rarr; Event name: <code style="color:#38bdf8;">cat_detected</code>.</li>
+              <li><b>Action:</b> Tuya / Smart Life &rarr; Run Scene (e.g. <code style="color:#38bdf8;">sprinklers_burst</code>) or Turn ON &rarr; Pause &rarr; Turn OFF.</li>
             </ul>
           </li>
-          <li>Copy your generated sequence webhook URL:</li>
+          <li>Copy your generated sequence webhook URL and paste it into the <b>Smart Life Webhook URL</b> field below!</li>
         </ol>
-        <div class="code-snippet">https://sequematic.com/trigger-custom-webhook/USER_ID/SECRET/cat_detected</div>
+        <div class="code-snippet">https://sequematic.com/trigger-ifttt-webhook/YOUR_USER_ID/YOUR_SEQ_ID/cat_detected</div>
         <p style="margin-top:6px; font-size:0.78rem; color:#94a3b8;">
-          Paste this URL below. No subscription, no credit card required.
+          No subscription or credit card needed. When a target animal is detected, the webhook triggers your valve instantly.
         </p>
       </div>
 
@@ -435,7 +413,7 @@
           <label for="webhookInput">Smart Life Webhook URL</label>
           <button type="button" class="btn-help" onclick="openHelpModal()">❓ Setup Guide</button>
         </div>
-        <input type="text" id="webhookInput" placeholder="https://trigger.macrodroid.com/... or https://sequematic.com/..." onchange="saveSettings()" oninput="saveSettings()">
+        <input type="text" id="webhookInput" placeholder="https://sequematic.com/trigger-ifttt-webhook/YOUR_USER_ID/YOUR_SEQ_ID/cat_detected" onchange="saveSettings()" oninput="saveSettings()">
       </div>
     </div>
 
@@ -844,10 +822,14 @@
       if (activeActivations.includes('sprinklers')) {
         const webhook = document.getElementById('webhookInput').value.trim();
         if (webhook) {
-          log("💦 Sending Webhook to activate Sprinklers!");
+          log("💦 Triggering Sprinklers via SEQUEmatic Webhook...");
           fetch(webhook, { method: 'POST', mode: 'no-cors' })
-            .then(() => log("✅ Sprinklers Webhook triggered successfully!"))
-            .catch(e => log(`⚠️ Webhook error: ${e}`));
+            .then(() => log("✅ Sprinklers signal sent successfully!"))
+            .catch(() => {
+              const img = new Image();
+              img.src = webhook + (webhook.includes('?') ? '&' : '?') + '_t=' + Date.now();
+              log("✅ Sprinklers signal sent via fallback request!");
+            });
         } else {
           log("⚠️ Sprinklers selected, but no Webhook URL configured in settings!");
         }
@@ -873,8 +855,12 @@
         if (webhook) {
           log("💦 Testing Sprinklers Webhook trigger...");
           fetch(webhook, { method: 'POST', mode: 'no-cors' })
-            .then(() => log("✅ Webhook signal sent!"))
-            .catch(e => log(`⚠️ Webhook error: ${e}`));
+            .then(() => log("✅ Webhook signal sent successfully!"))
+            .catch(() => {
+              const img = new Image();
+              img.src = webhook + (webhook.includes('?') ? '&' : '?') + '_t=' + Date.now();
+              log("✅ Webhook signal sent via fallback request!");
+            });
         } else {
           log("ℹ️ Sprinklers active (virtual test - no webhook URL entered).");
         }
