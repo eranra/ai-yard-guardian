@@ -373,7 +373,7 @@
         <label>⚡ Deterrent Activation Actions</label>
         <div id="activationComboWrapper" class="combo-box-wrapper">
           <div class="combo-box-btn" onclick="toggleActivationDropdown(event)">
-            <span id="activationSelectedText" style="color: #38bdf8; font-weight: 600;">💦 Sprinklers Only</span>
+            <span id="activationSelectedText" style="color: #38bdf8; font-weight: 600;">💦 Sprinklers + 📸 Screenshot</span>
             <span id="activationArrow">▼</span>
           </div>
           
@@ -381,6 +381,10 @@
             <label class="combo-item">
               <input type="checkbox" class="activation-checkbox" value="sprinklers" onchange="onActivationSelectionChange()" checked>
               <span>💦 Sprinklers (Smart Life Webhook)</span>
+            </label>
+            <label class="combo-item">
+              <input type="checkbox" class="activation-checkbox" value="screenshot" onchange="onActivationSelectionChange()" checked>
+              <span>📸 Save Screenshot (Incident Capture)</span>
             </label>
             <label class="combo-item">
               <input type="checkbox" class="activation-checkbox" value="siren" onchange="onActivationSelectionChange()">
@@ -422,6 +426,18 @@
       <button class="btn-stealth" onclick="clearLogs()">Clear Log</button>
     </div>
 
+    <!-- Latest Detection Snapshot Preview Card -->
+    <div id="snapshotCard" class="card" style="display: none;">
+      <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>📸 Latest Detection Screenshot</span>
+        <a id="snapshotDownloadBtn" href="#" download="" class="btn-help" style="text-decoration:none; padding:4px 10px; font-size:0.75rem;">📥 Download</a>
+      </div>
+      <div style="text-align: center; margin-top: 6px;">
+        <img id="snapshotImg" src="" style="width: 100%; max-height: 220px; object-fit: contain; border-radius: 6px; border: 1px solid #334155; background: #000;" alt="Detection Snapshot">
+        <div id="snapshotCaption" style="font-size: 0.75rem; color: #94a3b8; margin-top: 6px;"></div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-title">Live Log</div>
       <div id="logBox" class="log-box">System loaded. Tap 'Start Guardian' to begin.</div>
@@ -458,8 +474,8 @@
     // Dynamic selections (persistent)
     let activeTargets = ['cat', 'dog', 'bird'];
     
-    // Default is JUST Sprinklers, NOT the siren!
-    let activeActivations = ['sprinklers'];
+    // Default is Sprinklers + Screenshot, siren/strobe are OFF
+    let activeActivations = ['sprinklers', 'screenshot'];
     
     const safetyClass = 'person';
     let wakeLock = null;
@@ -478,6 +494,7 @@
 
     const ACTIVATION_DISPLAY = {
       'sprinklers': '💦 Sprinklers',
+      'screenshot': '📸 Screenshot',
       'siren': '🔊 Siren',
       'strobe': '⚡ Strobe'
     };
@@ -561,7 +578,8 @@
         conf: document.getElementById('confRange').value,
         humanSafety: document.getElementById('humanSafetyToggle').checked,
         targets: activeTargets,
-        activations: activeActivations
+        activations: activeActivations,
+        screenshotVersion: 1
       };
       localStorage.setItem('yard_guardian_settings', JSON.stringify(settings));
     }
@@ -570,8 +588,8 @@
       try {
         const saved = localStorage.getItem('yard_guardian_settings');
         let loadedTargets = ['cat', 'dog', 'bird'];
-        // Default: strictly JUST sprinklers, siren is OFF
-        let loadedActivations = ['sprinklers'];
+        // Default: Sprinklers + Screenshot enabled
+        let loadedActivations = ['sprinklers', 'screenshot'];
 
         if (saved) {
           const s = JSON.parse(saved);
@@ -582,7 +600,12 @@
           }
           if (s.humanSafety !== undefined) document.getElementById('humanSafetyToggle').checked = s.humanSafety;
           if (Array.isArray(s.targets)) loadedTargets = s.targets;
-          if (Array.isArray(s.activations)) loadedActivations = s.activations;
+          if (Array.isArray(s.activations)) {
+            loadedActivations = s.activations;
+            if (!s.screenshotVersion && !loadedActivations.includes('screenshot')) {
+              loadedActivations.push('screenshot');
+            }
+          }
         }
 
         activeTargets = loadedTargets;
@@ -806,19 +829,24 @@
         return;
       }
 
-      // 1. Phone Siren
+      // 1. Screenshot Capture (Single screenshot per detection event)
+      if (activeActivations.includes('screenshot')) {
+        captureDetectionSnapshot(label, score);
+      }
+
+      // 2. Phone Siren
       if (activeActivations.includes('siren')) {
         log("🔊 Activating Phone Audio Siren!");
         playAlarmSound();
       }
 
-      // 2. Screen Strobe Flash
+      // 3. Screen Strobe Flash
       if (activeActivations.includes('strobe')) {
         log("⚡ Flashing Screen Strobe Alert!");
         triggerStrobeEffect();
       }
 
-      // 3. Sprinklers (Smart Life Webhook)
+      // 4. Sprinklers (Smart Life Webhook)
       if (activeActivations.includes('sprinklers')) {
         const webhook = document.getElementById('webhookInput').value.trim();
         if (webhook) {
@@ -836,12 +864,95 @@
       }
     }
 
+    // Captures single annotated screenshot per detection event
+    function captureDetectionSnapshot(label, score) {
+      try {
+        if (!video.videoWidth || !video.videoHeight) {
+          log("⚠️ Screenshot skipped: Camera feed not active.");
+          return;
+        }
+
+        const snapCanvas = document.createElement('canvas');
+        snapCanvas.width = video.videoWidth;
+        snapCanvas.height = video.videoHeight;
+        const snapCtx = snapCanvas.getContext('2d');
+
+        // 1. Draw raw camera video frame
+        snapCtx.drawImage(video, 0, 0, snapCanvas.width, snapCanvas.height);
+
+        // 2. Draw overlay bounding box annotations
+        if (canvas.width > 0 && canvas.height > 0) {
+          snapCtx.drawImage(canvas, 0, 0, snapCanvas.width, snapCanvas.height);
+        }
+
+        // 3. Add timestamp & detection banner
+        const now = new Date();
+        const dateStr = now.toLocaleString();
+        const pct = Math.round(score * 100);
+        const bannerText = `🛡️ AI Yard Guardian | 🎯 ${label.toUpperCase()} (${pct}%) | 🕒 ${dateStr}`;
+
+        const barHeight = Math.max(28, Math.round(snapCanvas.height * 0.055));
+        snapCtx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        snapCtx.fillRect(0, snapCanvas.height - barHeight, snapCanvas.width, barHeight);
+
+        const fontSize = Math.max(12, Math.round(barHeight * 0.5));
+        snapCtx.fillStyle = '#38bdf8';
+        snapCtx.font = `bold ${fontSize}px monospace, sans-serif`;
+        snapCtx.textBaseline = 'middle';
+        snapCtx.fillText(bannerText, 10, snapCanvas.height - (barHeight / 2));
+
+        // 4. Create image data URL
+        const dataUrl = snapCanvas.toDataURL('image/jpeg', 0.92);
+
+        // 5. Build clean timestamped filename
+        const ts = now.getFullYear() +
+          String(now.getMonth() + 1).padStart(2, '0') +
+          String(now.getDate()).padStart(2, '0') + '_' +
+          String(now.getHours()).padStart(2, '0') +
+          String(now.getMinutes()).padStart(2, '0') +
+          String(now.getSeconds()).padStart(2, '0');
+        const filename = `yard_guardian_${label}_${ts}.jpg`;
+
+        // 6. Trigger automatic download to user's device
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          if (link.parentNode) link.parentNode.removeChild(link);
+        }, 300);
+
+        // 7. Update UI Snapshot Preview Card
+        const snapshotCard = document.getElementById('snapshotCard');
+        const snapshotImg = document.getElementById('snapshotImg');
+        const snapshotCaption = document.getElementById('snapshotCaption');
+        const snapshotDownloadBtn = document.getElementById('snapshotDownloadBtn');
+
+        if (snapshotCard && snapshotImg && snapshotCaption && snapshotDownloadBtn) {
+          snapshotImg.src = dataUrl;
+          snapshotCaption.innerText = `${filename} • ${dateStr}`;
+          snapshotDownloadBtn.href = dataUrl;
+          snapshotDownloadBtn.download = filename;
+          snapshotCard.style.display = 'block';
+        }
+
+        log(`📸 <b>Screenshot captured & saved:</b> ${filename}`);
+      } catch (err) {
+        log(`⚠️ Screenshot error: ${err.message}`);
+      }
+    }
+
     // Manual test button
     function manualWaterSpray() {
       log("🧪 <b>Testing active activations manually:</b>");
       if (activeActivations.length === 0) {
-        log("ℹ️ No activations enabled. Select Sprinklers or Siren above.");
+        log("ℹ️ No activations enabled. Select Sprinklers, Screenshot, or Siren above.");
         return;
+      }
+      if (activeActivations.includes('screenshot')) {
+        log("📸 Testing Screenshot Capture...");
+        captureDetectionSnapshot('test_target', 0.95);
       }
       if (activeActivations.includes('siren')) {
         log("🔊 Testing Siren...");

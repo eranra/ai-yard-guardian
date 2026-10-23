@@ -21,6 +21,7 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
   - 🧸 Plush / Toy Animal
 - **⚡ Extensible Deterrent Activations:** Select your preferred response actions via combo box:
   - 💦 **Sprinklers (Smart Life Webhook)** *(Default)*
+  - 📸 **Save Screenshot (Incident Capture)** *(Default — captures & saves a single annotated timestamped photo per detection)*
   - 🔊 **Phone Siren / Audio Alarm**
   - ⚡ **Screen Strobe Alert**
 - **🔒 Humans are Cutoff Only:** People strictly trigger the safety disarm / pause and cannot be selected as targets.
