@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0f172a">
+  <title>AI Yard Guardian</title>
+  
+  <link rel="manifest" href="manifest.json">
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #0f172a; color: #f8fafc; display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; }
+    
+    header { background: #1e293b; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
+    .title { font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .badge { padding: 4px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+    .badge.armed { background: #059669; color: white; }
+    .badge.standby { background: #64748b; color: white; }
+    .badge.alert { background: #dc2626; color: white; animation: pulse 0.8s infinite; }
+    .badge.human { background: #d97706; color: white; }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .viewport-container { position: relative; width: 100%; aspect-ratio: 4/3; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+    video { width: 100%; height: 100%; object-fit: contain; }
+    canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+
+    .live-detection-banner {
+      background: #111827;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-bottom: 1px solid #1f2937;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .controls-panel { padding: 12px 14px; flex: 1; display: flex; flex-direction: column; gap: 10px; max-width: 600px; margin: 0 auto; width: 100%; }
+    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    button { padding: 12px; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-danger { background: #dc2626; color: white; }
+    .btn-spray { background: #0284c7; color: white; }
+    .btn-stealth { background: #475569; color: white; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 12px; }
+    .card-title { font-size: 0.8rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; }
+    
+    .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.85rem; }
+    .setting-row:last-child { margin-bottom: 0; }
+    label { color: #cbd5e1; }
+    input[type="text"] { background: #0f172a; border: 1px solid #475569; color: white; padding: 6px 10px; border-radius: 6px; font-size: 0.8rem; width: 100%; }
+    .toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .toggle input { width: 18px; height: 18px; }
+
+    .log-box { background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 0.72rem; height: 85px; overflow-y: auto; color: #a5b4fc; }
+
+    #stealthOverlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: #000;
+      z-index: 9999;
+      color: #334155;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      user-select: none;
+    }
+    .pulsing-dot {
+      width: 10px; height: 10px; background: #22c55e; border-radius: 50%;
+      animation: stealthPulse 2s infinite ease-in-out;
+      margin-bottom: 12px;
+    }
+    @keyframes stealthPulse { 0%, 100% { transform: scale(0.8); opacity: 0.3; } 50% { transform: scale(1.4); opacity: 1; } }
+  </style>
+</head>
+<body>
+
+  <div id="stealthOverlay" onclick="exitStealthMode()">
+    <div class="pulsing-dot"></div>
+    <p style="font-size: 0.8rem; letter-spacing: 1px;">24/7 GUARDIAN ACTIVE</p>
+    <p style="font-size: 0.7rem; color: #1e293b; margin-top: 6px;">(Tap anywhere to wake screen)</p>
+  </div>
+
+  <header>
+    <div class="title">🛡️ AI Yard Guardian</div>
+    <div id="statusBadge" class="badge standby">Standby</div>
+  </header>
+
+  <div class="viewport-container">
+    <video id="webcam" playsinline autoplay muted></video>
+    <canvas id="overlay"></canvas>
+  </div>
+
+  <!-- Live Vision Readout Banner -->
+  <div class="live-detection-banner">
+    <span style="color:#94a3b8;">👁️ Seeing:</span>
+    <span id="liveDetections">None</span>
+  </div>
+
+  <div class="controls-panel">
+    <div class="btn-row">
+      <button id="toggleBtn" class="btn-primary" onclick="toggleGuardian()">▶️ Start Guardian</button>
+      <button id="stealthBtn" class="btn-stealth" onclick="enterStealthMode()" disabled>🌙 Black Screen</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Detection & Sensitivity</div>
+      <div class="setting-row">
+        <label for="confRange">Sensitivity Threshold: <b id="confVal" style="color:#38bdf8;">40%</b></label>
+        <input type="range" id="confRange" min="20" max="85" value="40" oninput="document.getElementById('confVal').innerText=this.value+'%'">
+      </div>
+      <div class="setting-row">
+        <label class="toggle">
+          <input type="checkbox" id="humanSafetyToggle" checked> Human Safety Hold (Pause if person seen)
+        </label>
+      </div>
+      <div class="setting-row">
+        <label class="toggle">
+          <input type="checkbox" id="testModeToggle" checked> Test Mode (Alarm Sound on Phone)
+        </label>
+      </div>
+      <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+        <label for="webhookInput">Smart Life Webhook URL (for real water)</label>
+        <input type="text" id="webhookInput" placeholder="https://maker.ifttt.com/trigger/.../with/key/...">
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-spray" onclick="manualWaterSpray()">💦 Test Siren / Spray</button>
+      <button class="btn-stealth" onclick="clearLogs()">Clear Log</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Live Log</div>
+      <div id="logBox" class="log-box">System loaded. Tap 'Start Guardian' to begin.</div>
+    </div>
+  </div>
+
+  <script>
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('overlay');
+    const ctx = canvas.getContext('2d');
+    const statusBadge = document.getElementById('statusBadge');
+    const toggleBtn = document.getElementById('toggleBtn');
+    const stealthBtn = document.getElementById('stealthBtn');
+    const stealthOverlay = document.getElementById('stealthOverlay');
+    const logBox = document.getElementById('logBox');
+    const liveDetections = document.getElementById('liveDetections');
+
+    let model = null;
+    let isRunning = false;
+    let lastTriggerTime = 0;
+    const cooldownMs = 15000; // 15s cooldown
+    const targetClasses = ['cat', 'dog', 'bird', 'horse', 'sheep', 'bear', 'teddy bear'];
+    const safetyClass = 'person';
+    let wakeLock = null;
+
+    function log(msg) {
+      const time = new Date().toLocaleTimeString();
+      logBox.innerHTML = `[${time}] ${msg}<br>` + logBox.innerHTML;
+    }
+
+    function clearLogs() {
+      logBox.innerHTML = "Logs cleared.";
+    }
+
+    async function requestWakeLock() {
+      if ('wakeLock' in navigator) {
+        try {
+          wakeLock = await navigator.wakeLock.request('screen');
+          wakeLock.addEventListener('release', () => {
+            if (isRunning) requestWakeLock();
+          });
+          log("🔋 Screen Wake Lock active.");
+        } catch (err) {}
+      }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && isRunning) {
+        requestWakeLock();
+      }
+    });
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playAlarmSound() {
+      try {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(900, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(350, audioCtx.currentTime + 0.5);
+        gain.gain.setValueAtTime(0.7, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.5);
+      } catch(e) {}
+    }
+
+    async function setupCamera() {
+      log("Initializing rear camera...");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false
+      });
+      video.srcObject = stream;
+      return new Promise(resolve => {
+        video.onloadedmetadata = () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          resolve();
+        };
+      });
+    }
+
+    async function loadModel() {
+      log("Loading AI Vision Model (High-Accuracy Animal Mode)...");
+      model = await cocoSsd.load({ base: 'mobilenet_v2' });
+      log("✅ AI Model Ready!");
+    }
+
+    async function toggleGuardian() {
+      if (!isRunning) {
+        if (!model) {
+          toggleBtn.disabled = true;
+          toggleBtn.innerText = "Starting Camera & AI...";
+          try {
+            await setupCamera();
+            await loadModel();
+          } catch(err) {
+            log("❌ Error accessing camera: " + err);
+            toggleBtn.disabled = false;
+            toggleBtn.innerText = "▶️ Start Guardian";
+            return;
+          }
+          toggleBtn.disabled = false;
+        }
+
+        isRunning = true;
+        await requestWakeLock();
+        toggleBtn.innerText = "⏹️ Stop Guardian";
+        toggleBtn.className = "btn-danger";
+        stealthBtn.disabled = false;
+        statusBadge.innerText = "Armed";
+        statusBadge.className = "badge armed";
+        log("🛡️ Guardian Armed and Monitoring!");
+        detectFrame();
+      } else {
+        isRunning = false;
+        if (wakeLock) wakeLock.release().then(() => wakeLock = null);
+        toggleBtn.innerText = "▶️ Start Guardian";
+        toggleBtn.className = "btn-primary";
+        stealthBtn.disabled = true;
+        statusBadge.innerText = "Standby";
+        statusBadge.className = "badge standby";
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        liveDetections.innerHTML = "None";
+        log("Guardian stopped.");
+      }
+    }
+
+    async function detectFrame() {
+      if (!isRunning) return;
+
+      try {
+        const minScore = parseInt(document.getElementById('confRange').value) / 100;
+        const enableHumanSafety = document.getElementById('humanSafetyToggle').checked;
+        // Pass minScore 0.15 directly to detect() so low-confidence animal matches are not discarded internally
+        const predictions = await model.detect(video, 20, 0.15);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        let humanDetected = false;
+        let targetDetected = null;
+        let seenLabels = [];
+
+        predictions.forEach(p => {
+          const scorePercent = Math.round(p.score * 100);
+          seenLabels.push(`${p.class} (${scorePercent}%)`);
+
+          if (p.score < minScore) return;
+
+          const [x, y, w, h] = p.bbox;
+          const label = p.class;
+
+          if (label === safetyClass && enableHumanSafety) {
+            humanDetected = true;
+            drawBox(x, y, w, h, `Human (${scorePercent}%)`, '#f59e0b');
+          } else if (targetClasses.includes(label)) {
+            targetDetected = { label, score: p.score };
+            drawBox(x, y, w, h, `🎯 ${label.toUpperCase()} (${scorePercent}%)`, '#ef4444');
+          } else {
+            drawBox(x, y, w, h, `${label} (${scorePercent}%)`, '#64748b');
+          }
+        });
+
+        // Update live readout banner
+        liveDetections.innerHTML = seenLabels.length > 0 
+          ? seenLabels.map(s => `<span style="background:#1e293b; padding:2px 6px; border-radius:4px; margin-right:4px;">${s}</span>`).join('') 
+          : '<span style="color:#64748b;">Scanning scene...</span>';
+
+        if (humanDetected) {
+          statusBadge.innerText = "Safety Hold (Human)";
+          statusBadge.className = "badge human";
+        } else if (targetDetected) {
+          statusBadge.innerText = `Alert: ${targetDetected.label.toUpperCase()}`;
+          statusBadge.className = "badge alert";
+          triggerDeterrent(targetDetected.label, targetDetected.score);
+        } else {
+          statusBadge.innerText = "Armed";
+          statusBadge.className = "badge armed";
+        }
+      } catch (err) {
+        // Continue detection loop
+      }
+
+      requestAnimationFrame(detectFrame);
+    }
+
+    function drawBox(x, y, w, h, text, color) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 4;
+      ctx.strokeRect(x, y, w, h);
+      ctx.fillStyle = color;
+      ctx.font = 'bold 16px sans-serif';
+      ctx.fillRect(x, Math.max(0, y - 24), ctx.measureText(text).width + 12, 24);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(text, x + 6, Math.max(16, y - 6));
+    }
+
+    function triggerDeterrent(label, score) {
+      const now = Date.now();
+      if (now - lastTriggerTime < cooldownMs) return;
+
+      lastTriggerTime = now;
+      log(`🚨 <b>${label.toUpperCase()} DETECTED (${Math.round(score * 100)}%)!</b> Triggering water blast!`);
+
+      playAlarmSound();
+
+      const isTest = document.getElementById('testModeToggle').checked;
+      const webhook = document.getElementById('webhookInput').value.trim();
+
+      if (isTest) {
+        log("💦 [TEST MODE] Sprinklers fired virtually for 8s.");
+      } else if (webhook) {
+        log("🌐 Sending Webhook signal to Smart Life...");
+        fetch(webhook, { method: 'POST', mode: 'no-cors' })
+          .then(() => log("✅ Webhook sent successfully!"))
+          .catch(e => log(`⚠️ Webhook error: ${e}`));
+      }
+    }
+
+    function manualWaterSpray() {
+      log("💦 Manual Test Blast triggered!");
+      playAlarmSound();
+    }
+
+    function enterStealthMode() {
+      stealthOverlay.style.display = 'flex';
+      log("🌙 Stealth mode active (screen black, AI running).");
+    }
+
+    function exitStealthMode() {
+      stealthOverlay.style.display = 'none';
+      log("☀️ Stealth mode disabled.");
+    }
+  </script>
+</body>
+</html>

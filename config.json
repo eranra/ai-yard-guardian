@@ -1,0 +1,24 @@
+{
+  "camera": {
+    "stream_url": "http://127.0.0.1:8080/shot.jpg",
+    "fetch_interval_seconds": 0.25,
+    "timeout_seconds": 3
+  },
+  "detection": {
+    "target_classes": ["cat", "dog", "bird"],
+    "safety_class": "person",
+    "confidence_threshold": 0.60,
+    "cooldown_seconds": 45,
+    "watering_duration_seconds": 8
+  },
+  "smart_life": {
+    "mode": "test",
+    "webhook_url": "https://maker.ifttt.com/trigger/cat_detected/with/key/YOUR_KEY",
+    "tinytuya": {
+      "device_id": "YOUR_DEVICE_ID",
+      "device_ip": "192.168.1.100",
+      "local_key": "YOUR_LOCAL_KEY",
+      "version": 3.3
+    }
+  }
+}
