@@ -638,8 +638,8 @@
       }
       new window.QRCode(container, {
         text: text,
-        width: size || 240,
-        height: size || 240,
+        width: size || 160,
+        height: size || 160,
         colorDark: '#0f172a',
         colorLight: '#ffffff',
         correctLevel: window.QRCode.CorrectLevel.L
