@@ -17,8 +17,15 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/spray` — remotely test or fire deterrent activations (sprinklers, siren, etc.).
     - `/arm` — start AI guardian monitoring remotely.
     - `/disarm` — pause AI monitoring into standby.
-    - `/status` — check application version, armed state, active targets, sensitivity, and clock.
+    - `/torch` `[on|off]` — remotely toggle phone flashlight/torch.
+    - `/status` — check application version, armed state, light mode, targets, sensitivity, and clock.
     - `/refresh` (or `/reload`) — remotely clear browser cache and reload the application to the latest version deployed on GitHub Pages.
+- **🌙 Auto Night Vision & Low-Light Enhancement Engine:**
+  - **Smart Ambient Luma Sensor:** Real-time luminance monitoring ($Y = 0.299R + 0.587G + 0.114B$) automatically switches between Day and Night modes with hysteresis.
+  - **Dual Adaptive Sensitivity:** Separate customizable thresholds for Daytime (default `40%`) and Nighttime (default `25%`) to capture dark animal silhouettes without false daytime positives.
+  - **🚀 AI Night Contrast Boost:** Pre-processes camera frames with hardware-accelerated contrast stretching and gamma correction before feeding TensorFlow, revealing animals blending into shadows.
+  - **📷 Xiaomi / Android Hardware Exposure Boost:** Automatically boosts camera sensor exposure compensation (`+2.0 EV`) via MediaStreamTrack ISP controls on supported devices.
+  - **🔦 Flashlight / Torch Assist:** Briefly lights up the yard (5s) when an animal is detected at night to scare it and capture clear evidence photos, with manual and remote `/torch` toggles.
 - **📷 Dynamic Multi-Camera Lens Selection:** Automatically discovers all physical front and rear cameras/lenses (Main Wide, Ultra-Wide, Telephoto, Front) on any device (Samsung, Xiaomi, Pixel, etc.). Switch lenses anytime and your preference is saved permanently.
 - **On-Device AI Vision:** Uses TensorFlow.js (`mobilenet_v2`) running directly on your phone's GPU/NPU.
 - **🎯 Multi-Select Target Animals:** Choose exactly which animals trigger deterrents:

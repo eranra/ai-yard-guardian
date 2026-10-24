@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=5.1"></script>
+  <script src="telegram-bot.js?v=5.2"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -360,6 +360,7 @@
           <span>/status - Version & health</span>
           <span>/arm - Arm guardian</span>
           <span>/disarm - Standby</span>
+          <span>/torch - Toggle flash</span>
           <span>/refresh - Reload app</span>
         </div>
       </div>
@@ -374,9 +375,10 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v5.1 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v5.2 🔄</span>
     </div>
     <div style="display: flex; align-items: center; gap: 8px;">
+      <div id="lightBadge" class="badge" style="background:#1e3a5f; color:#38bdf8; font-size:0.7rem; display:flex; align-items:center; gap:4px;" title="Current Ambient Lighting">☀️ Day</div>
       <div id="statusBadge" class="badge standby">Standby</div>
     </div>
   </header>
@@ -396,6 +398,7 @@
     <div class="btn-row">
       <button id="toggleBtn" class="btn-primary" onclick="toggleGuardian()">▶️ Start Guardian</button>
       <button id="stealthBtn" class="btn-stealth" onclick="enterStealthMode()" disabled>🌙 Black Screen</button>
+      <button id="quickTorchBtn" class="btn-stealth" style="padding: 8px 12px; display: none;" onclick="toggleManualTorch()" title="Toggle Flashlight">🔦 Torch Off</button>
     </div>
 
     <div class="card" id="settingsCard" style="padding: 10px 14px;">
@@ -505,10 +508,62 @@
           </div>
         </div>
 
-        <!-- Sensitivity Slider -->
-        <div class="setting-row">
-          <label for="confRange">Sensitivity Threshold: <b id="confVal" style="color:#38bdf8;">40%</b></label>
-          <input type="range" id="confRange" min="20" max="85" value="40" oninput="updateSensitivity(this.value)">
+        <!-- 🌙 Auto Night Vision & Low-Light Enhancement Section -->
+        <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 10px; background: #0b1329; padding: 10px; border-radius: 8px; border: 1px solid #1e293b; width: 100%;">
+          <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: #a5b4fc; display: flex; align-items: center; gap: 6px;">
+              <span>🌙 Auto Night Vision &amp; Low-Light</span>
+            </div>
+            <span id="nightLumaBadge" style="font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; background: #064e3b; color: #6ee7b7;">Luma: 120 (☀️ Day)</span>
+          </div>
+          
+          <div style="width: 100%; display: flex; flex-direction: column; gap: 6px;">
+            <!-- Mode selection: Auto / Force Day / Force Night -->
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label for="nightModeSelect" style="font-size: 0.76rem; color: #cbd5e1;">Detection Mode:</label>
+              <select id="nightModeSelect" onchange="onNightModeChange(this.value)" style="background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 3px 8px; border-radius: 4px; font-size: 0.74rem;">
+                <option value="auto">Auto (Smart Luma Sensor)</option>
+                <option value="day">Force Day Mode</option>
+                <option value="night">Force Night Mode</option>
+              </select>
+            </div>
+
+            <!-- Daytime Sensitivity -->
+            <div style="display: flex; flex-direction: column; gap: 2px; margin-top: 4px;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.74rem;">
+                <span style="color: #cbd5e1;">☀️ Daytime Sensitivity:</span>
+                <b id="dayConfVal" style="color: #38bdf8;">40%</b>
+              </div>
+              <input type="range" id="dayConfRange" min="15" max="85" value="40" oninput="updateDaySensitivity(this.value)">
+            </div>
+
+            <!-- Nighttime Sensitivity -->
+            <div style="display: flex; flex-direction: column; gap: 2px; margin-top: 4px;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.74rem;">
+                <span style="color: #cbd5e1;">🌙 Nighttime Sensitivity:</span>
+                <b id="nightConfVal" style="color: #a5b4fc;">25%</b>
+              </div>
+              <input type="range" id="nightConfRange" min="10" max="70" value="25" oninput="updateNightSensitivity(this.value)">
+            </div>
+
+            <!-- Software AI Vision Boost Toggle -->
+            <label class="toggle" style="font-size: 0.76rem; margin-top: 4px;">
+              <input type="checkbox" id="nightBoostToggle" checked onchange="saveSettings()"> 🚀 AI Night Contrast &amp; Brightness Boost
+            </label>
+
+            <!-- Hardware Camera Exposure Boost (Xiaomi / Android) -->
+            <label class="toggle" style="font-size: 0.76rem;">
+              <input type="checkbox" id="hwExposureToggle" checked onchange="saveSettings()"> 📷 Camera Hardware Exposure Boost (Xiaomi / Android)
+            </label>
+
+            <!-- Hardware Flashlight Assist -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+              <label class="toggle" style="font-size: 0.76rem;">
+                <input type="checkbox" id="torchAssistToggle" onchange="saveSettings()"> 🔦 Flashlight Assist on Night Alert (5s)
+              </label>
+              <button type="button" id="btnManualTorch" class="btn-stealth" style="padding: 2px 8px; font-size: 0.7rem;" onclick="toggleManualTorch()" disabled>🔦 Torch Off</button>
+            </div>
+          </div>
         </div>
 
         <!-- Safety Cutoff Toggle -->
@@ -668,6 +723,31 @@
     const safetyClass = 'person';
     let wakeLock = null;
 
+    // Night Vision & Low-Light Engine Variables (v5.2)
+    let nightModeSetting = 'auto'; // 'auto', 'day', 'night'
+    let isNightMode = false;
+    let currentLuma = 120;
+    let consecutiveLowLumaCount = 0;
+    let consecutiveHighLumaCount = 0;
+    let daySensitivity = 40;
+    let nightSensitivity = 25;
+    let nightBoostEnabled = true;
+    let hardwareExposureBoost = true;
+    let torchAssistEnabled = false;
+    let isTorchOn = false;
+    let cameraCapabilities = {};
+
+    // Offscreen canvas for fast ambient luma calculation
+    const lumaCanvas = document.createElement('canvas');
+    lumaCanvas.width = 32;
+    lumaCanvas.height = 24;
+    const lumaCtx = lumaCanvas.getContext('2d', { willReadFrequently: true });
+
+    // Offscreen canvas for software AI contrast & gamma boost
+    const nightBoostCanvas = document.createElement('canvas');
+    let nightBoostCtx = null;
+    let lumaInterval = null;
+
     // Display mappings
     const TARGET_DISPLAY = {
       'cat': '🐱 Cat',
@@ -748,7 +828,7 @@
         return a;
       });
       const actStr = actIcons.length > 0 ? actIcons.join('') : 'none';
-      const conf = document.getElementById('confRange') ? `${document.getElementById('confRange').value}%` : '40%';
+      const conf = isNightMode ? `${nightSensitivity}% 🌙` : `${daySensitivity}% ☀️`;
 
       badge.innerText = `${targetLabel} • ${actStr} • ${conf}`;
     }
@@ -800,7 +880,13 @@
       const cameraSelect = document.getElementById('cameraSelect');
       const settings = {
         webhook: document.getElementById('webhookInput').value.trim(),
-        conf: document.getElementById('confRange').value,
+        conf: daySensitivity,
+        dayConf: daySensitivity,
+        nightConf: nightSensitivity,
+        nightMode: nightModeSetting,
+        nightBoost: document.getElementById('nightBoostToggle')?.checked !== false,
+        hwExposure: document.getElementById('hwExposureToggle')?.checked !== false,
+        torchAssist: document.getElementById('torchAssistToggle')?.checked || false,
         humanSafety: document.getElementById('humanSafetyToggle').checked,
         targets: activeTargets,
         activations: activeActivations,
@@ -821,10 +907,13 @@
         if (saved) {
           const s = JSON.parse(saved);
           if (s.webhook !== undefined) document.getElementById('webhookInput').value = s.webhook;
-          if (s.conf !== undefined) {
-            document.getElementById('confRange').value = s.conf;
-            document.getElementById('confVal').innerText = s.conf + '%';
-          }
+          if (s.conf !== undefined) daySensitivity = parseInt(s.conf) || 40;
+          if (s.dayConf !== undefined) daySensitivity = parseInt(s.dayConf) || daySensitivity;
+          if (s.nightConf !== undefined) nightSensitivity = parseInt(s.nightConf) || 25;
+          if (s.nightMode !== undefined) nightModeSetting = s.nightMode;
+          if (s.nightBoost !== undefined) nightBoostEnabled = !!s.nightBoost;
+          if (s.hwExposure !== undefined) hardwareExposureBoost = !!s.hwExposure;
+          if (s.torchAssist !== undefined) torchAssistEnabled = !!s.torchAssist;
           if (s.humanSafety !== undefined) document.getElementById('humanSafetyToggle').checked = s.humanSafety;
           if (s.cameraId) localStorage.setItem('yard_guardian_camera_id', s.cameraId);
           if (s.cameraLabel) localStorage.setItem('yard_guardian_camera_label', s.cameraLabel);
@@ -836,6 +925,28 @@
             }
           }
         }
+
+        const dRange = document.getElementById('dayConfRange');
+        const dVal = document.getElementById('dayConfVal');
+        if (dRange) dRange.value = daySensitivity;
+        if (dVal) dVal.innerText = daySensitivity + '%';
+
+        const nRange = document.getElementById('nightConfRange');
+        const nVal = document.getElementById('nightConfVal');
+        if (nRange) nRange.value = nightSensitivity;
+        if (nVal) nVal.innerText = nightSensitivity + '%';
+
+        const nSel = document.getElementById('nightModeSelect');
+        if (nSel) nSel.value = nightModeSetting;
+
+        const nBoost = document.getElementById('nightBoostToggle');
+        if (nBoost) nBoost.checked = nightBoostEnabled;
+
+        const hwExp = document.getElementById('hwExposureToggle');
+        if (hwExp) hwExp.checked = hardwareExposureBoost;
+
+        const tAssist = document.getElementById('torchAssistToggle');
+        if (tAssist) tAssist.checked = torchAssistEnabled;
 
         activeTargets = loadedTargets;
         document.querySelectorAll('.target-checkbox').forEach(cb => {
@@ -930,10 +1041,240 @@
       }
     }
 
-    function updateSensitivity(val) {
-      document.getElementById('confVal').innerText = val + '%';
+    function updateDaySensitivity(val) {
+      daySensitivity = parseInt(val) || 40;
+      const el = document.getElementById('dayConfVal');
+      if (el) el.innerText = daySensitivity + '%';
       updateSettingsSummary();
       saveSettings();
+    }
+
+    function updateNightSensitivity(val) {
+      nightSensitivity = parseInt(val) || 25;
+      const el = document.getElementById('nightConfVal');
+      if (el) el.innerText = nightSensitivity + '%';
+      updateSettingsSummary();
+      saveSettings();
+    }
+
+    // ==========================================
+    // Night Vision & Low-Light Engine (v5.2)
+    // ==========================================
+
+    function startLumaMonitor() {
+      if (lumaInterval) clearInterval(lumaInterval);
+      lumaInterval = setInterval(checkAmbientLuma, 1500);
+    }
+
+    function stopLumaMonitor() {
+      if (lumaInterval) clearInterval(lumaInterval);
+      lumaInterval = null;
+    }
+
+    function checkAmbientLuma() {
+      if (!video || !video.videoWidth || !video.videoHeight) return;
+
+      try {
+        lumaCtx.drawImage(video, 0, 0, 32, 24);
+        const imgData = lumaCtx.getImageData(0, 0, 32, 24);
+        const d = imgData.data;
+        let totalLuma = 0;
+        const totalPixels = 32 * 24;
+
+        for (let i = 0; i < d.length; i += 4) {
+          totalLuma += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        }
+
+        currentLuma = totalLuma / totalPixels;
+        updateLumaUI();
+
+        if (nightModeSetting === 'auto') {
+          // Hysteresis: Night if < 45 for 2 checks, Day if > 65 for 2 checks
+          if (currentLuma < 45) {
+            consecutiveLowLumaCount++;
+            consecutiveHighLumaCount = 0;
+            if (consecutiveLowLumaCount >= 2 && !isNightMode) {
+              setNightMode(true, "Auto-detected Low Light / Night");
+            }
+          } else if (currentLuma > 65) {
+            consecutiveHighLumaCount++;
+            consecutiveLowLumaCount = 0;
+            if (consecutiveHighLumaCount >= 2 && isNightMode) {
+              setNightMode(false, "Auto-detected Normal Lighting");
+            }
+          }
+        }
+      } catch (e) {
+        // Can happen on initial frame load or cross-origin
+      }
+    }
+
+    function updateLumaUI() {
+      const badge = document.getElementById('nightLumaBadge');
+      const lightBadge = document.getElementById('lightBadge');
+      const rounded = Math.round(currentLuma);
+      const modeText = isNightMode ? '🌙 Night' : '☀️ Day';
+
+      if (badge) {
+        badge.innerText = `Luma: ${rounded} (${modeText})`;
+        badge.style.background = isNightMode ? '#1e1b4b' : '#064e3b';
+        badge.style.color = isNightMode ? '#c7d2fe' : '#6ee7b7';
+      }
+
+      if (lightBadge) {
+        lightBadge.innerText = isNightMode ? '🌙 Night' : '☀️ Day';
+        lightBadge.style.background = isNightMode ? '#312e81' : '#065f46';
+        lightBadge.style.color = isNightMode ? '#c7d2fe' : '#a7f3d0';
+      }
+
+      updateSettingsSummary();
+    }
+
+    function setNightMode(active, reason) {
+      if (isNightMode === active) return;
+      isNightMode = active;
+      log(`🌓 <b>${active ? '🌙 Night Vision Activated' : '☀️ Day Vision Activated'}</b> (${reason || 'Switch'})`);
+      updateLumaUI();
+      applyHardwareCameraConstraints();
+    }
+
+    function onNightModeChange(val) {
+      nightModeSetting = val;
+      if (val === 'day') {
+        setNightMode(false, "Forced Day Mode");
+      } else if (val === 'night') {
+        setNightMode(true, "Forced Night Mode");
+      } else {
+        if (currentLuma < 50) setNightMode(true, "Auto evaluation");
+        else setNightMode(false, "Auto evaluation");
+      }
+      saveSettings();
+    }
+
+    // Inspect Xiaomi & Android Camera Hardware Capabilities
+    async function inspectCameraCapabilities() {
+      if (!currentStream) return;
+      const track = currentStream.getVideoTracks()[0];
+      if (!track) return;
+
+      if (track.getCapabilities) {
+        try {
+          cameraCapabilities = track.getCapabilities();
+        } catch (e) {
+          cameraCapabilities = {};
+        }
+      }
+
+      const hasTorch = !!cameraCapabilities.torch;
+      const btnManual = document.getElementById('btnManualTorch');
+      const quickTorch = document.getElementById('quickTorchBtn');
+      if (btnManual) {
+        btnManual.disabled = !hasTorch;
+        btnManual.title = hasTorch ? "Toggle Flashlight" : "Torch not supported on this device/camera";
+      }
+      if (quickTorch) {
+        quickTorch.style.display = hasTorch ? 'inline-block' : 'none';
+      }
+
+      await applyHardwareCameraConstraints();
+    }
+
+    async function applyHardwareCameraConstraints() {
+      if (!currentStream) return;
+      const track = currentStream.getVideoTracks()[0];
+      if (!track || !track.applyConstraints) return;
+
+      const advanced = [];
+
+      // 1. Exposure Compensation Boost (supported on Xiaomi / Android Chromium)
+      if (cameraCapabilities.exposureCompensation && hardwareExposureBoost) {
+        const { min, max } = cameraCapabilities.exposureCompensation;
+        const targetEV = isNightMode ? max : 0;
+        advanced.push({ exposureCompensation: targetEV });
+      }
+
+      // 2. Continuous exposure mode
+      if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('continuous')) {
+        advanced.push({ exposureMode: 'continuous' });
+      }
+
+      if (advanced.length > 0) {
+        try {
+          await track.applyConstraints({ advanced });
+          if (isNightMode && hardwareExposureBoost && cameraCapabilities.exposureCompensation) {
+            log(`📷 Camera hardware exposure boosted (+${cameraCapabilities.exposureCompensation.max} EV)`);
+          }
+        } catch (e) {
+          console.warn("Could not apply hardware exposure constraints:", e);
+        }
+      }
+    }
+
+    async function setTorch(enable) {
+      if (!currentStream) return false;
+      const track = currentStream.getVideoTracks()[0];
+      if (!track || !cameraCapabilities.torch) return false;
+
+      try {
+        await track.applyConstraints({
+          advanced: [{ torch: !!enable }]
+        });
+        isTorchOn = !!enable;
+        updateTorchUI();
+        return true;
+      } catch (e) {
+        console.warn("Torch control error:", e);
+        return false;
+      }
+    }
+
+    function toggleManualTorch() {
+      setTorch(!isTorchOn);
+    }
+
+    function updateTorchUI() {
+      const btnManual = document.getElementById('btnManualTorch');
+      const quickTorch = document.getElementById('quickTorchBtn');
+      const text = isTorchOn ? '🔦 Torch ON' : '🔦 Torch Off';
+      if (btnManual) {
+        btnManual.innerText = text;
+        btnManual.style.background = isTorchOn ? '#eab308' : '#334155';
+        btnManual.style.color = isTorchOn ? '#000000' : '#f8fafc';
+      }
+      if (quickTorch) {
+        quickTorch.innerText = text;
+        quickTorch.style.background = isTorchOn ? '#eab308' : '#334155';
+        quickTorch.style.color = isTorchOn ? '#000000' : '#f8fafc';
+      }
+    }
+
+    function triggerTorchAssist() {
+      if (!cameraCapabilities.torch || !torchAssistEnabled || isTorchOn) return;
+      log("🔦 Lighting yard with torch assist (5 seconds)...");
+      setTorch(true);
+      setTimeout(() => {
+        setTorch(false);
+      }, 5000);
+    }
+
+    // Software AI Vision Night Boost Preprocessing for TensorFlow
+    function getAiInputFrame() {
+      if (!isNightMode || !nightBoostEnabled || !video.videoWidth) {
+        return video;
+      }
+
+      if (nightBoostCanvas.width !== video.videoWidth || nightBoostCanvas.height !== video.videoHeight) {
+        nightBoostCanvas.width = video.videoWidth;
+        nightBoostCanvas.height = video.videoHeight;
+        nightBoostCtx = nightBoostCanvas.getContext('2d', { willReadFrequently: true });
+      }
+
+      // GPU-accelerated contrast stretching & brightness boost for neural network
+      nightBoostCtx.filter = 'brightness(1.55) contrast(1.4) saturate(1.25)';
+      nightBoostCtx.drawImage(video, 0, 0, nightBoostCanvas.width, nightBoostCanvas.height);
+      nightBoostCtx.filter = 'none';
+
+      return nightBoostCanvas;
     }
 
     // Modal Controls
@@ -1159,6 +1500,7 @@
       });
 
       await populateCameraList();
+      await inspectCameraCapabilities();
     }
 
     async function onCameraChange(deviceId) {
@@ -1199,7 +1541,8 @@
           const sy = Math.max(0, y);
           const sw = Math.min(w, video.videoWidth - sx);
           const sh = Math.min(h, video.videoHeight - sy);
-          cropCtx.drawImage(video, sx, sy, sw, sh, 0, 0, 224, 224);
+          const src = (isNightMode && nightBoostEnabled && nightBoostCanvas.width > 0) ? nightBoostCanvas : video;
+          cropCtx.drawImage(src, sx, sy, sw, sh, 0, 0, 224, 224);
           const results = await classifierModel.classify(cropCanvas, 3);
           const match = results.find(r => 
             r.className.toLowerCase().includes('porcupine') || 
@@ -1255,6 +1598,9 @@
         statusBadge.className = "badge armed";
         log("🛡️ Guardian Armed and Monitoring!");
 
+        startLumaMonitor();
+        checkAmbientLuma();
+
         if (window.TelegramBot && TelegramBot.enabled && TelegramBot.isConfigured() && TelegramBot.remoteControlEnabled) {
           TelegramBot.startPolling();
         }
@@ -1262,6 +1608,8 @@
         detectFrame();
       } else {
         isRunning = false;
+        stopLumaMonitor();
+        setTorch(false);
         localStorage.setItem('yard_guardian_armed', 'false');
         localStorage.setItem('yard_guardian_stealth', 'false');
         if (wakeLock) wakeLock.release().then(() => wakeLock = null);
@@ -1284,9 +1632,11 @@
       if (!isRunning) return;
 
       try {
-        const minScore = parseInt(document.getElementById('confRange').value) / 100;
+        const activeSensitivity = isNightMode ? nightSensitivity : daySensitivity;
+        const minScore = activeSensitivity / 100;
         const enableHumanSafety = document.getElementById('humanSafetyToggle').checked;
-        const predictions = await model.detect(video, 20, 0.15);
+        const aiInput = getAiInputFrame();
+        const predictions = await model.detect(aiInput, 20, Math.min(0.12, minScore));
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -1329,7 +1679,7 @@
         // Full-frame porcupine check (periodically if porcupine selected and no target yet)
         if (!targetDetected && !humanDetected && activeTargets.includes('porcupine') && classifierModel && frameCounter % 10 === 0) {
           try {
-            const results = await classifierModel.classify(video, 2);
+            const results = await classifierModel.classify(aiInput, 2);
             const pMatch = results.find(r => 
               r.className.toLowerCase().includes('porcupine') || 
               r.className.toLowerCase().includes('hedgehog')
@@ -1385,7 +1735,13 @@
 
       // Send alert to Telegram Bot (if configured & enabled)
       if (window.TelegramBot && TelegramBot.enabled && TelegramBot.isConfigured()) {
-        TelegramBot.sendIntruderAlert(label, score, new Date().toLocaleTimeString());
+        const nightTag = isNightMode ? ' 🌙 [Night Mode]' : '';
+        TelegramBot.sendIntruderAlert(label + nightTag, score, new Date().toLocaleTimeString());
+      }
+
+      // Flashlight / Torch Assist at Night
+      if (isNightMode && torchAssistEnabled) {
+        triggerTorchAssist();
       }
 
       if (activeActivations.length === 0) {
@@ -1441,8 +1797,12 @@
         snapCanvas.height = video.videoHeight;
         const snapCtx = snapCanvas.getContext('2d');
 
-        // 1. Draw raw camera video frame
-        snapCtx.drawImage(video, 0, 0, snapCanvas.width, snapCanvas.height);
+        // 1. Draw camera video frame (enhanced if Night Boost active)
+        if (isNightMode && nightBoostEnabled && nightBoostCanvas.width > 0) {
+          snapCtx.drawImage(nightBoostCanvas, 0, 0, snapCanvas.width, snapCanvas.height);
+        } else {
+          snapCtx.drawImage(video, 0, 0, snapCanvas.width, snapCanvas.height);
+        }
 
         // 2. Draw overlay bounding box annotations
         if (canvas.width > 0 && canvas.height > 0) {
@@ -1453,7 +1813,7 @@
         const now = new Date();
         const dateStr = now.toLocaleString();
         const pct = Math.round(score * 100);
-        const bannerText = `🛡️ AI Yard Guardian | 🎯 ${label.toUpperCase()} (${pct}%) | 🕒 ${dateStr}`;
+        const bannerText = `🛡️ AI Yard Guardian ${isNightMode ? '🌙' : '☀️'} | 🎯 ${label.toUpperCase()} (${pct}%) | 🕒 ${dateStr}`;
 
         const barHeight = Math.max(28, Math.round(snapCanvas.height * 0.055));
         snapCtx.fillStyle = 'rgba(15, 23, 42, 0.85)';
@@ -1605,7 +1965,7 @@
 
 
 
-    const APP_VERSION = 'v5.1';
+    const APP_VERSION = 'v5.2';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -1622,20 +1982,22 @@
     function initTelegramBot() {
       if (!window.TelegramBot) return;
       TelegramBot.init({
-        onCommand: async function (cmd, reply, replyPhoto) {
+        onCommand: async function (cmd, reply, replyPhoto, args) {
           log(`🤖 Received Telegram command: <b>/${cmd}</b>`);
           if (cmd === 'status') {
             const stateStr = isRunning ? "🟢 Armed & Monitoring" : "⚪ Standby";
+            const lightStr = isNightMode ? `🌙 Night (Luma: ${Math.round(currentLuma)}, Sensitivity: ${nightSensitivity}%)` : `☀️ Day (Luma: ${Math.round(currentLuma)}, Sensitivity: ${daySensitivity}%)`;
+            const torchStr = cameraCapabilities.torch ? (isTorchOn ? "🔦 ON" : "⚪ OFF") : "N/A";
             const targetsStr = (activeTargets && activeTargets.length) ? activeTargets.join(', ') : 'None';
             const activationsStr = (activeActivations && activeActivations.length) ? activeActivations.join(', ') : 'None';
-            const confVal = document.getElementById('confVal')?.innerText || '40%';
             reply(
               `🏡 <b>Yard Guardian Status</b>\n\n` +
               `• <b>Version:</b> ${APP_VERSION}\n` +
               `• <b>State:</b> ${stateStr}\n` +
+              `• <b>Lighting:</b> ${lightStr}\n` +
+              `• <b>Torch:</b> ${torchStr}\n` +
               `• <b>Targets:</b> ${targetsStr}\n` +
               `• <b>Activations:</b> ${activationsStr}\n` +
-              `• <b>Sensitivity:</b> ${confVal}\n` +
               `• <b>Clock:</b> ${new Date().toLocaleTimeString()}`
             );
           } else if (cmd === 'spray') {
@@ -1655,6 +2017,23 @@
             } else {
               reply("ℹ️ Guardian is already on standby.");
             }
+          } else if (cmd === 'torch') {
+            if (!cameraCapabilities.torch) {
+              reply("⚠️ Flashlight / torch is not supported on this device/camera.");
+              return;
+            }
+            const arg = (args && args[0]) ? args[0].toLowerCase() : '';
+            if (arg === 'on') {
+              await setTorch(true);
+              reply("🔦 Flashlight turned <b>ON</b>.");
+            } else if (arg === 'off') {
+              await setTorch(false);
+              reply("🔦 Flashlight turned <b>OFF</b>.");
+            } else {
+              const newState = !isTorchOn;
+              await setTorch(newState);
+              reply(`🔦 Flashlight toggled <b>${newState ? 'ON' : 'OFF'}</b>.`);
+            }
           } else if (cmd === 'refresh' || cmd === 'reload' || cmd === 'update') {
             await reply("🔄 <b>Reloading Yard Guardian...</b>\nClearing cache and loading latest version from GitHub Pages.");
             setTimeout(() => {
@@ -1670,10 +2049,14 @@
               snapCanvas.width = video.videoWidth;
               snapCanvas.height = video.videoHeight;
               const sCtx = snapCanvas.getContext('2d');
-              sCtx.drawImage(video, 0, 0);
+              if (isNightMode && nightBoostEnabled && nightBoostCanvas.width > 0) {
+                sCtx.drawImage(nightBoostCanvas, 0, 0);
+              } else {
+                sCtx.drawImage(video, 0, 0);
+              }
               snapCanvas.toBlob(blob => {
                 if (blob) {
-                  replyPhoto(blob, `📸 Snapshot requested via Telegram\n🕒 ${new Date().toLocaleTimeString()}`);
+                  replyPhoto(blob, `📸 Snapshot requested via Telegram (${isNightMode ? '🌙 Night' : '☀️ Day'})\n🕒 ${new Date().toLocaleTimeString()}`);
                 } else {
                   reply("⚠️ Failed to generate snapshot image.");
                 }
