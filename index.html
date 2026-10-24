@@ -339,122 +339,138 @@
       <button id="stealthBtn" class="btn-stealth" onclick="enterStealthMode()" disabled>🌙 Black Screen</button>
     </div>
 
-    <div class="card">
-      <div class="card-title">Detection & Deterrent Settings</div>
+    <div class="card" id="settingsCard" style="padding: 10px 14px;">
+      <!-- Collapsible Settings Header (Compact summary, tap to expand) -->
+      <div class="card-title" onclick="toggleSettingsPanel()" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; margin-bottom: 0;">
+        <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+          <span style="white-space: nowrap;">⚙️ Settings & Targets</span>
+          <span id="settingsSummaryBadge" style="font-size: 0.7rem; font-weight: normal; color: #38bdf8; background: #0f172a; padding: 2px 8px; border-radius: 999px; border: 1px solid #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Loading...</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+          <span id="settingsToggleArrow" style="font-size: 0.8rem; color: #38bdf8; font-weight: bold;">▼</span>
+        </div>
+      </div>
       
-      <!-- Camera Lens Selection (Auto-Discovered & Persisted) -->
-      <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 10px;">
-        <label for="cameraSelect">📷 Active Camera Lens</label>
-        <select id="cameraSelect" class="camera-select" onchange="onCameraChange(this.value)">
-          <option value="">Default Rear Camera</option>
-        </select>
-      </div>
+      <!-- Collapsible Settings Body -->
+      <div id="settingsBody" style="display: none; margin-top: 10px; border-top: 1px solid #334155; padding-top: 10px;">
+        <!-- Camera Lens Selection (Auto-Discovered & Persisted) -->
+        <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 10px;">
+          <label for="cameraSelect">📷 Active Camera Lens</label>
+          <select id="cameraSelect" class="camera-select" onchange="onCameraChange(this.value)">
+            <option value="">Default Rear Camera</option>
+          </select>
+        </div>
 
-      <!-- 1. Multi-select Animal Targets Combo Box -->
-      <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 10px;">
-        <label>🎯 Deterrent Target Animals</label>
-        <div id="targetComboWrapper" class="combo-box-wrapper">
-          <div class="combo-box-btn" onclick="toggleTargetDropdown(event)">
-            <span id="comboSelectedText" style="color: #38bdf8; font-weight: 600;">🐱 Cat, 🐶 Dog, 🐦 Bird</span>
-            <span id="comboArrow">▼</span>
+        <!-- 1. Multi-select Animal Targets Combo Box -->
+        <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 10px;">
+          <label>🎯 Deterrent Target Animals</label>
+          <div id="targetComboWrapper" class="combo-box-wrapper">
+            <div class="combo-box-btn" onclick="toggleTargetDropdown(event)">
+              <span id="comboSelectedText" style="color: #38bdf8; font-weight: 600;">🐱 Cat, 🐶 Dog, 🐦 Bird</span>
+              <span id="comboArrow">▼</span>
+            </div>
+            
+            <div id="targetDropdown" class="combo-dropdown" style="display: none;" onclick="event.stopPropagation()">
+              <label class="combo-item">
+                <input type="checkbox" class="target-checkbox" value="cat" onchange="onTargetSelectionChange()" checked>
+                <span>🐱 Cat</span>
+              </label>
+              <label class="combo-item">
+                <input type="checkbox" class="target-checkbox" value="dog" onchange="onTargetSelectionChange()" checked>
+                <span>🐶 Dog</span>
+              </label>
+              <label class="combo-item">
+                <input type="checkbox" class="target-checkbox" value="bird" onchange="onTargetSelectionChange()" checked>
+                <span>🐦 Bird</span>
+              </label>
+              <label class="combo-item">
+                <input type="checkbox" class="target-checkbox" value="porcupine" onchange="onTargetSelectionChange()">
+                <span>🦔 Porcupine</span>
+              </label>
+              <label class="combo-item">
+                <input type="checkbox" class="target-checkbox" value="sheep" onchange="onTargetSelectionChange()">
+                <span>🦌 Deer / Sheep</span>
+              </label>
+              <label class="combo-item">
+                <input type="checkbox" class="target-checkbox" value="cow" onchange="onTargetSelectionChange()">
+                <span>🐮 Cow / Cattle</span>
+              </label>
+              <label class="combo-item">
+                <input type="checkbox" class="target-checkbox" value="horse" onchange="onTargetSelectionChange()">
+                <span>🐴 Horse</span>
+              </label>
+              <label class="combo-item">
+                <input type="checkbox" class="target-checkbox" value="bear" onchange="onTargetSelectionChange()">
+                <span>🐻 Bear</span>
+              </label>
+              <label class="combo-item">
+                <input type="checkbox" class="target-checkbox" value="teddy bear" onchange="onTargetSelectionChange()">
+                <span>🧸 Toy / Plush Animal</span>
+              </label>
+            </div>
           </div>
-          
-          <div id="targetDropdown" class="combo-dropdown" style="display: none;" onclick="event.stopPropagation()">
-            <label class="combo-item">
-              <input type="checkbox" class="target-checkbox" value="cat" onchange="onTargetSelectionChange()" checked>
-              <span>🐱 Cat</span>
-            </label>
-            <label class="combo-item">
-              <input type="checkbox" class="target-checkbox" value="dog" onchange="onTargetSelectionChange()" checked>
-              <span>🐶 Dog</span>
-            </label>
-            <label class="combo-item">
-              <input type="checkbox" class="target-checkbox" value="bird" onchange="onTargetSelectionChange()" checked>
-              <span>🐦 Bird</span>
-            </label>
-            <label class="combo-item">
-              <input type="checkbox" class="target-checkbox" value="porcupine" onchange="onTargetSelectionChange()">
-              <span>🦔 Porcupine</span>
-            </label>
-            <label class="combo-item">
-              <input type="checkbox" class="target-checkbox" value="sheep" onchange="onTargetSelectionChange()">
-              <span>🦌 Deer / Sheep</span>
-            </label>
-            <label class="combo-item">
-              <input type="checkbox" class="target-checkbox" value="cow" onchange="onTargetSelectionChange()">
-              <span>🐮 Cow / Cattle</span>
-            </label>
-            <label class="combo-item">
-              <input type="checkbox" class="target-checkbox" value="horse" onchange="onTargetSelectionChange()">
-              <span>🐴 Horse</span>
-            </label>
-            <label class="combo-item">
-              <input type="checkbox" class="target-checkbox" value="bear" onchange="onTargetSelectionChange()">
-              <span>🐻 Bear</span>
-            </label>
-            <label class="combo-item">
-              <input type="checkbox" class="target-checkbox" value="teddy bear" onchange="onTargetSelectionChange()">
-              <span>🧸 Toy / Plush Animal</span>
-            </label>
+
+          <div class="cutoff-note">
+            <span>🔒</span>
+            <span><b>Humans are Cutoff only:</b> People automatically pause spraying and cannot be selected as targets.</span>
+          </div>
+        </div>
+
+        <!-- 2. Multi-select Deterrent Activations Combo Box -->
+        <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 10px; border-top: 1px solid #334155; padding-top: 8px;">
+          <label>⚡ Deterrent Activation Actions</label>
+          <div id="activationComboWrapper" class="combo-box-wrapper">
+            <div class="combo-box-btn" onclick="toggleActivationDropdown(event)">
+              <span id="activationSelectedText" style="color: #38bdf8; font-weight: 600;">💦 Sprinklers + 📸 Screenshot</span>
+              <span id="activationArrow">▼</span>
+            </div>
+            
+            <div id="activationDropdown" class="combo-dropdown" style="display: none;" onclick="event.stopPropagation()">
+              <label class="combo-item">
+                <input type="checkbox" class="activation-checkbox" value="sprinklers" onchange="onActivationSelectionChange()" checked>
+                <span>💦 Sprinklers (Smart Life Webhook)</span>
+              </label>
+              <label class="combo-item">
+                <input type="checkbox" class="activation-checkbox" value="screenshot" onchange="onActivationSelectionChange()" checked>
+                <span>📸 Save Screenshot (Incident Capture)</span>
+              </label>
+              <label class="combo-item">
+                <input type="checkbox" class="activation-checkbox" value="siren" onchange="onActivationSelectionChange()">
+                <span>🔊 Phone Siren / Audio Alarm</span>
+              </label>
+              <label class="combo-item">
+                <input type="checkbox" class="activation-checkbox" value="strobe" onchange="onActivationSelectionChange()">
+                <span>⚡ Screen Strobe Alert</span>
+              </label>
+            </div>
           </div>
         </div>
 
-        <div class="cutoff-note">
-          <span>🔒</span>
-          <span><b>Humans are Cutoff only:</b> People automatically pause spraying and cannot be selected as targets.</span>
+        <!-- Sensitivity Slider -->
+        <div class="setting-row">
+          <label for="confRange">Sensitivity Threshold: <b id="confVal" style="color:#38bdf8;">40%</b></label>
+          <input type="range" id="confRange" min="20" max="85" value="40" oninput="updateSensitivity(this.value)">
         </div>
-      </div>
 
-      <!-- 2. Multi-select Deterrent Activations Combo Box -->
-      <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 10px; border-top: 1px solid #334155; padding-top: 8px;">
-        <label>⚡ Deterrent Activation Actions</label>
-        <div id="activationComboWrapper" class="combo-box-wrapper">
-          <div class="combo-box-btn" onclick="toggleActivationDropdown(event)">
-            <span id="activationSelectedText" style="color: #38bdf8; font-weight: 600;">💦 Sprinklers + 📸 Screenshot</span>
-            <span id="activationArrow">▼</span>
+        <!-- Safety Cutoff Toggle -->
+        <div class="setting-row">
+          <label class="toggle">
+            <input type="checkbox" id="humanSafetyToggle" checked onchange="saveSettings()"> Human Safety Cutoff (Pause if person seen)
+          </label>
+        </div>
+
+        <!-- Webhook URL Configuration -->
+        <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 4px;">
+          <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+            <label for="webhookInput">Smart Life Webhook URL</label>
+            <button type="button" class="btn-help" onclick="openHelpModal()">❓ Setup Guide</button>
           </div>
-          
-          <div id="activationDropdown" class="combo-dropdown" style="display: none;" onclick="event.stopPropagation()">
-            <label class="combo-item">
-              <input type="checkbox" class="activation-checkbox" value="sprinklers" onchange="onActivationSelectionChange()" checked>
-              <span>💦 Sprinklers (Smart Life Webhook)</span>
-            </label>
-            <label class="combo-item">
-              <input type="checkbox" class="activation-checkbox" value="screenshot" onchange="onActivationSelectionChange()" checked>
-              <span>📸 Save Screenshot (Incident Capture)</span>
-            </label>
-            <label class="combo-item">
-              <input type="checkbox" class="activation-checkbox" value="siren" onchange="onActivationSelectionChange()">
-              <span>🔊 Phone Siren / Audio Alarm</span>
-            </label>
-            <label class="combo-item">
-              <input type="checkbox" class="activation-checkbox" value="strobe" onchange="onActivationSelectionChange()">
-              <span>⚡ Screen Strobe Alert</span>
-            </label>
-          </div>
+          <input type="text" id="webhookInput" placeholder="https://sequematic.com/trigger-ifttt-webhook/YOUR_USER_ID/YOUR_SEQ_ID/cat_detected" onchange="saveSettings()" oninput="saveSettings()">
         </div>
-      </div>
 
-      <!-- Sensitivity Slider -->
-      <div class="setting-row">
-        <label for="confRange">Sensitivity Threshold: <b id="confVal" style="color:#38bdf8;">40%</b></label>
-        <input type="range" id="confRange" min="20" max="85" value="40" oninput="updateSensitivity(this.value)">
-      </div>
-
-      <!-- Safety Cutoff Toggle -->
-      <div class="setting-row">
-        <label class="toggle">
-          <input type="checkbox" id="humanSafetyToggle" checked onchange="saveSettings()"> Human Safety Cutoff (Pause if person seen)
-        </label>
-      </div>
-
-      <!-- Webhook URL Configuration -->
-      <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 4px;">
-        <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
-          <label for="webhookInput">Smart Life Webhook URL</label>
-          <button type="button" class="btn-help" onclick="openHelpModal()">❓ Setup Guide</button>
+        <div style="text-align: center; margin-top: 12px;">
+          <button type="button" class="btn-stealth" style="padding: 4px 14px; font-size: 0.75rem;" onclick="toggleSettingsPanel()">▲ Collapse Settings</button>
         </div>
-        <input type="text" id="webhookInput" placeholder="https://sequematic.com/trigger-ifttt-webhook/YOUR_USER_ID/YOUR_SEQ_ID/cat_detected" onchange="saveSettings()" oninput="saveSettings()">
       </div>
     </div>
 
@@ -589,12 +605,46 @@
       }
     });
 
+    let isSettingsExpanded = false;
+
+    function toggleSettingsPanel() {
+      const body = document.getElementById('settingsBody');
+      const arrow = document.getElementById('settingsToggleArrow');
+      if (!body) return;
+
+      isSettingsExpanded = !isSettingsExpanded;
+      body.style.display = isSettingsExpanded ? 'block' : 'none';
+      if (arrow) arrow.innerText = isSettingsExpanded ? '▲' : '▼';
+      localStorage.setItem('yard_guardian_settings_expanded', isSettingsExpanded ? '1' : '0');
+    }
+
+    function updateSettingsSummary() {
+      const badge = document.getElementById('settingsSummaryBadge');
+      if (!badge) return;
+
+      const count = activeTargets.length;
+      let targetLabel = count === 0 ? "No targets" : (count === 1 ? (TARGET_DISPLAY[activeTargets[0]] || '1 target') : `${count} targets`);
+
+      const actIcons = activeActivations.map(a => {
+        if (a === 'sprinklers') return '💦';
+        if (a === 'screenshot') return '📸';
+        if (a === 'siren') return '🔊';
+        if (a === 'strobe') return '⚡';
+        return a;
+      });
+      const actStr = actIcons.length > 0 ? actIcons.join('') : 'none';
+      const conf = document.getElementById('confRange') ? `${document.getElementById('confRange').value}%` : '40%';
+
+      badge.innerText = `${targetLabel} • ${actStr} • ${conf}`;
+    }
+
     // Handle Targets Selection
     function onTargetSelectionChange() {
       const selected = [];
       document.querySelectorAll('.target-checkbox:checked').forEach(cb => selected.push(cb.value));
       activeTargets = selected;
       updateComboText();
+      updateSettingsSummary();
       saveSettings();
     }
 
@@ -615,6 +665,7 @@
       document.querySelectorAll('.activation-checkbox:checked').forEach(cb => selected.push(cb.value));
       activeActivations = selected;
       updateActivationComboText();
+      updateSettingsSummary();
       saveSettings();
     }
 
@@ -682,11 +733,22 @@
           cb.checked = activeActivations.includes(cb.value);
         });
         updateActivationComboText();
+
+        // Restore collapse/expand state (default to collapsed to save maximum screen space)
+        const savedExpanded = localStorage.getItem('yard_guardian_settings_expanded');
+        isSettingsExpanded = savedExpanded === '1';
+        const sBody = document.getElementById('settingsBody');
+        const sArrow = document.getElementById('settingsToggleArrow');
+        if (sBody) sBody.style.display = isSettingsExpanded ? 'block' : 'none';
+        if (sArrow) sArrow.innerText = isSettingsExpanded ? '▲' : '▼';
+
+        updateSettingsSummary();
       } catch (e) {}
     }
 
     function updateSensitivity(val) {
       document.getElementById('confVal').innerText = val + '%';
+      updateSettingsSummary();
       saveSettings();
     }
 
