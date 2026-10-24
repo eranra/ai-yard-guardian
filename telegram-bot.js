@@ -21,7 +21,7 @@
     keyboard: [
       [{ text: '📸 Snapshot' }, { text: '💦 Spray Test' }],
       [{ text: '🛡️ Arm' }, { text: '⏸️ Disarm' }, { text: '🔦 Torch' }],
-      [{ text: '🌙 Screen' }, { text: '🔄 Rotate' }, { text: '📊 Status' }, { text: '⚙️ Config' }]
+      [{ text: '🌙 Screen' }, { text: '📊 Status' }, { text: '⚙️ Config' }, { text: '🔄 Refresh' }]
     ],
     resize_keyboard: true,
     is_persistent: true
@@ -266,7 +266,7 @@
         firstWord = '/torch';
       } else if (lowerFull.includes('screen') || lowerFull.includes('stealth') || lowerFull.includes('🌙 screen')) {
         firstWord = '/screen';
-      } else if (lowerFull.includes('rotate') || lowerFull.includes('orientation') || lowerFull.includes('🔄 rotate')) {
+      } else if (lowerFull.includes('rotate') || lowerFull.includes('orientation')) {
         firstWord = '/rotate';
       } else if (lowerFull.includes('status') || lowerFull.includes('📊')) {
         firstWord = '/status';

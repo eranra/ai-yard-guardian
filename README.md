@@ -13,7 +13,7 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
   - 🔘 **Interactive Touch Buttons:** Persistent custom reply keyboard at the bottom of your chat:
     - `[ 📸 Snapshot ]` `[ 💦 Spray Test ]`
     - `[ 🛡️ Arm ]` `[ ⏸️ Disarm ]` `[ 🔦 Torch ]`
-    - `[ 🌙 Screen ]` `[ 🔄 Rotate ]` `[ 📊 Status ]` `[ ⚙️ Config ]`
+    - `[ 🌙 Screen ]` `[ 📊 Status ]` `[ ⚙️ Config ]` `[ 🔄 Refresh ]`
   - 🚨 **Instant Intruder Alerts:** Immediate push notifications whenever a target animal is detected.
   - 📸 **Detection Snapshots:** Automatically delivers an upright photo of the intruder directly to your chat.
   - ⚙️ **Full Remote Configuration Management:**
