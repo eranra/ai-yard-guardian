@@ -1413,7 +1413,7 @@
 
     function onNightBoostLevelChange(val) {
       const p = parseInt(val);
-      if (!isNaN(p) && p >= 1 && p <= 5) {
+      if (!isNaN(p) && p >= 1 && p <= 6) {
         nightBoostLevel = p;
         const bSel = document.getElementById('nightBoostLevelSelect');
         if (bSel) bSel.value = p.toString();
