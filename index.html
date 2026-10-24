@@ -17,6 +17,9 @@
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 
+  <!-- Telegram Bot Alert & Remote Integration -->
+  <script src="telegram-bot.js?v=4.4"></script>
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: #0f172a; color: #f8fafc; display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; }
@@ -323,6 +326,56 @@
     </div>
   </div>
 
+  <!-- Telegram Bot Setup Guide Modal -->
+  <div id="telegramHelpModal" class="modal-overlay" onclick="closeTelegramHelpModalOnBackdrop(event)">
+    <div class="modal-content" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3>🤖 Telegram Bot Setup (Free &amp; Zero-Pairing)</h3>
+        <button class="close-btn" onclick="closeTelegramHelpModal()">✕</button>
+      </div>
+      <p style="font-size: 0.82rem; color: #cbd5e1; margin-bottom: 12px; line-height: 1.4;">
+        Get instant intruder alerts and photo snapshots sent straight to your phone over Telegram, with <b>zero Wi-Fi pairing or NAT issues</b>!
+      </p>
+
+      <div class="step-box">
+        <span class="step-badge">1. CREATE YOUR FREE BOT</span>
+        <ol style="margin-left:18px; margin-top:6px; font-size:0.8rem; color:#cbd5e1; display:flex; flex-direction:column; gap:6px;">
+          <li>Open Telegram and search for <b><a href="https://t.me/BotFather" target="_blank" style="color:#38bdf8;">@BotFather</a></b>.</li>
+          <li>Send <code style="color:#38bdf8;">/newbot</code> and follow instructions to name your bot.</li>
+          <li>Copy the <b>HTTP API Token</b> (looks like <code style="color:#38bdf8;">7123456789:AAF...</code>).</li>
+        </ol>
+      </div>
+
+      <div class="step-box" style="margin-top: 10px;">
+        <span class="step-badge">2. GET YOUR CHAT ID</span>
+        <ol style="margin-left:18px; margin-top:6px; font-size:0.8rem; color:#cbd5e1; display:flex; flex-direction:column; gap:6px;">
+          <li>Search Telegram for <b><a href="https://t.me/userinfobot" target="_blank" style="color:#38bdf8;">@userinfobot</a></b> and click Start.</li>
+          <li>Copy your numeric <b>Id</b> (e.g. <code style="color:#38bdf8;">123456789</code>).</li>
+          <li><b>Important:</b> Search for your new bot and click <b>Start</b> so it can message you!</li>
+        </ol>
+      </div>
+
+      <div class="step-box" style="margin-top: 10px;">
+        <span class="step-badge">3. REMOTE COMMANDS</span>
+        <p style="font-size: 0.78rem; color: #94a3b8; margin-top: 4px;">
+          When active, send these commands to your bot anytime:
+        </p>
+        <div style="font-size: 0.76rem; font-family: monospace; color: #38bdf8; margin-top: 4px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+          <span>/snap - Take photo</span>
+          <span>/spray - Test deterrent</span>
+          <span>/status - Check health</span>
+          <span>/arm - Arm guardian</span>
+          <span>/disarm - Standby</span>
+          <span>/help - Show all</span>
+        </div>
+      </div>
+
+      <div style="text-align: right; margin-top: 14px;">
+        <button class="btn-primary" style="padding: 8px 18px; font-size: 0.85rem;" onclick="closeTelegramHelpModal()">Got it!</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Pairing & Dual-Mode Modal -->
   <div id="pairingModal" class="modal-overlay" onclick="closePairingModalOnBackdrop(event)">
     <div class="modal-content" style="max-width: 440px;">
@@ -333,8 +386,23 @@
 
       <!-- Version Indicator & Force Refresh Helper -->
       <div style="font-size: 0.72rem; color: #94a3b8; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: #0f172a; padding: 5px 10px; border-radius: 6px; border: 1px solid #334155;">
-        <span>App Version: <b style="color: #38bdf8;">v4.3</b></span>
+        <span>App Version: <b style="color: #38bdf8;">v4.4</b></span>
         <button type="button" class="btn-stealth" style="padding: 2px 8px; font-size: 0.68rem;" onclick="forceAppRefresh()">🔄 Force Refresh App</button>
+      </div>
+
+      <!-- Telegram Zero-Pairing Option Banner -->
+      <div style="background: linear-gradient(135deg, #0c4a6e 0%, #0369a1 100%); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #0284c7; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <div style="min-width: 0;">
+          <div style="font-size: 0.78rem; font-weight: 700; color: #f0f9ff; display: flex; align-items: center; gap: 5px;">
+            <span>🤖 Zero-Pairing Alternative</span>
+          </div>
+          <div style="font-size: 0.7rem; color: #bae6fd; line-height: 1.2; margin-top: 2px;">
+            Receive alerts &amp; snapshots anywhere over Telegram (No Wi-Fi handshake needed!)
+          </div>
+        </div>
+        <button type="button" class="btn-primary" style="padding: 4px 10px; font-size: 0.72rem; white-space: nowrap; background: #0284c7;" onclick="closePairingModal(); toggleSettingsPanel(true); scrollToTelegramSettings();">
+          Configure
+        </button>
       </div>
 
       <!-- Mode Selector Tabs -->
@@ -471,6 +539,17 @@
             </div>
           </details>
         </div>
+
+        <!-- Paired Cameras Registry & Management -->
+        <div style="margin-top: 14px; background: #0f172a; border-radius: 8px; padding: 10px; border: 1px solid #334155; text-align: left;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 0.78rem; color: #38bdf8; font-weight: 700;">📹 Paired Cameras (<span id="pairedCamerasCount">0</span>)</span>
+            <button type="button" class="btn-stealth" style="padding: 2px 8px; font-size: 0.7rem;" onclick="addNewGuardianPrompt()">➕ Add New</button>
+          </div>
+          <div id="pairedCamerasListContainer" style="display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto;">
+            <!-- Dynamically populated by renderPairedCamerasRegistry() -->
+          </div>
+        </div>
       </div>
 
       <!-- Fullscreen QR Scanner Overlay -->
@@ -507,7 +586,7 @@
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span id="appModeBadge" onclick="openPairingModal()" title="Tap to switch mode / pair" style="cursor: pointer; background: #0284c7; color: white; padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase;">🛡️ GUARDIAN</span>
       <span>Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v4.3 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v4.4 🔄</span>
     </div>
     <div style="display: flex; align-items: center; gap: 8px;">
       <button id="btnOpenPairing" onclick="openPairingModal()" type="button" style="padding: 4px 10px; font-size: 0.74rem; background: #334155; color: #f8fafc; border-radius: 999px; border: 1px solid #475569; display: flex; align-items: center; gap: 5px; cursor: pointer;">
@@ -533,12 +612,13 @@
   <div id="guardianSelectorBanner" style="display: none; background: #1e293b; border-bottom: 1px solid #334155; padding: 6px 12px; align-items: center; justify-content: space-between;">
     <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
       <span style="font-size: 0.74rem; color: #94a3b8; font-weight: 600; white-space: nowrap;">📹 CAMERA:</span>
-      <select id="guardianSelect" onchange="onGuardianSelectChange(this.value)" style="background: #0f172a; color: #38bdf8; border: 1px solid #475569; border-radius: 6px; padding: 3px 8px; font-size: 0.78rem; font-weight: 600; outline: none; cursor: pointer; max-width: 190px; text-overflow: ellipsis;">
+      <select id="guardianSelect" onchange="onGuardianSelectChange(this.value)" style="background: #0f172a; color: #38bdf8; border: 1px solid #475569; border-radius: 6px; padding: 3px 8px; font-size: 0.78rem; font-weight: 600; outline: none; cursor: pointer; max-width: 170px; text-overflow: ellipsis;">
         <option value="">Garden Camera 1</option>
       </select>
     </div>
-    <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+    <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
       <button type="button" class="btn-stealth" style="padding: 2px 7px; font-size: 0.7rem;" onclick="renameActiveGuardian()" title="Rename this camera">✏️ Rename</button>
+      <button type="button" class="btn-stealth" style="padding: 2px 7px; font-size: 0.7rem; color: #f87171; border-color: #7f1d1d;" onclick="unpairActiveGuardian()" title="Unpair / delete this camera">🗑️ Unpair</button>
       <button type="button" class="btn-stealth" style="padding: 2px 7px; font-size: 0.7rem;" onclick="addNewGuardianPrompt()" title="Add another camera">➕ Add</button>
     </div>
   </div>
@@ -678,6 +758,43 @@
           <input type="text" id="webhookInput" placeholder="https://sequematic.com/trigger-ifttt-webhook/YOUR_USER_ID/YOUR_SEQ_ID/cat_detected" onchange="saveSettings()" oninput="saveSettings()">
         </div>
 
+        <!-- Telegram Bot Configuration -->
+        <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 10px; background: #0f172a; padding: 10px; border-radius: 8px; border: 1px solid #334155; width: 100%;" id="telegramSettingsSection">
+          <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+              <span>🤖 Telegram Bot Alerts &amp; Remote</span>
+            </div>
+            <button type="button" class="btn-help" onclick="openTelegramHelpModal()">❓ Bot Guide</button>
+          </div>
+          <p style="font-size: 0.74rem; color: #94a3b8; line-height: 1.3;">
+            Get instant intruder alerts and photo snapshots sent straight to Telegram. Works anywhere on cellular/Wi-Fi without pairing.
+          </p>
+
+          <div style="width: 100%; display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
+            <label class="toggle" style="font-size: 0.78rem;">
+              <input type="checkbox" id="tgAlertsToggle" onchange="saveTelegramSettings()"> Enable Telegram Intruder Alerts &amp; Photos
+            </label>
+            <label class="toggle" style="font-size: 0.78rem;">
+              <input type="checkbox" id="tgRemoteToggle" checked onchange="saveTelegramSettings()"> Enable Two-Way Remote Control (/snap, /spray, /status)
+            </label>
+
+            <div style="margin-top: 4px;">
+              <label for="tgTokenInput" style="font-size: 0.74rem; color: #cbd5e1; display: block; margin-bottom: 2px;">Bot Token (from @BotFather):</label>
+              <input type="password" id="tgTokenInput" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" onchange="saveTelegramSettings()" oninput="saveTelegramSettings()" style="font-size: 0.75rem;">
+            </div>
+
+            <div style="margin-top: 2px;">
+              <label for="tgChatIdInput" style="font-size: 0.74rem; color: #cbd5e1; display: block; margin-bottom: 2px;">Your Chat ID (from @userinfobot):</label>
+              <input type="text" id="tgChatIdInput" placeholder="123456789" onchange="saveTelegramSettings()" oninput="saveTelegramSettings()" style="font-size: 0.75rem;">
+            </div>
+
+            <div style="display: flex; gap: 8px; align-items: center; margin-top: 6px;">
+              <button type="button" class="btn-primary" style="padding: 6px 14px; font-size: 0.76rem;" onclick="testTelegramBotConnection()">📤 Test Message</button>
+              <span id="tgTestStatus" style="font-size: 0.74rem; color: #94a3b8;"></span>
+            </div>
+          </div>
+        </div>
+
         <div style="text-align: center; margin-top: 12px;">
           <button type="button" class="btn-stealth" style="padding: 4px 14px; font-size: 0.75rem;" onclick="toggleSettingsPanel()">▲ Collapse Settings</button>
         </div>
@@ -746,7 +863,7 @@
   </div>
 
   <!-- Serverless Local Wi-Fi Peer-to-Peer Sync Module -->
-  <script src="remote-sync.js?v=4.3"></script>
+  <script src="remote-sync.js?v=4.4"></script>
 
   <script>
     const video = document.getElementById('webcam');
@@ -988,7 +1105,68 @@
         const lArrow = document.getElementById('logToggleArrow');
         if (lBody) lBody.style.display = isLogExpanded ? 'block' : 'none';
         if (lArrow) lArrow.innerText = isLogExpanded ? '▲' : '▼';
+
+        // Load Telegram Bot Settings
+        if (window.TelegramBot) {
+          const tgCreds = TelegramBot.getCredentials();
+          const tToken = document.getElementById('tgTokenInput');
+          const tChat = document.getElementById('tgChatIdInput');
+          const tAlerts = document.getElementById('tgAlertsToggle');
+          const tRemote = document.getElementById('tgRemoteToggle');
+          if (tToken) tToken.value = tgCreds.token || '';
+          if (tChat) tChat.value = tgCreds.chatId || '';
+          if (tAlerts) tAlerts.checked = tgCreds.enabled;
+          if (tRemote) tRemote.checked = tgCreds.remoteControlEnabled;
+        }
       } catch (e) {}
+    }
+
+    function saveTelegramSettings() {
+      if (!window.TelegramBot) return;
+      const token = (document.getElementById('tgTokenInput')?.value || '').trim();
+      const chatId = (document.getElementById('tgChatIdInput')?.value || '').trim();
+      const enabled = document.getElementById('tgAlertsToggle')?.checked || false;
+      const remoteEnabled = document.getElementById('tgRemoteToggle')?.checked !== false;
+
+      TelegramBot.saveCredentials(token, chatId, enabled, remoteEnabled);
+
+      if (isRunning && enabled && remoteEnabled) {
+        TelegramBot.startPolling();
+      } else {
+        TelegramBot.stopPolling();
+      }
+    }
+
+    async function testTelegramBotConnection() {
+      if (!window.TelegramBot) return;
+      saveTelegramSettings();
+      const statusEl = document.getElementById('tgTestStatus');
+      if (statusEl) {
+        statusEl.innerText = "⏳ Testing...";
+        statusEl.style.color = "#38bdf8";
+      }
+      try {
+        const res = await TelegramBot.testConnection();
+        if (res.ok) {
+          if (statusEl) {
+            statusEl.innerText = `✅ Sent to @${res.botName}!`;
+            statusEl.style.color = "#22c55e";
+          }
+          log(`🤖 Telegram Bot test successful: Connected to <b>@${res.botName}</b>!`);
+        } else {
+          if (statusEl) {
+            statusEl.innerText = `❌ Error: ${res.error}`;
+            statusEl.style.color = "#ef4444";
+          }
+          log(`⚠️ Telegram Bot test failed: ${res.error}`);
+        }
+      } catch (err) {
+        if (statusEl) {
+          statusEl.innerText = `❌ ${err.message}`;
+          statusEl.style.color = "#ef4444";
+        }
+        log(`⚠️ Telegram Bot error: ${err.message}`);
+      }
     }
 
     function updateSensitivity(val) {
@@ -1004,6 +1182,18 @@
     function openHelpModal() { helpModal.style.display = 'flex'; }
     function closeHelpModal() { helpModal.style.display = 'none'; }
     function closeModalOnBackdrop(e) { if (e.target === helpModal) closeHelpModal(); }
+
+    const telegramHelpModal = document.getElementById('telegramHelpModal');
+    function openTelegramHelpModal() { if (telegramHelpModal) telegramHelpModal.style.display = 'flex'; }
+    function closeTelegramHelpModal() { if (telegramHelpModal) telegramHelpModal.style.display = 'none'; }
+    function closeTelegramHelpModalOnBackdrop(e) { if (e.target === telegramHelpModal) closeTelegramHelpModal(); }
+
+    function scrollToTelegramSettings() {
+      setTimeout(() => {
+        const sec = document.getElementById('telegramSettingsSection');
+        if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 120);
+    }
 
     let isLogExpanded = false;
 
@@ -1311,9 +1501,17 @@
         statusBadge.innerText = "Armed";
         statusBadge.className = "badge armed";
         log("🛡️ Guardian Armed and Monitoring!");
+
+        if (window.TelegramBot && TelegramBot.enabled && TelegramBot.isConfigured() && TelegramBot.remoteControlEnabled) {
+          TelegramBot.startPolling();
+        }
+
         detectFrame();
       } else {
         isRunning = false;
+        if (window.TelegramBot) {
+          TelegramBot.stopPolling();
+        }
         if (wakeLock) wakeLock.release().then(() => wakeLock = null);
         if (currentStream) {
           currentStream.getTracks().forEach(track => track.stop());
@@ -1440,6 +1638,11 @@
           score: score,
           time: new Date().toLocaleTimeString()
         });
+      }
+
+      // Send alert to Telegram Bot (if configured & enabled)
+      if (window.TelegramBot && TelegramBot.enabled && TelegramBot.isConfigured()) {
+        TelegramBot.sendIntruderAlert(label, score, new Date().toLocaleTimeString());
       }
 
       if (activeActivations.length === 0) {
@@ -1570,6 +1773,19 @@
           });
         }
 
+        // Send photo to Telegram Bot (if configured & enabled)
+        if (window.TelegramBot && TelegramBot.enabled && TelegramBot.isConfigured()) {
+          try {
+            snapCanvas.toBlob((blob) => {
+              if (blob) {
+                TelegramBot.sendPhotoBlob(blob, `🎯 Intruder Alert: ${label.toUpperCase()} (${pct}% confidence)\n🕒 ${dateStr}`);
+              }
+            }, 'image/jpeg', 0.85);
+          } catch (tgErr) {
+            console.error("Telegram sendPhoto error:", tgErr);
+          }
+        }
+
         log(`📸 <b>Screenshot captured & saved:</b> ${filename}`);
       } catch (err) {
         log(`⚠️ Screenshot error: ${err.message}`);
@@ -1674,6 +1890,9 @@
       const modal = document.getElementById('pairingModal');
       if (modal) modal.style.display = 'flex';
       updatePairingModalStatus();
+      if (currentAppMode === 'viewer') {
+        renderPairedCamerasRegistry();
+      }
     }
 
     function closePairingModal() {
@@ -1708,6 +1927,7 @@
         if (btnV) { btnV.style.background = '#8b5cf6'; btnV.style.color = 'white'; }
         if (viewG) viewG.style.display = 'none';
         if (viewV) viewV.style.display = 'block';
+        renderPairedCamerasRegistry();
       }
 
       applyAppModeUI();
@@ -1994,6 +2214,7 @@
           });
           RemoteSync.guardianStore.setActiveId(newId);
           renderGuardianSelector();
+          renderPairedCamerasRegistry();
         }
       }, (err) => {
         log("❌ Viewer answer error: " + err.message);
@@ -2086,7 +2307,7 @@
           });
         } catch (e) {}
       }
-      window.location.href = window.location.origin + window.location.pathname + '?v=4.3&nocache=' + Date.now();
+      window.location.href = window.location.origin + window.location.pathname + '?v=4.4&nocache=' + Date.now();
     }
 
     // Multi-Guardian Selector Management
@@ -2141,8 +2362,131 @@
       if (newName && newName.trim()) {
         RemoteSync.guardianStore.renameGuardian(active.id, newName.trim());
         renderGuardianSelector();
+        renderPairedCamerasRegistry();
         log(`✏️ Renamed camera to: <b>${newName.trim()}</b>`);
       }
+    }
+
+    function unpairActiveGuardian() {
+      if (!window.RemoteSync || !RemoteSync.guardianStore) return;
+      const active = RemoteSync.guardianStore.getActiveGuardian();
+      if (!active) {
+        alert("No camera selected to unpair.");
+        return;
+      }
+      unpairGuardianById(active.id, active.name);
+    }
+
+    function unpairGuardianById(id, name) {
+      if (!window.RemoteSync || !RemoteSync.guardianStore) return;
+      const targetName = name || 'this camera';
+      if (!confirm(`Are you sure you want to unpair and remove "${targetName}"?`)) {
+        return;
+      }
+      const wasActive = (RemoteSync.guardianStore.getActiveId() === id);
+      if (wasActive && RemoteSync.isConnected) {
+        RemoteSync.closeConnection();
+      }
+      RemoteSync.guardianStore.removeGuardian(id);
+      renderGuardianSelector();
+      renderPairedCamerasRegistry();
+      applyAppModeUI();
+      log(`🗑️ Removed camera: <b>${targetName}</b>`);
+    }
+
+    function renameGuardianById(id, currentName) {
+      if (!window.RemoteSync || !RemoteSync.guardianStore) return;
+      const newName = prompt(`Rename camera '${currentName}':`, currentName);
+      if (newName && newName.trim()) {
+        RemoteSync.guardianStore.renameGuardian(id, newName.trim());
+        renderGuardianSelector();
+        renderPairedCamerasRegistry();
+        log(`✏️ Renamed camera to: <b>${newName.trim()}</b>`);
+      }
+    }
+
+    function switchActiveGuardian(id) {
+      if (!window.RemoteSync || !RemoteSync.guardianStore) return;
+      RemoteSync.guardianStore.setActiveId(id);
+      renderGuardianSelector();
+      renderPairedCamerasRegistry();
+      const active = RemoteSync.guardianStore.getActiveGuardian();
+      log(`📹 Switched to camera: <b>${active ? active.name : id}</b>`);
+      if (RemoteSync.isConnected) {
+        RemoteSync.closeConnection();
+        applyAppModeUI();
+      }
+    }
+
+    function renderPairedCamerasRegistry() {
+      const container = document.getElementById('pairedCamerasListContainer');
+      const countBadge = document.getElementById('pairedCamerasCount');
+      if (!container || !window.RemoteSync || !RemoteSync.guardianStore) return;
+
+      const list = RemoteSync.guardianStore.getGuardians();
+      const activeId = RemoteSync.guardianStore.getActiveId();
+      if (countBadge) countBadge.innerText = list.length;
+
+      if (list.length === 0) {
+        container.innerHTML = '<div style="font-size: 0.74rem; color: #94a3b8; text-align: center; padding: 10px;">No paired cameras yet. Connect one using the code box above.</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      list.forEach(g => {
+        const isActive = (g.id === activeId);
+        const row = document.createElement('div');
+        row.style.cssText = `display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 6px; background: ${isActive ? '#1e293b' : '#0b1120'}; border: 1px solid ${isActive ? '#38bdf8' : '#334155'};`;
+        
+        const infoCol = document.createElement('div');
+        infoCol.style.cssText = 'min-width: 0; flex: 1; display: flex; align-items: center; gap: 6px; cursor: pointer;';
+        infoCol.onclick = () => switchActiveGuardian(g.id);
+        
+        const dot = document.createElement('span');
+        dot.style.cssText = `width: 7px; height: 7px; border-radius: 50%; background: ${isActive ? (RemoteSync.isConnected ? '#22c55e' : '#38bdf8') : '#64748b'}; flex-shrink: 0;`;
+        
+        const nameSpan = document.createElement('span');
+        nameSpan.style.cssText = `font-size: 0.78rem; font-weight: ${isActive ? '700' : '500'}; color: ${isActive ? '#38bdf8' : '#cbd5e1'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;`;
+        nameSpan.innerText = g.name + (isActive ? ' (Active)' : '');
+        
+        infoCol.appendChild(dot);
+        infoCol.appendChild(nameSpan);
+
+        const actionsCol = document.createElement('div');
+        actionsCol.style.cssText = 'display: flex; align-items: center; gap: 4px; flex-shrink: 0;';
+
+        if (!isActive) {
+          const switchBtn = document.createElement('button');
+          switchBtn.type = 'button';
+          switchBtn.className = 'btn-stealth';
+          switchBtn.style.cssText = 'padding: 2px 6px; font-size: 0.68rem;';
+          switchBtn.innerText = 'Switch';
+          switchBtn.onclick = () => switchActiveGuardian(g.id);
+          actionsCol.appendChild(switchBtn);
+        }
+
+        const renameBtn = document.createElement('button');
+        renameBtn.type = 'button';
+        renameBtn.className = 'btn-stealth';
+        renameBtn.style.cssText = 'padding: 2px 6px; font-size: 0.68rem;';
+        renameBtn.innerText = '✏️';
+        renameBtn.title = 'Rename camera';
+        renameBtn.onclick = () => renameGuardianById(g.id, g.name);
+        actionsCol.appendChild(renameBtn);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'btn-stealth';
+        deleteBtn.style.cssText = 'padding: 2px 6px; font-size: 0.68rem; color: #f87171; border-color: #7f1d1d;';
+        deleteBtn.innerText = '🗑️';
+        deleteBtn.title = 'Unpair / Delete camera';
+        deleteBtn.onclick = () => unpairGuardianById(g.id, g.name);
+        actionsCol.appendChild(deleteBtn);
+
+        row.appendChild(infoCol);
+        row.appendChild(actionsCol);
+        container.appendChild(row);
+      });
     }
 
     function addNewGuardianPrompt() {
@@ -2396,9 +2740,73 @@
       switchAppMode(initialMode || 'guardian');
     }
 
+    // Wire TelegramBot Handlers
+    function initTelegramBot() {
+      if (!window.TelegramBot) return;
+      TelegramBot.init({
+        onCommand: async function (cmd, reply, replyPhoto) {
+          log(`🤖 Received Telegram command: <b>/${cmd}</b>`);
+          if (cmd === 'status') {
+            const stateStr = isRunning ? "🟢 Armed & Monitoring" : "⚪ Standby";
+            const targetsStr = (activeTargets && activeTargets.length) ? activeTargets.join(', ') : 'None';
+            const activationsStr = (activeActivations && activeActivations.length) ? activeActivations.join(', ') : 'None';
+            const confVal = document.getElementById('confVal')?.innerText || '40%';
+            reply(
+              `🏡 <b>Yard Guardian Status</b>\n\n` +
+              `• <b>State:</b> ${stateStr}\n` +
+              `• <b>App Mode:</b> ${currentAppMode}\n` +
+              `• <b>Targets:</b> ${targetsStr}\n` +
+              `• <b>Activations:</b> ${activationsStr}\n` +
+              `• <b>Sensitivity:</b> ${confVal}\n` +
+              `• <b>Clock:</b> ${new Date().toLocaleTimeString()}`
+            );
+          } else if (cmd === 'spray') {
+            manualWaterSpray();
+            reply("⚡ Deterrent activation triggered!");
+          } else if (cmd === 'arm') {
+            if (!isRunning) {
+              await toggleGuardian();
+              reply("🛡️ Guardian Armed and Monitoring!");
+            } else {
+              reply("ℹ️ Guardian is already armed.");
+            }
+          } else if (cmd === 'disarm') {
+            if (isRunning) {
+              await toggleGuardian();
+              reply("⏸️ Guardian paused (Standby).");
+            } else {
+              reply("ℹ️ Guardian is already on standby.");
+            }
+          } else if (cmd === 'snap' || cmd === 'photo') {
+            if (!video || !video.videoWidth) {
+              reply("⚠️ Camera is not currently active. Make sure Guardian is armed.");
+              return;
+            }
+            try {
+              const snapCanvas = document.createElement('canvas');
+              snapCanvas.width = video.videoWidth;
+              snapCanvas.height = video.videoHeight;
+              const sCtx = snapCanvas.getContext('2d');
+              sCtx.drawImage(video, 0, 0);
+              snapCanvas.toBlob(blob => {
+                if (blob) {
+                  replyPhoto(blob, `📸 Snapshot requested via Telegram\n🕒 ${new Date().toLocaleTimeString()}`);
+                } else {
+                  reply("⚠️ Failed to generate snapshot image.");
+                }
+              }, 'image/jpeg', 0.85);
+            } catch (err) {
+              reply("⚠️ Error taking snapshot: " + err.message);
+            }
+          }
+        }
+      });
+    }
+
     // Initialize on page load
     loadSettings();
     initRemoteSync();
+    initTelegramBot();
     populateCameraList();
     if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
       navigator.mediaDevices.addEventListener('devicechange', populateCameraList);
