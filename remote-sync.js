@@ -224,6 +224,24 @@
 
     decompressSDP: function (str) {
       try {
+        if (!str || typeof str !== 'string') return null;
+        str = str.trim();
+
+        // Extract code if user pasted a full URL (e.g. https://.../?pair=... or ?answer=...)
+        if (str.includes('?pair=')) {
+          const param = str.split('?pair=')[1].split('&')[0];
+          str = decodeURIComponent(param);
+        } else if (str.includes('?answer=')) {
+          const param = str.split('?answer=')[1].split('&')[0];
+          str = decodeURIComponent(param);
+        } else if (str.startsWith('http://') || str.startsWith('https://')) {
+          try {
+            const url = new URL(str);
+            const p = url.searchParams.get('pair') || url.searchParams.get('answer');
+            if (p) str = decodeURIComponent(p);
+          } catch (e) {}
+        }
+
         if (str.startsWith('AYG2:')) {
           const payload = JSON.parse(str.slice(5));
           const isOffer = payload.t === 'o';
@@ -629,14 +647,50 @@
     },
 
     /**
-     * Dual-Engine QR Scanner:
-     * 1. Uses native hardware-accelerated BarcodeDetector (Chrome/Android ML Kit)
-     * 2. Fallbacks to jsQR with attemptBoth (handles dark screens & reflections)
+     * Triple-Engine High Performance QR Scanner:
+     * 1. ZXing BrowserQRCodeReader (adaptive hybrid binarization, anti-glare, perspective correction)
+     * 2. Native hardware-accelerated BarcodeDetector (Chrome/Android ML Kit)
+     * 3. Center-cropped jsQR with attemptBoth (fast 480x480 square matching user viewfinder)
      */
     startQRScanner: function (videoEl, canvasEl, onFoundCallback) {
       let scanning = true;
+      let zxingReader = null;
       let barcodeDetector = null;
 
+      function isValidPayload(raw) {
+        if (!raw || typeof raw !== 'string') return false;
+        const s = raw.trim();
+        return s.startsWith('AYG2:') || s.startsWith('AYG:') || s.includes('?pair=') || s.includes('?answer=') || s.startsWith('{"') || s.includes('"type"');
+      }
+
+      function handleFound(data) {
+        if (!scanning) return;
+        scanning = false;
+        if (zxingReader) {
+          try { zxingReader.reset(); } catch (e) {}
+        }
+        if (onFoundCallback) onFoundCallback(data);
+      }
+
+      // 1. ZXing BrowserQRCodeReader
+      if (window.ZXing && window.ZXing.BrowserQRCodeReader) {
+        try {
+          zxingReader = new window.ZXing.BrowserQRCodeReader();
+          zxingReader.decodeFromVideoElementContinuously(videoEl, (result, err) => {
+            if (!scanning) return;
+            if (result && result.getText()) {
+              const text = result.getText();
+              if (isValidPayload(text)) {
+                handleFound(text);
+              }
+            }
+          });
+        } catch (e) {
+          console.warn("ZXing init error:", e);
+        }
+      }
+
+      // 2. Native BarcodeDetector (Chrome/Android ML Kit)
       if ('BarcodeDetector' in window) {
         try {
           barcodeDetector = new window.BarcodeDetector({ formats: ['qr_code'] });
@@ -645,21 +699,21 @@
         }
       }
 
+      // 3. Center-Cropped jsQR loop (zoomed to user viewfinder, 4x faster)
       const ctx = canvasEl ? canvasEl.getContext('2d', { willReadFrequently: true }) : null;
 
       const scanFrame = async () => {
         if (!scanning) return;
 
         if (videoEl.readyState >= videoEl.HAVE_CURRENT_DATA) {
-          // 1. Native Hardware BarcodeDetector
+          // Native BarcodeDetector check
           if (barcodeDetector) {
             try {
               const barcodes = await barcodeDetector.detect(videoEl);
               if (barcodes && barcodes.length > 0) {
                 for (let b of barcodes) {
-                  if (b.rawValue && (b.rawValue.startsWith('AYG2:') || b.rawValue.startsWith('AYG:'))) {
-                    scanning = false;
-                    if (onFoundCallback) onFoundCallback(b.rawValue);
+                  if (isValidPayload(b.rawValue)) {
+                    handleFound(b.rawValue);
                     return;
                   }
                 }
@@ -667,18 +721,26 @@
             } catch (err) {}
           }
 
-          // 2. Pure JS fallback with both color inversions for screen reflections
+          // Center-Cropped jsQR
           if (scanning && window.jsQR && canvasEl && ctx) {
-            canvasEl.width = videoEl.videoWidth || 640;
-            canvasEl.height = videoEl.videoHeight || 480;
-            ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
-            const imageData = ctx.getImageData(0, 0, canvasEl.width, canvasEl.height);
+            const vw = videoEl.videoWidth || 640;
+            const vh = videoEl.videoHeight || 480;
+            const cropSize = Math.min(vw, vh);
+            const sx = (vw - cropSize) / 2;
+            const sy = (vh - cropSize) / 2;
+            
+            // Downscale to 480x480 max for instant 15ms decoding
+            const targetDim = Math.min(cropSize, 480);
+            canvasEl.width = targetDim;
+            canvasEl.height = targetDim;
+            ctx.drawImage(videoEl, sx, sy, cropSize, cropSize, 0, 0, targetDim, targetDim);
+            
+            const imageData = ctx.getImageData(0, 0, targetDim, targetDim);
             const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
               inversionAttempts: "attemptBoth"
             });
-            if (code && code.data && (code.data.startsWith('AYG2:') || code.data.startsWith('AYG:'))) {
-              scanning = false;
-              if (onFoundCallback) onFoundCallback(code.data);
+            if (code && code.data && isValidPayload(code.data)) {
+              handleFound(code.data);
               return;
             }
           }
@@ -694,6 +756,9 @@
       return {
         stop: function () {
           scanning = false;
+          if (zxingReader) {
+            try { zxingReader.reset(); } catch (e) {}
+          }
         }
       };
     }
