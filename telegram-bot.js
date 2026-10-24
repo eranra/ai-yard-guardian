@@ -252,30 +252,32 @@
       const trimmed = (cmdText || '').trim();
       let firstWord = trimmed.split(/\s+/)[0].toLowerCase().split('@')[0];
 
-      // Map interactive button presses to canonical slash commands
+      // Map interactive button presses to canonical slash commands (only if not already a slash command)
       const lowerFull = trimmed.toLowerCase();
-      if (lowerFull.includes('snapshot') || lowerFull.includes('📸')) {
-        firstWord = '/snap';
-      } else if (lowerFull.includes('spray') || lowerFull.includes('💦')) {
-        firstWord = '/spray';
-      } else if (lowerFull.includes('disarm') || lowerFull.includes('⏸️')) {
-        firstWord = '/disarm';
-      } else if (lowerFull.includes('arm') || lowerFull.includes('🛡️')) {
-        firstWord = '/arm';
-      } else if (lowerFull.includes('torch') || lowerFull.includes('🔦')) {
-        firstWord = '/torch';
-      } else if (lowerFull.includes('screen') || lowerFull.includes('stealth') || lowerFull.includes('🌙 screen')) {
-        firstWord = '/screen';
-      } else if (lowerFull.includes('rotate') || lowerFull.includes('orientation')) {
-        firstWord = '/rotate';
-      } else if (lowerFull.includes('status') || lowerFull.includes('📊')) {
-        firstWord = '/status';
-      } else if (lowerFull.includes('config') || lowerFull.includes('settings') || lowerFull.includes('⚙️')) {
-        firstWord = '/config';
-      } else if (lowerFull.includes('refresh') || lowerFull.includes('reload') || lowerFull.includes('🔄')) {
-        firstWord = '/refresh';
-      } else if (lowerFull.includes('help') || lowerFull.includes('menu') || lowerFull.includes('❓')) {
-        firstWord = '/help';
+      if (!firstWord.startsWith('/')) {
+        if (lowerFull.includes('snapshot') || lowerFull.includes('📸')) {
+          firstWord = '/snap';
+        } else if (lowerFull.includes('spray') || lowerFull.includes('💦')) {
+          firstWord = '/spray';
+        } else if (lowerFull.includes('disarm') || lowerFull.includes('⏸️')) {
+          firstWord = '/disarm';
+        } else if (lowerFull.includes('arm') || lowerFull.includes('🛡️')) {
+          firstWord = '/arm';
+        } else if (lowerFull.includes('torch') || lowerFull.includes('🔦')) {
+          firstWord = '/torch';
+        } else if (lowerFull.includes('screen') || lowerFull.includes('stealth') || lowerFull.includes('🌙')) {
+          firstWord = '/screen';
+        } else if (lowerFull.includes('rotate') || lowerFull.includes('orientation')) {
+          firstWord = '/rotate';
+        } else if (lowerFull.includes('status') || lowerFull.includes('📊')) {
+          firstWord = '/status';
+        } else if (lowerFull.includes('config') || lowerFull.includes('settings') || lowerFull.includes('⚙️')) {
+          firstWord = '/config';
+        } else if (lowerFull.includes('refresh') || lowerFull.includes('reload') || lowerFull.includes('🔄')) {
+          firstWord = '/refresh';
+        } else if (lowerFull.includes('help') || lowerFull.includes('menu') || lowerFull.includes('❓')) {
+          firstWord = '/help';
+        }
       }
 
       const cleanCmd = firstWord.startsWith('/') ? firstWord : ('/' + firstWord);

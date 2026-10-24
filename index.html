@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v5.7 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v5.8 🔄</span>
     </div>
     <div style="display: flex; align-items: center; gap: 8px;">
       <div id="batteryBadge" class="badge" style="background:#1e293b; color:#94a3b8; font-size:0.7rem; display:none; align-items:center; gap:4px;" title="Battery Status">🔋 --%</div>
@@ -1110,28 +1110,35 @@
     function loadSettings() {
       try {
         const saved = localStorage.getItem('yard_guardian_settings');
+        let s = null;
         let loadedTargets = ['cat', 'dog', 'bird'];
         // Default: Sprinklers + Screenshot enabled
         let loadedActivations = ['sprinklers', 'screenshot'];
 
         if (saved) {
-          const s = JSON.parse(saved);
-          if (s.webhook !== undefined) document.getElementById('webhookInput').value = s.webhook;
-          if (s.conf !== undefined) daySensitivity = parseInt(s.conf) || 40;
-          if (s.dayConf !== undefined) daySensitivity = parseInt(s.dayConf) || daySensitivity;
-          if (s.nightConf !== undefined) nightSensitivity = parseInt(s.nightConf) || 25;
-          if (s.nightMode !== undefined) nightModeSetting = s.nightMode;
-          if (s.nightBoost !== undefined) nightBoostEnabled = !!s.nightBoost;
-          if (s.hwExposure !== undefined) hardwareExposureBoost = !!s.hwExposure;
-          if (s.torchAssist !== undefined) torchAssistEnabled = !!s.torchAssist;
-          if (s.humanSafety !== undefined) document.getElementById('humanSafetyToggle').checked = s.humanSafety;
-          if (s.cameraId) localStorage.setItem('yard_guardian_camera_id', s.cameraId);
-          if (s.cameraLabel) localStorage.setItem('yard_guardian_camera_label', s.cameraLabel);
-          if (Array.isArray(s.targets)) loadedTargets = s.targets;
-          if (Array.isArray(s.activations)) {
-            loadedActivations = s.activations;
-            if (!s.screenshotVersion && !loadedActivations.includes('screenshot')) {
-              loadedActivations.push('screenshot');
+          try {
+            s = JSON.parse(saved);
+          } catch (e) {
+            console.warn('Failed to parse saved settings JSON:', e);
+          }
+          if (s) {
+            if (s.webhook !== undefined) document.getElementById('webhookInput').value = s.webhook;
+            if (s.conf !== undefined) daySensitivity = parseInt(s.conf) || 40;
+            if (s.dayConf !== undefined) daySensitivity = parseInt(s.dayConf) || daySensitivity;
+            if (s.nightConf !== undefined) nightSensitivity = parseInt(s.nightConf) || 25;
+            if (s.nightMode !== undefined) nightModeSetting = s.nightMode;
+            if (s.nightBoost !== undefined) nightBoostEnabled = !!s.nightBoost;
+            if (s.hwExposure !== undefined) hardwareExposureBoost = !!s.hwExposure;
+            if (s.torchAssist !== undefined) torchAssistEnabled = !!s.torchAssist;
+            if (s.humanSafety !== undefined) document.getElementById('humanSafetyToggle').checked = s.humanSafety;
+            if (s.cameraId) localStorage.setItem('yard_guardian_camera_id', s.cameraId);
+            if (s.cameraLabel) localStorage.setItem('yard_guardian_camera_label', s.cameraLabel);
+            if (Array.isArray(s.targets)) loadedTargets = s.targets;
+            if (Array.isArray(s.activations)) {
+              loadedActivations = s.activations;
+              if (!s.screenshotVersion && !loadedActivations.includes('screenshot')) {
+                loadedActivations.push('screenshot');
+              }
             }
           }
         }
@@ -1219,6 +1226,7 @@
         if (rSel) rSel.value = cameraRotation.toString();
         const qBtn = document.getElementById('quickRotateBtn');
         if (qBtn) qBtn.innerText = `🔄 ${cameraRotation}°`;
+        updateViewportOrientation();
 
         // Restore collapse/expand state (default to collapsed to save maximum screen space)
         const savedExpanded = localStorage.getItem('yard_guardian_settings_expanded');
@@ -1250,7 +1258,9 @@
           if (tAlerts) tAlerts.checked = tgCreds.enabled;
           if (tRemote) tRemote.checked = tgCreds.remoteControlEnabled;
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn('Could not load settings:', e);
+      }
     }
 
     function saveTelegramSettings() {
@@ -2364,7 +2374,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v5.7';
+    const APP_VERSION = 'v5.8';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -2778,9 +2788,14 @@
               forceAppRefresh();
             }, 1000);
           } else if (cmd === 'rotate' || cmd === 'orientation') {
-            const nextAngle = (cameraRotation + 90) % 360;
-            setCameraRotation(nextAngle);
-            await reply(`🔄 <b>Camera Orientation rotated to: ${nextAngle}°</b>\nCapturing live snapshot...`);
+            let targetAngle;
+            if (args && args.length > 0 && [0, 90, 180, 270].includes(parseInt(args[0]))) {
+              targetAngle = parseInt(args[0]);
+            } else {
+              targetAngle = (cameraRotation + 90) % 360;
+            }
+            setCameraRotation(targetAngle);
+            await reply(`🔄 <b>Camera Orientation set to: ${targetAngle}°</b>\nCapturing live snapshot...`);
             setTimeout(() => {
               if (TelegramBot.callbacks && TelegramBot.callbacks.onCommand) {
                 TelegramBot.callbacks.onCommand('snap', reply, replyPhoto, []);

@@ -18,8 +18,8 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
   - 📸 **Detection Snapshots:** Automatically delivers an upright photo of the intruder directly to your chat.
   - ⚙️ **Full Remote Configuration Management:**
     - `/config` — view full configuration readout including battery level, AI speed, screen saver timeout, rotation angle, and lenses.
-    - `/rotate` — rotate camera 90° clockwise and immediately send back a test snapshot.
-    - `/set rotate <0|90|180|270>` — set exact camera rotation angle (e.g. `/set rotate 270` for sideways phones).
+    - `/rotate [angle]` — rotate camera 90° clockwise (or set direct angle e.g. `/rotate 270`) and immediately send back a test snapshot.
+    - `/set rotate <0|90|180|270>` — set exact camera rotation angle directly (e.g. `/set rotate 270` for sideways phones).
     - `/set speed <eco|balanced|turbo>` — set AI detection rate (Eco 3 FPS default, Balanced 5 FPS, Turbo Uncapped).
     - `/set screen <1|2|5|10|30s|off>` — set auto-blackout inactivity timeout (default `1` minute).
     - `/set day <10-90>` — set daytime sensitivity threshold (e.g. `/set day 40`).
@@ -37,21 +37,22 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/camera list` and `/camera <number>` — switch physical camera lens remotely.
   - 📡 **Quick Commands:**
     - `/snap` — capture and send back a live photo from the garden phone right now (with active Gamma Shadow-Lift and orientation rotation applied).
-    - `/rotate` — cycle camera rotation 90° and verify with an immediate snapshot.
+    - `/rotate [0|90|180|270]` — cycle camera rotation 90° (or set direct angle e.g. `/rotate 270`) and verify with an immediate snapshot.
     - `/spray` — remotely test or fire deterrent activations (sprinklers, siren, etc.).
     - `/arm` / `/disarm` — arm or pause AI monitoring into standby.
     - `/screen [on|off]` (or `/stealth`) — remotely activate or wake up the OLED blackout screen saver.
     - `/torch [on|off]` — remotely toggle phone flashlight/torch.
     - `/status` — check battery level (%, charging/discharging), screen state, AI speed, rotation, armed status, and ambient lighting.
     - `/refresh` — remotely clear browser cache and reload the application from GitHub Pages.
-- **🔄 Complete 360° Camera Stream Rotation & Orientation Engine (v5.7):**
+- **🔄 Complete 360° Camera Stream Rotation & Orientation Engine (v5.8):**
   - **The Problem Solved:** When phones are mounted horizontally on a window sill or stand, Android's hardware camera sensor outputs portrait pixels sideways relative to the horizon.
   - **The Solution:** Full hardware rotation transform (`0°`, `90°`, `180°`, `270°`) applied across the entire processing pipeline:
     - Rotates the live `<video>` viewport and aspect ratio seamlessly.
     - Rotates the offscreen AI canvas before feeding TensorFlow MobileNet, ensuring animals walking across the lawn are upright for maximum neural network recognition.
     - Rotates the bounding box annotation overlay in 1:1 coordinate alignment.
     - Produces perfectly upright Telegram snapshots (`/snap`) and intruder evidence photos.
-    - Controllable via quick UI button `[ 🔄 Rotate ]`, Settings dropdown, or Telegram `[ 🔄 Rotate ]` / `/rotate` command.
+    - Controllable via quick UI button `[ 🔄 Rotate ]`, Settings dropdown, or Telegram `/rotate [angle]` and `/set rotate <angle>` commands.
+    - Full persistence across reloads/refresh for both camera rotation and shadow boost level.
 - **🔋 Battery Life Reporting & Power Optimization:**
   - **🌱 AI Eco Processing Rate (CPU & Heat Reduction):** Caps deep neural net inference to ~3 FPS (~330ms intervals) by default (options: Eco 3 FPS, Balanced 5 FPS, Turbo Uncapped). Slashes continuous CPU/GPU load from 100% down to ~20%, keeping the phone cool and preventing Android/Xiaomi thermal charge throttling so your phone charges quickly to 100% while still catching every intruder.
   - **Live Battery Telemetry:** Real-time battery percentage and charging status tracked via the Battery Status API, reported on the top header badge, in `/status`, and in `/config`.
