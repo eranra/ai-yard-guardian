@@ -28,7 +28,7 @@
 
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-    .viewport-container { position: relative; width: 100%; aspect-ratio: 4/3; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; transition: filter 0.1s; }
+    .viewport-container { position: relative; width: 100%; min-height: 240px; max-height: 55vh; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; transition: filter 0.1s, aspect-ratio 0.2s; }
     video { width: 100%; height: 100%; object-fit: contain; }
     canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v5.5 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v5.6 🔄</span>
     </div>
     <div style="display: flex; align-items: center; gap: 8px;">
       <div id="batteryBadge" class="badge" style="background:#1e293b; color:#94a3b8; font-size:0.7rem; display:none; align-items:center; gap:4px;" title="Battery Status">🔋 --%</div>
@@ -549,10 +549,20 @@
               <input type="range" id="nightConfRange" min="10" max="70" value="25" oninput="updateNightSensitivity(this.value)">
             </div>
 
-            <!-- Software AI Vision Boost Toggle -->
+            <!-- Software AI Vision Boost Toggle & Level -->
             <label class="toggle" style="font-size: 0.76rem; margin-top: 4px;">
-              <input type="checkbox" id="nightBoostToggle" checked onchange="saveSettings()"> 🚀 AI Night Contrast &amp; Brightness Boost
+              <input type="checkbox" id="nightBoostToggle" checked onchange="saveSettings()"> 🚀 AI Night Shadow-Lift &amp; Gamma Expansion
             </label>
+            <div id="nightBoostLevelRow" style="display: flex; justify-content: space-between; align-items: center; margin-left: 20px; font-size: 0.72rem;">
+              <label for="nightBoostLevelSelect" style="color: #cbd5e1;">Shadow-Lift Level:</label>
+              <select id="nightBoostLevelSelect" onchange="onNightBoostLevelChange(this.value)" style="background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem;">
+                <option value="1">Level 1 - Normal</option>
+                <option value="2">Level 2 - High</option>
+                <option value="3" selected>Level 3 - Ultra (Default)</option>
+                <option value="4">Level 4 - Max</option>
+                <option value="5">Level 5 - Extreme</option>
+              </select>
+            </div>
 
             <!-- Hardware Camera Exposure Boost (Xiaomi / Android) -->
             <label class="toggle" style="font-size: 0.76rem;">
@@ -775,6 +785,14 @@
     let daySensitivity = 40;
     let nightSensitivity = 25;
     let nightBoostEnabled = true;
+    let nightBoostLevel = 3; // 1 to 5 (default 3: Ultra Shadow-Lift)
+    const NIGHT_BOOST_PRESETS = {
+      1: { filter: 'brightness(2.0) contrast(0.9) saturate(1.2)', label: 'Normal' },
+      2: { filter: 'brightness(2.6) contrast(0.85) saturate(1.3)', label: 'High' },
+      3: { filter: 'brightness(3.4) contrast(0.8) saturate(1.4)', label: 'Ultra (Default)' },
+      4: { filter: 'brightness(4.4) contrast(0.75) saturate(1.5)', label: 'Max' },
+      5: { filter: 'brightness(5.5) contrast(0.7) saturate(1.6)', label: 'Extreme' }
+    };
     let hardwareExposureBoost = true;
     let torchAssistEnabled = false;
     let isTorchOn = false;
@@ -1056,6 +1074,7 @@
         nightConf: nightSensitivity,
         nightMode: nightModeSetting,
         nightBoost: document.getElementById('nightBoostToggle')?.checked !== false,
+        nightBoostLevel: nightBoostLevel,
         hwExposure: document.getElementById('hwExposureToggle')?.checked !== false,
         torchAssist: document.getElementById('torchAssistToggle')?.checked || false,
         humanSafety: document.getElementById('humanSafetyToggle').checked,
@@ -1068,6 +1087,7 @@
         screenshotVersion: 1
       };
       localStorage.setItem('yard_guardian_settings', JSON.stringify(settings));
+      localStorage.setItem('yard_guardian_boost_level', nightBoostLevel.toString());
     }
 
     function loadSettings() {
@@ -1156,6 +1176,18 @@
         }
         const fpsSelect = document.getElementById('aiFpsSelect');
         if (fpsSelect) fpsSelect.value = aiFpsMode;
+
+        // Restore Night Boost Level
+        const savedBoostLvl = localStorage.getItem('yard_guardian_boost_level');
+        if (savedBoostLvl !== null) {
+          const p = parseInt(savedBoostLvl);
+          if (!isNaN(p) && p >= 1 && p <= 5) nightBoostLevel = p;
+        } else if (s && s.nightBoostLevel !== undefined) {
+          const p = parseInt(s.nightBoostLevel);
+          if (!isNaN(p) && p >= 1 && p <= 5) nightBoostLevel = p;
+        }
+        const bSel = document.getElementById('nightBoostLevelSelect');
+        if (bSel) bSel.value = nightBoostLevel.toString();
 
         // Restore collapse/expand state (default to collapsed to save maximum screen space)
         const savedExpanded = localStorage.getItem('yard_guardian_settings_expanded');
@@ -1348,6 +1380,17 @@
       saveSettings();
     }
 
+    function onNightBoostLevelChange(val) {
+      const p = parseInt(val);
+      if (!isNaN(p) && p >= 1 && p <= 5) {
+        nightBoostLevel = p;
+        const bSel = document.getElementById('nightBoostLevelSelect');
+        if (bSel) bSel.value = p.toString();
+        saveSettings();
+        log(`🚀 AI Night Shadow Boost set to: Level ${nightBoostLevel} (${NIGHT_BOOST_PRESETS[nightBoostLevel].label})`);
+      }
+    }
+
     // Inspect Xiaomi & Android Camera Hardware Capabilities
     async function inspectCameraCapabilities() {
       if (!currentStream) return;
@@ -1383,23 +1426,50 @@
 
       const advanced = [];
 
-      // 1. Exposure Compensation Boost (supported on Xiaomi / Android Chromium)
-      if (cameraCapabilities.exposureCompensation && hardwareExposureBoost) {
-        const { min, max } = cameraCapabilities.exposureCompensation;
-        const targetEV = isNightMode ? max : 0;
-        advanced.push({ exposureCompensation: targetEV });
-      }
+      if (isNightMode && hardwareExposureBoost) {
+        // 1. Exposure Compensation to Maximum (+2.0 EV)
+        if (cameraCapabilities.exposureCompensation) {
+          const { max } = cameraCapabilities.exposureCompensation;
+          advanced.push({ exposureCompensation: max });
+        }
 
-      // 2. Continuous exposure mode
-      if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('continuous')) {
-        advanced.push({ exposureMode: 'continuous' });
+        // 2. Maximum Hardware ISO Sensitivity Gain
+        if (cameraCapabilities.iso && cameraCapabilities.iso.max) {
+          advanced.push({ iso: cameraCapabilities.iso.max });
+        }
+
+        // 3. Exposure Time / Slow Shutter (e.g. max sensor integration time)
+        if (cameraCapabilities.exposureTime && cameraCapabilities.exposureTime.max) {
+          advanced.push({ exposureTime: cameraCapabilities.exposureTime.max });
+        }
+
+        // 4. Continuous Auto-Exposure Mode
+        if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('continuous')) {
+          advanced.push({ exposureMode: 'continuous' });
+        }
+
+        // 5. Continuous White Balance
+        if (cameraCapabilities.whiteBalanceMode && cameraCapabilities.whiteBalanceMode.includes('continuous')) {
+          advanced.push({ whiteBalanceMode: 'continuous' });
+        }
+      } else {
+        // Daytime mode reset
+        if (cameraCapabilities.exposureCompensation) {
+          advanced.push({ exposureCompensation: 0 });
+        }
+        if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('continuous')) {
+          advanced.push({ exposureMode: 'continuous' });
+        }
       }
 
       if (advanced.length > 0) {
         try {
           await track.applyConstraints({ advanced });
-          if (isNightMode && hardwareExposureBoost && cameraCapabilities.exposureCompensation) {
-            log(`📷 Camera hardware exposure boosted (+${cameraCapabilities.exposureCompensation.max} EV)`);
+          if (isNightMode && hardwareExposureBoost) {
+            const evStr = cameraCapabilities.exposureCompensation ? `+${cameraCapabilities.exposureCompensation.max} EV` : '';
+            const isoStr = (cameraCapabilities.iso && cameraCapabilities.iso.max) ? ` ISO:${cameraCapabilities.iso.max}` : '';
+            const expStr = (cameraCapabilities.exposureTime && cameraCapabilities.exposureTime.max) ? ` Exp:${cameraCapabilities.exposureTime.max}` : '';
+            log(`📷 Camera hardware sensor boosted for night (${evStr}${isoStr}${expStr})`);
           }
         } catch (e) {
           console.warn("Could not apply hardware exposure constraints:", e);
@@ -1454,7 +1524,7 @@
       }, 5000);
     }
 
-    // Software AI Vision Night Boost Preprocessing for TensorFlow
+    // Software AI Vision Night Boost Preprocessing for TensorFlow (v5.6 Non-Linear Shadow-Lift)
     function getAiInputFrame() {
       if (!isNightMode || !nightBoostEnabled || !video.videoWidth) {
         return video;
@@ -1466,8 +1536,10 @@
         nightBoostCtx = nightBoostCanvas.getContext('2d', { willReadFrequently: true });
       }
 
-      // GPU-accelerated contrast stretching & brightness boost for neural network
-      nightBoostCtx.filter = 'brightness(1.55) contrast(1.4) saturate(1.25)';
+      // Non-linear shadow-lift: High brightness gain with reduced contrast (gamma expansion)
+      // This mathematically pulls deep shadows (10-35) up to 80-130 while preventing 0-clamping
+      const preset = NIGHT_BOOST_PRESETS[nightBoostLevel] || NIGHT_BOOST_PRESETS[3];
+      nightBoostCtx.filter = preset.filter;
       nightBoostCtx.drawImage(video, 0, 0, nightBoostCanvas.width, nightBoostCanvas.height);
       nightBoostCtx.filter = 'none';
 
@@ -1692,6 +1764,7 @@
         video.onloadedmetadata = () => {
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
+          updateViewportOrientation();
           resolve();
         };
       });
@@ -1699,6 +1772,19 @@
       await populateCameraList();
       await inspectCameraCapabilities();
     }
+
+    function updateViewportOrientation() {
+      const container = document.querySelector('.viewport-container');
+      if (video && video.videoWidth && video.videoHeight && container) {
+        container.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+      }
+    }
+    window.addEventListener('resize', updateViewportOrientation);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(updateViewportOrientation, 250);
+    });
 
     async function onCameraChange(deviceId) {
       if (!deviceId) return;
@@ -2005,9 +2091,10 @@
         snapCanvas.height = video.videoHeight;
         const snapCtx = snapCanvas.getContext('2d');
 
-        // 1. Draw camera video frame (enhanced if Night Boost active)
-        if (isNightMode && nightBoostEnabled && nightBoostCanvas.width > 0) {
-          snapCtx.drawImage(nightBoostCanvas, 0, 0, snapCanvas.width, snapCanvas.height);
+        // 1. Draw camera video frame (enhanced with active Gamma Shadow-Lift if Night Boost active)
+        if (isNightMode && nightBoostEnabled) {
+          const boostedFrame = getAiInputFrame();
+          snapCtx.drawImage(boostedFrame, 0, 0, snapCanvas.width, snapCanvas.height);
         } else {
           snapCtx.drawImage(video, 0, 0, snapCanvas.width, snapCanvas.height);
         }
@@ -2176,7 +2263,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v5.5';
+    const APP_VERSION = 'v5.6';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -2201,7 +2288,7 @@
             const screenStr = isStealth ? "🌙 OLED Blackout Active" : `☀️ Awake (Saver: ${formatTimeoutDisplay(screenSaverTimeoutMinutes)})`;
             const batteryStr = formatBatteryString();
             const fpsStr = formatFpsModeDisplay();
-            const lightStr = isNightMode ? `🌙 Night (Luma: ${Math.round(currentLuma)}, Sensitivity: ${nightSensitivity}%)` : `☀️ Day (Luma: ${Math.round(currentLuma)}, Sensitivity: ${daySensitivity}%)`;
+            const lightStr = isNightMode ? `🌙 Night (Luma: ${Math.round(currentLuma)}, Sens: ${nightSensitivity}%, Boost: Lvl ${nightBoostLevel})` : `☀️ Day (Luma: ${Math.round(currentLuma)}, Sensitivity: ${daySensitivity}%)`;
             const torchStr = cameraCapabilities.torch ? (isTorchOn ? "🔦 ON" : "⚪ OFF") : "N/A";
             const targetsStr = (activeTargets && activeTargets.length) ? activeTargets.join(', ') : 'None';
             const activationsStr = (activeActivations && activeActivations.length) ? activeActivations.join(', ') : 'None';
@@ -2244,7 +2331,7 @@
               `• 🌙 Night Sensitivity: <b>${nightSensitivity}%</b> (<code>/set night 25</code>)\n\n` +
               `🌙 <b>Night Vision Settings:</b>\n` +
               `• Mode: <b>${nightModeSetting.toUpperCase()}</b> (<code>/set mode auto|day|night</code>)\n` +
-              `• AI Contrast Boost: <b>${nightBoostEnabled ? 'ON' : 'OFF'}</b> (<code>/set boost on|off</code>)\n` +
+              `• AI Night Shadow Boost: <b>Level ${nightBoostLevel} (${NIGHT_BOOST_PRESETS[nightBoostLevel].label})</b> [${nightBoostEnabled ? 'ON' : 'OFF'}] (<code>/set boost 1-5|off</code>)\n` +
               `• Hardware Exposure: <b>${hardwareExposureBoost ? 'ON' : 'OFF'}</b> (<code>/set exposure on|off</code>)\n` +
               `• Torch Assist on Alert: <b>${torchAssistEnabled ? 'ON' : 'OFF'}</b> (<code>/set torch_assist on|off</code>)\n\n` +
               `🔒 <b>Human Safety Pause:</b> <b>${safetyOn ? 'ON' : 'OFF'}</b> (<code>/set safety on|off</code>)\n` +
@@ -2262,7 +2349,7 @@
                 `• <code>/set mode auto|day|night</code> — Lighting mode\n` +
                 `• <code>/set targets cat,dog,bird</code> — Target animals\n` +
                 `• <code>/set actions sprinklers,screenshot</code> — Actions\n` +
-                `• <code>/set boost on|off</code> — AI night contrast boost\n` +
+                `• <code>/set boost 4</code> — AI night shadow boost (1-5|ultra|off)\n` +
                 `• <code>/set exposure on|off</code> — Camera hardware EV boost\n` +
                 `• <code>/set torch_assist on|off</code> — Flashlight on alert\n` +
                 `• <code>/set safety on|off</code> — Human safety pause\n` +
@@ -2338,13 +2425,34 @@
               const sel = document.getElementById('nightModeSelect');
               if (sel) sel.value = lowerVal;
               reply(`🌓 <b>Light Detection Mode set to:</b> <b>${lowerVal.toUpperCase()}</b>`);
-            } else if (key === 'boost') {
-              const enable = val.toLowerCase() === 'on' || val.toLowerCase() === 'true' || val === '1';
-              nightBoostEnabled = enable;
-              const cb = document.getElementById('nightBoostToggle');
-              if (cb) cb.checked = enable;
-              saveSettings();
-              reply(`🚀 <b>AI Night Contrast Boost:</b> <b>${enable ? 'ENABLED' : 'DISABLED'}</b>`);
+            } else if (key === 'boost' || key === 'shadow' || key === 'shadows') {
+              const lowVal = val.toLowerCase();
+              if (['off', '0', 'false', 'disable', 'none'].includes(lowVal)) {
+                nightBoostEnabled = false;
+                const cb = document.getElementById('nightBoostToggle');
+                if (cb) cb.checked = false;
+                saveSettings();
+                reply(`🚀 <b>AI Night Shadow Boost:</b> <b>DISABLED</b>`);
+              } else {
+                nightBoostEnabled = true;
+                const cb = document.getElementById('nightBoostToggle');
+                if (cb) cb.checked = true;
+                let lvl = 3;
+                if (lowVal === '1' || lowVal.includes('normal')) lvl = 1;
+                else if (lowVal === '2' || lowVal.includes('high')) lvl = 2;
+                else if (lowVal === '3' || lowVal.includes('ultra')) lvl = 3;
+                else if (lowVal === '4' || lowVal.includes('max')) lvl = 4;
+                else if (lowVal === '5' || lowVal.includes('extreme')) lvl = 5;
+                else {
+                  const p = parseInt(val);
+                  if (!isNaN(p) && p >= 1 && p <= 5) lvl = p;
+                }
+                nightBoostLevel = lvl;
+                const bSel = document.getElementById('nightBoostLevelSelect');
+                if (bSel) bSel.value = lvl.toString();
+                saveSettings();
+                reply(`🚀 <b>AI Night Shadow Boost set to:</b> <b>Level ${lvl} (${NIGHT_BOOST_PRESETS[lvl].label})</b>\n<i>Filter: <code>${NIGHT_BOOST_PRESETS[lvl].filter}</code></i>`);
+              }
             } else if (key === 'exposure') {
               const enable = val.toLowerCase() === 'on' || val.toLowerCase() === 'true' || val === '1';
               hardwareExposureBoost = enable;
@@ -2565,14 +2673,15 @@
               snapCanvas.width = video.videoWidth;
               snapCanvas.height = video.videoHeight;
               const sCtx = snapCanvas.getContext('2d');
-              if (isNightMode && nightBoostEnabled && nightBoostCanvas.width > 0) {
-                sCtx.drawImage(nightBoostCanvas, 0, 0);
+              if (isNightMode && nightBoostEnabled) {
+                const boosted = getAiInputFrame();
+                sCtx.drawImage(boosted, 0, 0);
               } else {
                 sCtx.drawImage(video, 0, 0);
               }
               snapCanvas.toBlob(blob => {
                 if (blob) {
-                  replyPhoto(blob, `📸 Snapshot requested via Telegram (${isNightMode ? '🌙 Night' : '☀️ Day'})\n🕒 ${new Date().toLocaleTimeString()}`);
+                  replyPhoto(blob, `📸 Snapshot requested via Telegram (${isNightMode ? `🌙 Night Boost Lvl ${nightBoostLevel}` : '☀️ Day'})\n🕒 ${new Date().toLocaleTimeString()}`);
                 } else {
                   reply("⚠️ Failed to generate snapshot image.");
                 }

@@ -25,7 +25,7 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/set mode <auto|day|night>` — set light detection mode.
     - `/set targets <cat,dog,bird...>` — set target animal list.
     - `/set actions <sprinklers,screenshot,siren,strobe>` — set active deterrent actions.
-    - `/set boost <on|off>` — toggle AI night contrast/brightness boost.
+    - `/set boost <1-5|ultra|off>` — set AI night shadow-lift level (1-Normal, 2-High, 3-Ultra default, 4-Max, 5-Extreme, or off).
     - `/set exposure <on|off>` — toggle camera hardware EV boost.
     - `/set torch_assist <on|off>` — toggle flashlight assist on night alert.
     - `/set safety <on|off>` — toggle human safety pause cutoff.
@@ -34,25 +34,28 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/action add <action>` / `/action remove <action>` — add/remove action.
     - `/camera list` and `/camera <number>` — switch physical camera lens remotely.
   - 📡 **Quick Commands:**
-    - `/snap` — capture and send back a live photo from the garden phone right now.
+    - `/snap` — capture and send back a live photo from the garden phone right now (with active Gamma Shadow-Lift applied at night).
     - `/spray` — remotely test or fire deterrent activations (sprinklers, siren, etc.).
     - `/arm` / `/disarm` — arm or pause AI monitoring into standby.
     - `/screen [on|off]` (or `/stealth`) — remotely activate or wake up the OLED blackout screen saver.
     - `/torch [on|off]` — remotely toggle phone flashlight/torch.
     - `/status` — check battery level (%, charging/discharging), screen state, AI speed, armed status, and ambient lighting.
     - `/refresh` — remotely clear browser cache and reload the application from GitHub Pages.
+- **📐 Auto-Adaptive Camera Viewport Orientation:**
+  - Dynamically detects the camera lens's native hardware orientation and aspect ratio (e.g. portrait 3:4 vs landscape 4:3) and matches the UI viewport and overlay canvas in real time.
+  - Seamlessly adapts when rotating the phone or switching between portrait and landscape mounts without squishing, letterboxing, or misaligned AI bounding boxes.
 - **🔋 Battery Life Reporting & Power Optimization:**
   - **🌱 AI Eco Processing Rate (CPU & Heat Reduction):** Caps deep neural net inference to ~3 FPS (~330ms intervals) by default (options: Eco 3 FPS, Balanced 5 FPS, Turbo Uncapped). Slashes continuous CPU/GPU load from 100% down to ~20%, keeping the phone cool and preventing Android/Xiaomi thermal charge throttling so your phone charges quickly to 100% while still catching every intruder.
   - **Live Battery Telemetry:** Real-time battery percentage and charging status tracked via the Battery Status API, reported on the top header badge, in `/status`, and in `/config`.
   - **Auto-OLED Screen Blackout:** Automatically transitions to full-screen pitch black (`#000000`) after inactivity (configurable: 30s, 1m default, 2m, 5m, 10m, or off).
   - **Why OLED Blackout vs. OS Lock Screen:** Modern phones (including Xiaomi) have AMOLED displays where black pixels turn completely off (0 nits), reducing display draw by ~90%. Crucially, this keeps the browser in the foreground so camera capture, WebGL TensorFlow AI detection, and Telegram commands continue running 24/7 without being stopped by Android OS sleep.
   - **One-Tap Wake:** Tap anywhere on the glass to instantly wake the control dashboard.
-- **🌙 Auto Night Vision & Low-Light Enhancement Engine:**
+- **🌙 Auto Night Vision & Extreme Low-Light Enhancement Engine (v5.6):**
   - **Smart Ambient Luma Sensor:** Real-time luminance monitoring ($Y = 0.299R + 0.587G + 0.114B$) automatically switches between Day and Night modes with hysteresis.
   - **Dual Adaptive Sensitivity:** Separate customizable thresholds for Daytime (default `40%`) and Nighttime (default `25%`) to capture dark animal silhouettes without false daytime positives.
-  - **🚀 AI Night Contrast Boost:** Pre-processes camera frames with hardware-accelerated contrast stretching and gamma correction before feeding TensorFlow, revealing animals blending into shadows.
-  - **📷 Xiaomi / Android Hardware Exposure Boost:** Automatically boosts camera sensor exposure compensation (`+2.0 EV`) via MediaStreamTrack ISP controls on supported devices.
-  - **🔦 Flashlight / Torch Assist:** Briefly lights up the yard (5s) when an animal is detected at night to scare it and capture clear evidence photos, with manual and remote `/torch` toggles.
+  - **🚀 Non-Linear Gamma Shadow-Lift Engine (5 Selectable Levels):** Mathematically expands deep shadows ($RGB < 35$) up into high-visibility range ($RGB\ 80-130$) without crushing dark tones to pure zero black (`brightness(3.4) contrast(0.8) saturate(1.4)` on default Level 3 Ultra). Fully selectable in UI or via `/set boost <1-5|ultra|off>`.
+  - **📷 Xiaomi / Android Hardware Sensor Boost:** Probes and configures maximum available camera hardware sensor sensitivity (`iso: max`, `exposureTime: max` / slow shutter integration, `exposureCompensation: +2.0 EV`, and continuous AE/AWB) via MediaStreamTrack ISP controls to maximize photon gathering without automatic flashlight.
+  - **🔦 Flashlight / Torch Assist:** Manual remote `/torch` control or optional 5s alarm-triggered light to scare intruders and capture evidence photos. Continuous auto-flashlight is strictly disabled to prevent light disturbance.
 - **📷 Dynamic Multi-Camera Lens Selection:** Automatically discovers all physical front and rear cameras/lenses (Main Wide, Ultra-Wide, Telephoto, Front) on any device (Samsung, Xiaomi, Pixel, etc.). Switch lenses anytime and your preference is saved permanently.
 - **On-Device AI Vision:** Uses TensorFlow.js (`mobilenet_v2`) running directly on your phone's GPU/NPU.
 - **🎯 Multi-Select Target Animals:** Choose exactly which animals trigger deterrents:

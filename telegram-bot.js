@@ -307,7 +307,7 @@
             '⚡ <code>/set actions &lt;sprinklers,screenshot...&gt;</code> — Actions\n' +
             '📷 <code>/camera list</code> or <code>/camera &lt;num&gt;</code> — Switch lens\n' +
             '🔒 <code>/set safety &lt;on|off&gt;</code> — Human pause cutoff\n' +
-            '🚀 <code>/set boost &lt;on|off&gt;</code> — AI Night contrast boost\n' +
+            '🚀 <code>/set boost &lt;1-5|ultra|off&gt;</code> — AI Night shadow boost (1-5)\n' +
             '📷 <code>/set exposure &lt;on|off&gt;</code> — Camera exposure boost\n' +
             '🔦 <code>/set torch_assist &lt;on|off&gt;</code> — Torch on alert\n' +
             '💧 <code>/set webhook &lt;url&gt;</code> — Update webhook URL\n\n' +
