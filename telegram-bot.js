@@ -21,7 +21,7 @@
     keyboard: [
       [{ text: '📸 Snapshot' }, { text: '💦 Spray Test' }],
       [{ text: '🛡️ Arm' }, { text: '⏸️ Disarm' }, { text: '🔦 Torch' }],
-      [{ text: '🌙 Screen' }, { text: '📊 Status' }, { text: '⚙️ Config' }, { text: '🔄 Refresh' }]
+      [{ text: '🌙 Screen' }, { text: '🔄 Rotate' }, { text: '📊 Status' }, { text: '⚙️ Config' }]
     ],
     resize_keyboard: true,
     is_persistent: true
@@ -264,8 +264,10 @@
         firstWord = '/arm';
       } else if (lowerFull.includes('torch') || lowerFull.includes('🔦')) {
         firstWord = '/torch';
-      } else if (lowerFull.includes('screen') || lowerFull.includes('stealth') || lowerFull.includes('🌙')) {
+      } else if (lowerFull.includes('screen') || lowerFull.includes('stealth') || lowerFull.includes('🌙 screen')) {
         firstWord = '/screen';
+      } else if (lowerFull.includes('rotate') || lowerFull.includes('orientation') || lowerFull.includes('🔄 rotate')) {
+        firstWord = '/rotate';
       } else if (lowerFull.includes('status') || lowerFull.includes('📊')) {
         firstWord = '/status';
       } else if (lowerFull.includes('config') || lowerFull.includes('settings') || lowerFull.includes('⚙️')) {
@@ -289,6 +291,7 @@
             '🤖 <b>AI Yard Guardian Remote Menu</b>\n\n' +
             '<b>Quick Actions:</b>\n' +
             '📸 <code>/snap</code> — Take a live photo now\n' +
+            '🔄 <code>/rotate</code> — Rotate camera 90° &amp; check snapshot\n' +
             '💦 <code>/spray</code> — Trigger water deterrent\n' +
             '🛡️ <code>/arm</code> — Start AI detection\n' +
             '⏸️ <code>/disarm</code> — Pause AI into standby\n' +
@@ -298,6 +301,7 @@
             '🔄 <code>/refresh</code> — Reload app from GitHub\n\n' +
             '<b>Remote Configuration:</b>\n' +
             '⚙️ <code>/config</code> — View full configuration\n' +
+            '🔄 <code>/set rotate &lt;0|90|180|270&gt;</code> — Set camera angle\n' +
             '🌱 <code>/set speed &lt;eco|balanced|turbo&gt;</code> — CPU & battery mode\n' +
             '🔋 <code>/set screen &lt;1|2|5|off&gt;</code> — Screen timeout (mins)\n' +
             '🎚️ <code>/set day &lt;%&gt;</code> — Day sensitivity (e.g. <code>/set day 40</code>)\n' +
@@ -307,7 +311,7 @@
             '⚡ <code>/set actions &lt;sprinklers,screenshot...&gt;</code> — Actions\n' +
             '📷 <code>/camera list</code> or <code>/camera &lt;num&gt;</code> — Switch lens\n' +
             '🔒 <code>/set safety &lt;on|off&gt;</code> — Human pause cutoff\n' +
-            '🚀 <code>/set boost &lt;1-5|ultra|off&gt;</code> — AI Night shadow boost (1-5)\n' +
+            '🚀 <code>/set boost &lt;1-6|off&gt;</code> — AI Night shadow boost (1-6)\n' +
             '📷 <code>/set exposure &lt;on|off&gt;</code> — Camera exposure boost\n' +
             '🔦 <code>/set torch_assist &lt;on|off&gt;</code> — Torch on alert\n' +
             '💧 <code>/set webhook &lt;url&gt;</code> — Update webhook URL\n\n' +
@@ -318,6 +322,8 @@
         case '/status':
         case '/snap':
         case '/photo':
+        case '/rotate':
+        case '/orientation':
         case '/spray':
         case '/arm':
         case '/disarm':

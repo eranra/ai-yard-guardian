@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v5.6 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v5.7 🔄</span>
     </div>
     <div style="display: flex; align-items: center; gap: 8px;">
       <div id="batteryBadge" class="badge" style="background:#1e293b; color:#94a3b8; font-size:0.7rem; display:none; align-items:center; gap:4px;" title="Battery Status">🔋 --%</div>
@@ -401,6 +401,7 @@
     <div class="btn-row">
       <button id="toggleBtn" class="btn-primary" onclick="toggleGuardian()">▶️ Start Guardian</button>
       <button id="stealthBtn" class="btn-stealth" onclick="enterStealthMode()" disabled>🌙 Black Screen</button>
+      <button id="quickRotateBtn" class="btn-stealth" style="padding: 8px 12px;" onclick="cycleCameraRotation()" title="Rotate Camera Orientation">🔄 0°</button>
       <button id="quickTorchBtn" class="btn-stealth" style="padding: 8px 12px; display: none;" onclick="toggleManualTorch()" title="Toggle Flashlight">🔦 Torch Off</button>
     </div>
 
@@ -419,10 +420,21 @@
       <!-- Collapsible Settings Body -->
       <div id="settingsBody" style="display: none; margin-top: 10px; border-top: 1px solid #334155; padding-top: 10px;">
         <!-- Camera Lens Selection (Auto-Discovered & Persisted) -->
-        <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 10px;">
+        <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 8px;">
           <label for="cameraSelect">📷 Active Camera Lens</label>
           <select id="cameraSelect" class="camera-select" onchange="onCameraChange(this.value)">
             <option value="">Default Rear Camera</option>
+          </select>
+        </div>
+
+        <!-- Camera Orientation / Rotation Control -->
+        <div class="setting-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <label for="cameraRotationSelect" style="font-size: 0.76rem; color: #cbd5e1;">🔄 Orientation / Rotation:</label>
+          <select id="cameraRotationSelect" onchange="setCameraRotation(this.value)" style="background: #0f172a; border: 1px solid #475569; color: #38bdf8; padding: 3px 8px; border-radius: 6px; font-size: 0.74rem; font-weight: bold;">
+            <option value="0">0° (Normal)</option>
+            <option value="90">90° (Clockwise)</option>
+            <option value="180">180° (Inverted)</option>
+            <option value="270">270° (Counter-Clockwise - Sideways Phone)</option>
           </select>
         </div>
 
@@ -560,7 +572,8 @@
                 <option value="2">Level 2 - High</option>
                 <option value="3" selected>Level 3 - Ultra (Default)</option>
                 <option value="4">Level 4 - Max</option>
-                <option value="5">Level 5 - Extreme</option>
+                <option value="5">Level 5 - Extreme (Clean)</option>
+                <option value="6">Level 6 - Moonlight Ultra</option>
               </select>
             </div>
 
@@ -784,14 +797,16 @@
     let consecutiveHighLumaCount = 0;
     let daySensitivity = 40;
     let nightSensitivity = 25;
+    let cameraRotation = 0; // 0, 90, 180, 270 (degrees clockwise)
     let nightBoostEnabled = true;
-    let nightBoostLevel = 3; // 1 to 5 (default 3: Ultra Shadow-Lift)
+    let nightBoostLevel = 3; // 1 to 6 (default 3: Ultra Shadow-Lift)
     const NIGHT_BOOST_PRESETS = {
-      1: { filter: 'brightness(2.0) contrast(0.9) saturate(1.2)', label: 'Normal' },
-      2: { filter: 'brightness(2.6) contrast(0.85) saturate(1.3)', label: 'High' },
-      3: { filter: 'brightness(3.4) contrast(0.8) saturate(1.4)', label: 'Ultra (Default)' },
-      4: { filter: 'brightness(4.4) contrast(0.75) saturate(1.5)', label: 'Max' },
-      5: { filter: 'brightness(5.5) contrast(0.7) saturate(1.6)', label: 'Extreme' }
+      1: { filter: 'brightness(2.0) contrast(0.9) saturate(1.15)', label: 'Normal' },
+      2: { filter: 'brightness(2.6) contrast(0.85) saturate(1.2)', label: 'High' },
+      3: { filter: 'brightness(3.4) contrast(0.8) saturate(1.25)', label: 'Ultra (Default)' },
+      4: { filter: 'brightness(4.5) contrast(0.75) saturate(1.2)', label: 'Max' },
+      5: { filter: 'brightness(5.5) contrast(0.72) saturate(1.15)', label: 'Extreme (Clean)' },
+      6: { filter: 'brightness(6.8) contrast(0.68) saturate(1.1)', label: 'Moonlight Ultra' }
     };
     let hardwareExposureBoost = true;
     let torchAssistEnabled = false;
@@ -1082,12 +1097,14 @@
         activations: activeActivations,
         screenTimeout: screenSaverTimeoutMinutes,
         fpsMode: aiFpsMode,
+        rotation: cameraRotation,
         cameraId: cameraSelect ? cameraSelect.value : (localStorage.getItem('yard_guardian_camera_id') || ''),
         cameraLabel: localStorage.getItem('yard_guardian_camera_label') || '',
         screenshotVersion: 1
       };
       localStorage.setItem('yard_guardian_settings', JSON.stringify(settings));
       localStorage.setItem('yard_guardian_boost_level', nightBoostLevel.toString());
+      localStorage.setItem('yard_guardian_rotation', cameraRotation.toString());
     }
 
     function loadSettings() {
@@ -1177,17 +1194,31 @@
         const fpsSelect = document.getElementById('aiFpsSelect');
         if (fpsSelect) fpsSelect.value = aiFpsMode;
 
-        // Restore Night Boost Level
+        // Restore Night Boost Level (1 to 6)
         const savedBoostLvl = localStorage.getItem('yard_guardian_boost_level');
         if (savedBoostLvl !== null) {
           const p = parseInt(savedBoostLvl);
-          if (!isNaN(p) && p >= 1 && p <= 5) nightBoostLevel = p;
+          if (!isNaN(p) && p >= 1 && p <= 6) nightBoostLevel = p;
         } else if (s && s.nightBoostLevel !== undefined) {
           const p = parseInt(s.nightBoostLevel);
-          if (!isNaN(p) && p >= 1 && p <= 5) nightBoostLevel = p;
+          if (!isNaN(p) && p >= 1 && p <= 6) nightBoostLevel = p;
         }
         const bSel = document.getElementById('nightBoostLevelSelect');
         if (bSel) bSel.value = nightBoostLevel.toString();
+
+        // Restore Camera Rotation (0, 90, 180, 270)
+        const savedRotation = localStorage.getItem('yard_guardian_rotation');
+        if (savedRotation !== null) {
+          const r = parseInt(savedRotation);
+          if ([0, 90, 180, 270].includes(r)) cameraRotation = r;
+        } else if (s && s.rotation !== undefined) {
+          const r = parseInt(s.rotation);
+          if ([0, 90, 180, 270].includes(r)) cameraRotation = r;
+        }
+        const rSel = document.getElementById('cameraRotationSelect');
+        if (rSel) rSel.value = cameraRotation.toString();
+        const qBtn = document.getElementById('quickRotateBtn');
+        if (qBtn) qBtn.innerText = `🔄 ${cameraRotation}°`;
 
         // Restore collapse/expand state (default to collapsed to save maximum screen space)
         const savedExpanded = localStorage.getItem('yard_guardian_settings_expanded');
@@ -1524,23 +1555,53 @@
       }, 5000);
     }
 
-    // Software AI Vision Night Boost Preprocessing for TensorFlow (v5.6 Non-Linear Shadow-Lift)
+    function drawRotated(ctx, source, angle, dstW, dstH, srcW, srcH) {
+      if (!angle || angle === 0) {
+        ctx.drawImage(source, 0, 0, dstW, dstH);
+        return;
+      }
+      ctx.save();
+      if (angle === 90) {
+        ctx.translate(dstW, 0);
+        ctx.rotate(90 * Math.PI / 180);
+      } else if (angle === 180) {
+        ctx.translate(dstW, dstH);
+        ctx.rotate(180 * Math.PI / 180);
+      } else if (angle === 270) {
+        ctx.translate(0, dstH);
+        ctx.rotate(270 * Math.PI / 180);
+      }
+      ctx.drawImage(source, 0, 0, srcW, srcH);
+      ctx.restore();
+    }
+
+    // Software AI Vision Night Boost & Rotation Preprocessing for TensorFlow (v5.7)
     function getAiInputFrame() {
-      if (!isNightMode || !nightBoostEnabled || !video.videoWidth) {
+      if (!video || !video.videoWidth) return video;
+
+      const is90or270 = (cameraRotation === 90 || cameraRotation === 270);
+      const targetW = is90or270 ? video.videoHeight : video.videoWidth;
+      const targetH = is90or270 ? video.videoWidth : video.videoHeight;
+
+      if (!isNightMode && !nightBoostEnabled && cameraRotation === 0) {
         return video;
       }
 
-      if (nightBoostCanvas.width !== video.videoWidth || nightBoostCanvas.height !== video.videoHeight) {
-        nightBoostCanvas.width = video.videoWidth;
-        nightBoostCanvas.height = video.videoHeight;
+      if (nightBoostCanvas.width !== targetW || nightBoostCanvas.height !== targetH) {
+        nightBoostCanvas.width = targetW;
+        nightBoostCanvas.height = targetH;
         nightBoostCtx = nightBoostCanvas.getContext('2d', { willReadFrequently: true });
       }
 
       // Non-linear shadow-lift: High brightness gain with reduced contrast (gamma expansion)
-      // This mathematically pulls deep shadows (10-35) up to 80-130 while preventing 0-clamping
-      const preset = NIGHT_BOOST_PRESETS[nightBoostLevel] || NIGHT_BOOST_PRESETS[3];
-      nightBoostCtx.filter = preset.filter;
-      nightBoostCtx.drawImage(video, 0, 0, nightBoostCanvas.width, nightBoostCanvas.height);
+      if (isNightMode && nightBoostEnabled) {
+        const preset = NIGHT_BOOST_PRESETS[nightBoostLevel] || NIGHT_BOOST_PRESETS[3];
+        nightBoostCtx.filter = preset.filter;
+      } else {
+        nightBoostCtx.filter = 'none';
+      }
+
+      drawRotated(nightBoostCtx, video, cameraRotation, targetW, targetH, video.videoWidth, video.videoHeight);
       nightBoostCtx.filter = 'none';
 
       return nightBoostCanvas;
@@ -1775,12 +1836,52 @@
 
     function updateViewportOrientation() {
       const container = document.querySelector('.viewport-container');
-      if (video && video.videoWidth && video.videoHeight && container) {
-        container.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+      if (!video || !video.videoWidth || !video.videoHeight || !container) return;
+
+      const is90or270 = (cameraRotation === 90 || cameraRotation === 270);
+      const targetW = is90or270 ? video.videoHeight : video.videoWidth;
+      const targetH = is90or270 ? video.videoWidth : video.videoHeight;
+
+      container.style.aspectRatio = `${targetW} / ${targetH}`;
+      canvas.width = targetW;
+      canvas.height = targetH;
+
+      if (cameraRotation === 90 || cameraRotation === 270) {
+        video.style.transform = `rotate(${cameraRotation}deg)`;
+        const cW = container.clientWidth;
+        const cH = container.clientHeight;
+        if (cH && cW) {
+          video.style.width = cH + 'px';
+          video.style.height = cW + 'px';
+        }
+      } else if (cameraRotation === 180) {
+        video.style.transform = 'rotate(180deg)';
+        video.style.width = '100%';
+        video.style.height = '100%';
+      } else {
+        video.style.transform = 'none';
+        video.style.width = '100%';
+        video.style.height = '100%';
       }
+
+      const qBtn = document.getElementById('quickRotateBtn');
+      if (qBtn) qBtn.innerText = `🔄 ${cameraRotation}°`;
     }
+
+    function setCameraRotation(angle) {
+      cameraRotation = ((parseInt(angle) % 360) + 360) % 360;
+      saveSettings();
+      const rSel = document.getElementById('cameraRotationSelect');
+      if (rSel) rSel.value = cameraRotation.toString();
+      updateViewportOrientation();
+      log(`🔄 Camera orientation set to: <b>${cameraRotation}°</b>`);
+    }
+
+    function cycleCameraRotation() {
+      const nextAngle = (cameraRotation + 90) % 360;
+      setCameraRotation(nextAngle);
+    }
+
     window.addEventListener('resize', updateViewportOrientation);
     window.addEventListener('orientationchange', () => {
       setTimeout(updateViewportOrientation, 250);
@@ -2086,18 +2187,18 @@
           return;
         }
 
+        const is90or270 = (cameraRotation === 90 || cameraRotation === 270);
+        const targetW = is90or270 ? video.videoHeight : video.videoWidth;
+        const targetH = is90or270 ? video.videoWidth : video.videoHeight;
+
         const snapCanvas = document.createElement('canvas');
-        snapCanvas.width = video.videoWidth;
-        snapCanvas.height = video.videoHeight;
+        snapCanvas.width = targetW;
+        snapCanvas.height = targetH;
         const snapCtx = snapCanvas.getContext('2d');
 
-        // 1. Draw camera video frame (enhanced with active Gamma Shadow-Lift if Night Boost active)
-        if (isNightMode && nightBoostEnabled) {
-          const boostedFrame = getAiInputFrame();
-          snapCtx.drawImage(boostedFrame, 0, 0, snapCanvas.width, snapCanvas.height);
-        } else {
-          snapCtx.drawImage(video, 0, 0, snapCanvas.width, snapCanvas.height);
-        }
+        // 1. Draw camera video frame (already rotated and enhanced via getAiInputFrame)
+        const frame = getAiInputFrame();
+        snapCtx.drawImage(frame, 0, 0, snapCanvas.width, snapCanvas.height);
 
         // 2. Draw overlay bounding box annotations
         if (canvas.width > 0 && canvas.height > 0) {
@@ -2263,7 +2364,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v5.6';
+    const APP_VERSION = 'v5.7';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -2299,6 +2400,7 @@
               `• <b>Screen:</b> ${screenStr}\n` +
               `• <b>Battery:</b> ${batteryStr}\n` +
               `• <b>AI Speed:</b> ${fpsStr}\n` +
+              `• <b>Rotation:</b> ${cameraRotation}°\n` +
               `• <b>Lighting:</b> ${lightStr}\n` +
               `• <b>Torch:</b> ${torchStr}\n` +
               `• <b>Targets:</b> ${targetsStr}\n` +
@@ -2331,9 +2433,10 @@
               `• 🌙 Night Sensitivity: <b>${nightSensitivity}%</b> (<code>/set night 25</code>)\n\n` +
               `🌙 <b>Night Vision Settings:</b>\n` +
               `• Mode: <b>${nightModeSetting.toUpperCase()}</b> (<code>/set mode auto|day|night</code>)\n` +
-              `• AI Night Shadow Boost: <b>Level ${nightBoostLevel} (${NIGHT_BOOST_PRESETS[nightBoostLevel].label})</b> [${nightBoostEnabled ? 'ON' : 'OFF'}] (<code>/set boost 1-5|off</code>)\n` +
+              `• AI Night Shadow Boost: <b>Level ${nightBoostLevel} (${NIGHT_BOOST_PRESETS[nightBoostLevel].label})</b> [${nightBoostEnabled ? 'ON' : 'OFF'}] (<code>/set boost 1-6|off</code>)\n` +
               `• Hardware Exposure: <b>${hardwareExposureBoost ? 'ON' : 'OFF'}</b> (<code>/set exposure on|off</code>)\n` +
               `• Torch Assist on Alert: <b>${torchAssistEnabled ? 'ON' : 'OFF'}</b> (<code>/set torch_assist on|off</code>)\n\n` +
+              `🔄 <b>Camera Orientation:</b> <b>${cameraRotation}°</b> (<code>/rotate</code> or <code>/set rotate 0|90|180|270</code>)\n` +
               `🔒 <b>Human Safety Pause:</b> <b>${safetyOn ? 'ON' : 'OFF'}</b> (<code>/set safety on|off</code>)\n` +
               `📷 <b>Active Lens:</b> ${camName} (<code>/camera list</code>)\n` +
               `💧 <b>Smart Life Webhook:</b> ${webhookDisplay} (<code>/set webhook &lt;url&gt;</code>)`
@@ -2342,6 +2445,7 @@
             if (!args || args.length < 2) {
               reply(
                 `ℹ️ <b>Usage: /set &lt;option&gt; &lt;value&gt;</b>\n\n` +
+                `• <code>/set rotate 270</code> — Camera rotation (0|90|180|270)\n` +
                 `• <code>/set speed eco</code> — AI speed (eco|balanced|turbo)\n` +
                 `• <code>/set screen 1</code> — Auto screen timeout (mins|off)\n` +
                 `• <code>/set day 40</code> — Daytime sensitivity (15-85)\n` +
@@ -2349,7 +2453,7 @@
                 `• <code>/set mode auto|day|night</code> — Lighting mode\n` +
                 `• <code>/set targets cat,dog,bird</code> — Target animals\n` +
                 `• <code>/set actions sprinklers,screenshot</code> — Actions\n` +
-                `• <code>/set boost 4</code> — AI night shadow boost (1-5|ultra|off)\n` +
+                `• <code>/set boost 5</code> — AI night shadow boost (1-6|off)\n` +
                 `• <code>/set exposure on|off</code> — Camera hardware EV boost\n` +
                 `• <code>/set torch_assist on|off</code> — Flashlight on alert\n` +
                 `• <code>/set safety on|off</code> — Human safety pause\n` +
@@ -2443,15 +2547,25 @@
                 else if (lowVal === '3' || lowVal.includes('ultra')) lvl = 3;
                 else if (lowVal === '4' || lowVal.includes('max')) lvl = 4;
                 else if (lowVal === '5' || lowVal.includes('extreme')) lvl = 5;
+                else if (lowVal === '6' || lowVal.includes('moon')) lvl = 6;
                 else {
                   const p = parseInt(val);
-                  if (!isNaN(p) && p >= 1 && p <= 5) lvl = p;
+                  if (!isNaN(p) && p >= 1 && p <= 6) lvl = p;
                 }
                 nightBoostLevel = lvl;
                 const bSel = document.getElementById('nightBoostLevelSelect');
                 if (bSel) bSel.value = lvl.toString();
                 saveSettings();
                 reply(`🚀 <b>AI Night Shadow Boost set to:</b> <b>Level ${lvl} (${NIGHT_BOOST_PRESETS[lvl].label})</b>\n<i>Filter: <code>${NIGHT_BOOST_PRESETS[lvl].filter}</code></i>`);
+              }
+            } else if (key === 'rotate' || key === 'rotation' || key === 'orientation' || key === 'angle') {
+              const angle = parseInt(val);
+              if ([0, 90, 180, 270].includes(angle)) {
+                setCameraRotation(angle);
+                saveSettings();
+                reply(`🔄 <b>Camera Orientation set to: ${angle}°</b>\nTip: Send <code>/snap</code> or tap <b>📸 Snapshot</b> to check view.`);
+              } else {
+                reply("⚠️ Please enter a valid rotation: <code>0</code>, <code>90</code>, <code>180</code>, or <code>270</code> (e.g. <code>/set rotate 270</code>).");
               }
             } else if (key === 'exposure') {
               const enable = val.toLowerCase() === 'on' || val.toLowerCase() === 'true' || val === '1';
@@ -2663,25 +2777,35 @@
             setTimeout(() => {
               forceAppRefresh();
             }, 1000);
+          } else if (cmd === 'rotate' || cmd === 'orientation') {
+            const nextAngle = (cameraRotation + 90) % 360;
+            setCameraRotation(nextAngle);
+            await reply(`🔄 <b>Camera Orientation rotated to: ${nextAngle}°</b>\nCapturing live snapshot...`);
+            setTimeout(() => {
+              if (TelegramBot.callbacks && TelegramBot.callbacks.onCommand) {
+                TelegramBot.callbacks.onCommand('snap', reply, replyPhoto, []);
+              }
+            }, 600);
           } else if (cmd === 'snap' || cmd === 'photo') {
             if (!video || !video.videoWidth) {
               reply("⚠️ Camera is not currently active. Make sure Guardian is armed.");
               return;
             }
             try {
+              const is90or270 = (cameraRotation === 90 || cameraRotation === 270);
+              const targetW = is90or270 ? video.videoHeight : video.videoWidth;
+              const targetH = is90or270 ? video.videoWidth : video.videoHeight;
+
               const snapCanvas = document.createElement('canvas');
-              snapCanvas.width = video.videoWidth;
-              snapCanvas.height = video.videoHeight;
+              snapCanvas.width = targetW;
+              snapCanvas.height = targetH;
               const sCtx = snapCanvas.getContext('2d');
-              if (isNightMode && nightBoostEnabled) {
-                const boosted = getAiInputFrame();
-                sCtx.drawImage(boosted, 0, 0);
-              } else {
-                sCtx.drawImage(video, 0, 0);
-              }
+              const frame = getAiInputFrame();
+              sCtx.drawImage(frame, 0, 0);
+
               snapCanvas.toBlob(blob => {
                 if (blob) {
-                  replyPhoto(blob, `📸 Snapshot requested via Telegram (${isNightMode ? `🌙 Night Boost Lvl ${nightBoostLevel}` : '☀️ Day'})\n🕒 ${new Date().toLocaleTimeString()}`);
+                  replyPhoto(blob, `📸 Snapshot (${isNightMode ? `🌙 Night Boost Lvl ${nightBoostLevel}` : '☀️ Day'} | 🔄 ${cameraRotation}°)\n🕒 ${new Date().toLocaleTimeString()}`);
                 } else {
                   reply("⚠️ Failed to generate snapshot image.");
                 }
