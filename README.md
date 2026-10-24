@@ -9,17 +9,35 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
 ## ✨ Features
 
 - **Zero Installation (PWA):** Runs entirely in Chrome or Samsung Internet. Add it to your home screen with one tap to use it like a native app.
-- **🤖 Telegram Remote Control & Alerts:** Use Telegram as your remote control from anywhere in the world:
+- **🤖 Telegram Remote Control, Live Touch Buttons & Full Configuration:**
+  - 🔘 **Interactive Touch Buttons:** Persistent custom reply keyboard at the bottom of your chat:
+    - `[ 📸 Snapshot ]` `[ 💦 Spray Test ]`
+    - `[ 🛡️ Arm ]` `[ ⏸️ Disarm ]` `[ 🔦 Torch ]`
+    - `[ 📊 Status ]` `[ ⚙️ Config ]` `[ 🔄 Refresh ]`
   - 🚨 **Instant Intruder Alerts:** Immediate push notifications whenever a target animal is detected.
   - 📸 **Detection Snapshots:** Automatically delivers a photo of the intruder directly to your chat.
-  - 📡 **On-Demand Remote Commands:**
+  - ⚙️ **Full Remote Configuration Management:**
+    - `/config` — view full configuration readout with easy edit examples.
+    - `/set day <10-90>` — set daytime sensitivity threshold (e.g. `/set day 40`).
+    - `/set night <10-80>` — set nighttime sensitivity threshold (e.g. `/set night 25`).
+    - `/set mode <auto|day|night>` — set light detection mode.
+    - `/set targets <cat,dog,bird...>` — set target animal list.
+    - `/set actions <sprinklers,screenshot,siren,strobe>` — set active deterrent actions.
+    - `/set boost <on|off>` — toggle AI night contrast/brightness boost.
+    - `/set exposure <on|off>` — toggle camera hardware EV boost.
+    - `/set torch_assist <on|off>` — toggle flashlight assist on night alert.
+    - `/set safety <on|off>` — toggle human safety pause cutoff.
+    - `/set webhook <url>` — update Smart Life webhook URL.
+    - `/target add <animal>` / `/target remove <animal>` — add/remove target.
+    - `/action add <action>` / `/action remove <action>` — add/remove action.
+    - `/camera list` and `/camera <number>` — switch physical camera lens remotely.
+  - 📡 **Quick Commands:**
     - `/snap` — capture and send back a live photo from the garden phone right now.
     - `/spray` — remotely test or fire deterrent activations (sprinklers, siren, etc.).
-    - `/arm` — start AI guardian monitoring remotely.
-    - `/disarm` — pause AI monitoring into standby.
-    - `/torch` `[on|off]` — remotely toggle phone flashlight/torch.
-    - `/status` — check application version, armed state, light mode, targets, sensitivity, and clock.
-    - `/refresh` (or `/reload`) — remotely clear browser cache and reload the application to the latest version deployed on GitHub Pages.
+    - `/arm` / `/disarm` — arm or pause AI monitoring into standby.
+    - `/torch [on|off]` — remotely toggle phone flashlight/torch.
+    - `/status` — check version, armed state, light mode, targets, and clock.
+    - `/refresh` — remotely clear browser cache and reload the application from GitHub Pages.
 - **🌙 Auto Night Vision & Low-Light Enhancement Engine:**
   - **Smart Ambient Luma Sensor:** Real-time luminance monitoring ($Y = 0.299R + 0.587G + 0.114B$) automatically switches between Day and Night modes with hysteresis.
   - **Dual Adaptive Sensitivity:** Separate customizable thresholds for Daytime (default `40%`) and Nighttime (default `25%`) to capture dark animal silhouettes without false daytime positives.

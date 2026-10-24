@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=5.2"></script>
+  <script src="telegram-bot.js?v=5.3"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -358,6 +358,8 @@
           <span>/snap - Take photo</span>
           <span>/spray - Test deterrent</span>
           <span>/status - Version & health</span>
+          <span>/config - Settings view</span>
+          <span>/set - Change setting</span>
           <span>/arm - Arm guardian</span>
           <span>/disarm - Standby</span>
           <span>/torch - Toggle flash</span>
@@ -375,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v5.2 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v5.3 🔄</span>
     </div>
     <div style="display: flex; align-items: center; gap: 8px;">
       <div id="lightBadge" class="badge" style="background:#1e3a5f; color:#38bdf8; font-size:0.7rem; display:flex; align-items:center; gap:4px;" title="Current Ambient Lighting">☀️ Day</div>
@@ -1965,7 +1967,7 @@
 
 
 
-    const APP_VERSION = 'v5.2';
+    const APP_VERSION = 'v5.3';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -2000,6 +2002,243 @@
               `• <b>Activations:</b> ${activationsStr}\n` +
               `• <b>Clock:</b> ${new Date().toLocaleTimeString()}`
             );
+          } else if (cmd === 'config' || cmd === 'settings') {
+            const camSelect = document.getElementById('cameraSelect');
+            const camName = camSelect ? camSelect.options[camSelect.selectedIndex]?.innerText || 'Default' : 'Default';
+            const targetsStr = activeTargets.map(t => TARGET_DISPLAY[t] || t).join(', ') || 'None';
+            const activationsStr = activeActivations.map(a => ACTIVATION_DISPLAY[a] || a).join(', ') || 'None';
+            const webhookVal = document.getElementById('webhookInput')?.value || '';
+            const webhookDisplay = webhookVal ? `Configured` : `Not Set`;
+            const safetyOn = document.getElementById('humanSafetyToggle')?.checked;
+
+            reply(
+              `⚙️ <b>AI Yard Guardian Full Configuration</b>\n\n` +
+              `🎯 <b>Target Animals:</b> ${targetsStr}\n` +
+              `<i>Edit: <code>/set targets cat,dog,bird</code></i>\n\n` +
+              `⚡ <b>Deterrent Actions:</b> ${activationsStr}\n` +
+              `<i>Edit: <code>/set actions sprinklers,screenshot</code></i>\n\n` +
+              `🎚️ <b>Sensitivities:</b>\n` +
+              `• ☀️ Day Sensitivity: <b>${daySensitivity}%</b> (<code>/set day 40</code>)\n` +
+              `• 🌙 Night Sensitivity: <b>${nightSensitivity}%</b> (<code>/set night 25</code>)\n\n` +
+              `🌙 <b>Night Vision Settings:</b>\n` +
+              `• Mode: <b>${nightModeSetting.toUpperCase()}</b> (<code>/set mode auto|day|night</code>)\n` +
+              `• AI Contrast Boost: <b>${nightBoostEnabled ? 'ON' : 'OFF'}</b> (<code>/set boost on|off</code>)\n` +
+              `• Hardware Exposure: <b>${hardwareExposureBoost ? 'ON' : 'OFF'}</b> (<code>/set exposure on|off</code>)\n` +
+              `• Torch Assist on Alert: <b>${torchAssistEnabled ? 'ON' : 'OFF'}</b> (<code>/set torch_assist on|off</code>)\n\n` +
+              `🔒 <b>Human Safety Pause:</b> <b>${safetyOn ? 'ON' : 'OFF'}</b> (<code>/set safety on|off</code>)\n` +
+              `📷 <b>Active Lens:</b> ${camName} (<code>/camera list</code>)\n` +
+              `💧 <b>Smart Life Webhook:</b> ${webhookDisplay} (<code>/set webhook &lt;url&gt;</code>)`
+            );
+          } else if (cmd === 'set') {
+            if (!args || args.length < 2) {
+              reply(
+                `ℹ️ <b>Usage: /set &lt;option&gt; &lt;value&gt;</b>\n\n` +
+                `• <code>/set day 40</code> — Daytime sensitivity (15-85)\n` +
+                `• <code>/set night 25</code> — Nighttime sensitivity (10-70)\n` +
+                `• <code>/set mode auto|day|night</code> — Lighting mode\n` +
+                `• <code>/set targets cat,dog,bird</code> — Target animals\n` +
+                `• <code>/set actions sprinklers,screenshot</code> — Actions\n` +
+                `• <code>/set boost on|off</code> — AI night contrast boost\n` +
+                `• <code>/set exposure on|off</code> — Camera hardware EV boost\n` +
+                `• <code>/set torch_assist on|off</code> — Flashlight on alert\n` +
+                `• <code>/set safety on|off</code> — Human safety pause\n` +
+                `• <code>/set webhook https://...</code> — Webhook URL`
+              );
+              return;
+            }
+            const key = args[0].toLowerCase();
+            const val = args.slice(1).join(' ').trim();
+
+            if (key === 'day' || key === 'day_sens') {
+              const num = parseInt(val);
+              if (isNaN(num) || num < 10 || num > 90) {
+                reply("⚠️ Please enter a day sensitivity between 10 and 90 (e.g. <code>/set day 40</code>).");
+                return;
+              }
+              updateDaySensitivity(num);
+              const slider = document.getElementById('dayConfRange');
+              if (slider) slider.value = num;
+              reply(`☀️ <b>Daytime Sensitivity updated:</b> <b>${num}%</b>`);
+            } else if (key === 'night' || key === 'night_sens') {
+              const num = parseInt(val);
+              if (isNaN(num) || num < 10 || num > 80) {
+                reply("⚠️ Please enter a night sensitivity between 10 and 80 (e.g. <code>/set night 25</code>).");
+                return;
+              }
+              updateNightSensitivity(num);
+              const slider = document.getElementById('nightConfRange');
+              if (slider) slider.value = num;
+              reply(`🌙 <b>Nighttime Sensitivity updated:</b> <b>${num}%</b>`);
+            } else if (key === 'mode') {
+              const lowerVal = val.toLowerCase();
+              if (!['auto', 'day', 'night'].includes(lowerVal)) {
+                reply("⚠️ Mode must be <code>auto</code>, <code>day</code>, or <code>night</code>.");
+                return;
+              }
+              onNightModeChange(lowerVal);
+              const sel = document.getElementById('nightModeSelect');
+              if (sel) sel.value = lowerVal;
+              reply(`🌓 <b>Light Detection Mode set to:</b> <b>${lowerVal.toUpperCase()}</b>`);
+            } else if (key === 'boost') {
+              const enable = val.toLowerCase() === 'on' || val.toLowerCase() === 'true' || val === '1';
+              nightBoostEnabled = enable;
+              const cb = document.getElementById('nightBoostToggle');
+              if (cb) cb.checked = enable;
+              saveSettings();
+              reply(`🚀 <b>AI Night Contrast Boost:</b> <b>${enable ? 'ENABLED' : 'DISABLED'}</b>`);
+            } else if (key === 'exposure') {
+              const enable = val.toLowerCase() === 'on' || val.toLowerCase() === 'true' || val === '1';
+              hardwareExposureBoost = enable;
+              const cb = document.getElementById('hwExposureToggle');
+              if (cb) cb.checked = enable;
+              applyHardwareCameraConstraints();
+              saveSettings();
+              reply(`📷 <b>Camera Hardware Exposure Boost:</b> <b>${enable ? 'ENABLED' : 'DISABLED'}</b>`);
+            } else if (key === 'torch_assist' || key === 'torchassist') {
+              const enable = val.toLowerCase() === 'on' || val.toLowerCase() === 'true' || val === '1';
+              torchAssistEnabled = enable;
+              const cb = document.getElementById('torchAssistToggle');
+              if (cb) cb.checked = enable;
+              saveSettings();
+              reply(`🔦 <b>Flashlight Assist on Night Alert:</b> <b>${enable ? 'ENABLED' : 'DISABLED'}</b>`);
+            } else if (key === 'safety') {
+              const enable = val.toLowerCase() === 'on' || val.toLowerCase() === 'true' || val === '1';
+              const cb = document.getElementById('humanSafetyToggle');
+              if (cb) cb.checked = enable;
+              saveSettings();
+              reply(`🔒 <b>Human Safety Pause Cutoff:</b> <b>${enable ? 'ENABLED' : 'DISABLED'}</b>`);
+            } else if (key === 'targets' || key === 'target') {
+              const valid = Object.keys(TARGET_DISPLAY);
+              const requested = val.split(/[,\s]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+              const matched = requested.filter(r => valid.includes(r));
+              if (matched.length === 0) {
+                reply(`⚠️ No valid targets recognized. Available:\n<code>${valid.join(', ')}</code>`);
+                return;
+              }
+              activeTargets = matched;
+              document.querySelectorAll('.target-checkbox').forEach(cb => {
+                cb.checked = activeTargets.includes(cb.value);
+              });
+              updateComboText();
+              updateSettingsSummary();
+              saveSettings();
+              reply(`🎯 <b>Target Animals updated:</b> ${activeTargets.map(t => TARGET_DISPLAY[t] || t).join(', ')}`);
+            } else if (key === 'actions' || key === 'action') {
+              const valid = Object.keys(ACTIVATION_DISPLAY);
+              const requested = val.split(/[,\s]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+              const matched = requested.filter(r => valid.includes(r));
+              activeActivations = matched;
+              document.querySelectorAll('.activation-checkbox').forEach(cb => {
+                cb.checked = activeActivations.includes(cb.value);
+              });
+              updateActivationComboText();
+              updateSettingsSummary();
+              saveSettings();
+              const actNames = activeActivations.map(a => ACTIVATION_DISPLAY[a] || a).join(', ') || 'None (Monitor Only)';
+              reply(`⚡ <b>Deterrent Actions updated:</b> ${actNames}`);
+            } else if (key === 'webhook') {
+              const wInput = document.getElementById('webhookInput');
+              if (wInput) wInput.value = val;
+              saveSettings();
+              reply(`💧 <b>Webhook URL updated!</b>\n<code>${val}</code>`);
+            } else {
+              reply(`❓ Unknown setting <code>${key}</code>. Type <code>/set</code> to see options.`);
+            }
+          } else if (cmd === 'target') {
+            const sub = (args && args[0]) ? args[0].toLowerCase() : 'list';
+            const targetName = (args && args[1]) ? args[1].toLowerCase() : '';
+            const valid = Object.keys(TARGET_DISPLAY);
+
+            if (sub === 'add') {
+              if (!valid.includes(targetName)) {
+                reply(`⚠️ Unknown animal <code>${targetName}</code>. Available: ${valid.join(', ')}`);
+                return;
+              }
+              if (!activeTargets.includes(targetName)) {
+                activeTargets.push(targetName);
+                document.querySelectorAll('.target-checkbox').forEach(cb => {
+                  cb.checked = activeTargets.includes(cb.value);
+                });
+                updateComboText();
+                updateSettingsSummary();
+                saveSettings();
+              }
+              reply(`✅ Added <b>${TARGET_DISPLAY[targetName] || targetName}</b> to targets!`);
+            } else if (sub === 'remove' || sub === 'del') {
+              activeTargets = activeTargets.filter(t => t !== targetName);
+              document.querySelectorAll('.target-checkbox').forEach(cb => {
+                cb.checked = activeTargets.includes(cb.value);
+              });
+              updateComboText();
+              updateSettingsSummary();
+              saveSettings();
+              reply(`🗑️ Removed <b>${targetName}</b> from targets.`);
+            } else {
+              const listStr = valid.map(t => `${activeTargets.includes(t) ? '✅' : '⚪'} <code>${t}</code> (${TARGET_DISPLAY[t]})`).join('\n');
+              reply(`🎯 <b>Target Animals:</b>\n\n${listStr}\n\n<i>To add/remove: <code>/target add cat</code> or <code>/target remove cat</code></i>`);
+            }
+          } else if (cmd === 'action') {
+            const sub = (args && args[0]) ? args[0].toLowerCase() : 'list';
+            const actName = (args && args[1]) ? args[1].toLowerCase() : '';
+            const valid = Object.keys(ACTIVATION_DISPLAY);
+
+            if (sub === 'add') {
+              if (!valid.includes(actName)) {
+                reply(`⚠️ Unknown action <code>${actName}</code>. Available: ${valid.join(', ')}`);
+                return;
+              }
+              if (!activeActivations.includes(actName)) {
+                activeActivations.push(actName);
+                document.querySelectorAll('.activation-checkbox').forEach(cb => {
+                  cb.checked = activeActivations.includes(cb.value);
+                });
+                updateActivationComboText();
+                updateSettingsSummary();
+                saveSettings();
+              }
+              reply(`✅ Added <b>${ACTIVATION_DISPLAY[actName] || actName}</b> to actions!`);
+            } else if (sub === 'remove' || sub === 'del') {
+              activeActivations = activeActivations.filter(a => a !== actName);
+              document.querySelectorAll('.activation-checkbox').forEach(cb => {
+                cb.checked = activeActivations.includes(cb.value);
+              });
+              updateActivationComboText();
+              updateSettingsSummary();
+              saveSettings();
+              reply(`🗑️ Removed <b>${actName}</b> from actions.`);
+            } else {
+              const listStr = valid.map(a => `${activeActivations.includes(a) ? '✅' : '⚪'} <code>${a}</code> (${ACTIVATION_DISPLAY[a]})`).join('\n');
+              reply(`⚡ <b>Deterrent Actions:</b>\n\n${listStr}\n\n<i>To add/remove: <code>/action add sprinklers</code> or <code>/action remove siren</code></i>`);
+            }
+          } else if (cmd === 'camera') {
+            const sub = (args && args[0]) ? args[0].toLowerCase() : 'list';
+            const camSelect = document.getElementById('cameraSelect');
+            if (!camSelect || camSelect.options.length === 0) {
+              reply("⚠️ No cameras currently enumerated on phone.");
+              return;
+            }
+
+            if (sub === 'list') {
+              let text = "📷 <b>Available Camera Lenses:</b>\n\n";
+              for (let i = 0; i < camSelect.options.length; i++) {
+                const opt = camSelect.options[i];
+                const isCurrent = i === camSelect.selectedIndex ? " 👈 (Active)" : "";
+                text += `<b>${i + 1}</b>: ${opt.innerText}${isCurrent}\n`;
+              }
+              text += "\n<i>To switch lens: <code>/camera 1</code> or <code>/camera 2</code></i>";
+              reply(text);
+            } else {
+              const num = parseInt(sub);
+              if (isNaN(num) || num < 1 || num > camSelect.options.length) {
+                reply(`⚠️ Invalid camera number. Send <code>/camera list</code> to see available lenses (1 to ${camSelect.options.length}).`);
+                return;
+              }
+              const targetIdx = num - 1;
+              camSelect.selectedIndex = targetIdx;
+              const selectedOpt = camSelect.options[targetIdx];
+              onCameraChange(selectedOpt.value);
+              reply(`📷 Switched active camera to <b>${selectedOpt.innerText}</b>!`);
+            }
           } else if (cmd === 'spray') {
             manualWaterSpray();
             reply("⚡ Deterrent activation triggered!");

@@ -17,6 +17,16 @@
     REMOTE_ENABLED: 'yard_guardian_tg_remote_enabled'
   };
 
+  const DEFAULT_KEYBOARD = {
+    keyboard: [
+      [{ text: '📸 Snapshot' }, { text: '💦 Spray Test' }],
+      [{ text: '🛡️ Arm' }, { text: '⏸️ Disarm' }, { text: '🔦 Torch' }],
+      [{ text: '📊 Status' }, { text: '⚙️ Config' }, { text: '🔄 Refresh' }]
+    ],
+    resize_keyboard: true,
+    is_persistent: true
+  };
+
   const TelegramBot = {
     token: '',
     chatId: '',
@@ -84,7 +94,8 @@
           body: JSON.stringify({
             chat_id: chatId,
             text: '🤖 <b>AI Yard Guardian Connected!</b>\n\nTelegram Bot alert and remote control integration is working properly.',
-            parse_mode: 'HTML'
+            parse_mode: 'HTML',
+            reply_markup: DEFAULT_KEYBOARD
           })
         });
 
@@ -100,21 +111,28 @@
     },
 
     /**
-     * Send text message to user's Telegram chat
+     * Send text message to user's Telegram chat with optional custom keyboard
      */
-    sendMessage: async function (text, parseMode = 'HTML') {
+    sendMessage: async function (text, parseMode = 'HTML', replyMarkup = undefined) {
       if (!this.isConfigured() || !this.enabled) return false;
 
       try {
         const url = `https://api.telegram.org/bot${this.token}/sendMessage`;
+        const payload = {
+          chat_id: this.chatId,
+          text: text,
+          parse_mode: parseMode
+        };
+
+        const markup = (replyMarkup !== undefined) ? replyMarkup : DEFAULT_KEYBOARD;
+        if (markup) {
+          payload.reply_markup = markup;
+        }
+
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: this.chatId,
-            text: text,
-            parse_mode: parseMode
-          })
+          body: JSON.stringify(payload)
         });
         const data = await res.json();
         return data.ok;
@@ -231,23 +249,64 @@
     },
 
     _handleIncomingCommand: function (cmdText) {
-      const cleanCmd = cmdText.split(' ')[0].toLowerCase().split('@')[0];
-      const reply = (text) => this.sendMessage(text);
+      const trimmed = (cmdText || '').trim();
+      let firstWord = trimmed.split(/\s+/)[0].toLowerCase().split('@')[0];
+
+      // Map interactive button presses to canonical slash commands
+      const lowerFull = trimmed.toLowerCase();
+      if (lowerFull.includes('snapshot') || lowerFull.includes('📸')) {
+        firstWord = '/snap';
+      } else if (lowerFull.includes('spray') || lowerFull.includes('💦')) {
+        firstWord = '/spray';
+      } else if (lowerFull.includes('disarm') || lowerFull.includes('⏸️')) {
+        firstWord = '/disarm';
+      } else if (lowerFull.includes('arm') || lowerFull.includes('🛡️')) {
+        firstWord = '/arm';
+      } else if (lowerFull.includes('torch') || lowerFull.includes('🔦')) {
+        firstWord = '/torch';
+      } else if (lowerFull.includes('status') || lowerFull.includes('📊')) {
+        firstWord = '/status';
+      } else if (lowerFull.includes('config') || lowerFull.includes('settings') || lowerFull.includes('⚙️')) {
+        firstWord = '/config';
+      } else if (lowerFull.includes('refresh') || lowerFull.includes('reload') || lowerFull.includes('🔄')) {
+        firstWord = '/refresh';
+      } else if (lowerFull.includes('help') || lowerFull.includes('menu') || lowerFull.includes('❓')) {
+        firstWord = '/help';
+      }
+
+      const cleanCmd = firstWord.startsWith('/') ? firstWord : ('/' + firstWord);
+      const reply = (text, markup) => this.sendMessage(text, 'HTML', markup);
       const replyPhoto = (blob, caption) => this.sendPhotoBlob(blob, caption);
+      const args = trimmed.split(/\s+/).slice(1);
 
       switch (cleanCmd) {
         case '/help':
         case '/start':
+        case '/menu':
           reply(
-            '🤖 <b>AI Yard Guardian Remote Commands:</b>\n\n' +
-            '📸 <code>/snap</code> - Take a live photo now\n' +
-            '💦 <code>/spray</code> - Trigger water valve spray\n' +
-            '📊 <code>/status</code> - Check armed status, light mode & version\n' +
-            '🛡️ <code>/arm</code> - Start AI detection\n' +
-            '⏸️ <code>/disarm</code> - Pause AI detection\n' +
-            '🔦 <code>/torch [on|off]</code> - Toggle phone flashlight\n' +
-            '🔄 <code>/refresh</code> or <code>/reload</code> - Reload app to latest version from GitHub\n' +
-            '❓ <code>/help</code> - Show this menu'
+            '🤖 <b>AI Yard Guardian Remote Menu</b>\n\n' +
+            '<b>Quick Actions:</b>\n' +
+            '📸 <code>/snap</code> — Take a live photo now\n' +
+            '💦 <code>/spray</code> — Trigger water deterrent\n' +
+            '🛡️ <code>/arm</code> — Start AI detection\n' +
+            '⏸️ <code>/disarm</code> — Pause AI into standby\n' +
+            '🔦 <code>/torch [on|off]</code> — Toggle flashlight\n' +
+            '📊 <code>/status</code> — Armed & lighting status\n' +
+            '🔄 <code>/refresh</code> — Reload app from GitHub\n\n' +
+            '<b>Remote Configuration:</b>\n' +
+            '⚙️ <code>/config</code> — View full configuration\n' +
+            '🎚️ <code>/set day &lt;%&gt;</code> — Day sensitivity (e.g. <code>/set day 40</code>)\n' +
+            '🌙 <code>/set night &lt;%&gt;</code> — Night sensitivity (e.g. <code>/set night 25</code>)\n' +
+            '🌓 <code>/set mode &lt;auto|day|night&gt;</code> — Light mode\n' +
+            '🎯 <code>/set targets &lt;cat,dog,bird...&gt;</code> — Targets\n' +
+            '⚡ <code>/set actions &lt;sprinklers,screenshot...&gt;</code> — Actions\n' +
+            '📷 <code>/camera list</code> or <code>/camera &lt;num&gt;</code> — Switch lens\n' +
+            '🔒 <code>/set safety &lt;on|off&gt;</code> — Human pause cutoff\n' +
+            '🚀 <code>/set boost &lt;on|off&gt;</code> — AI Night contrast boost\n' +
+            '📷 <code>/set exposure &lt;on|off&gt;</code> — Camera exposure boost\n' +
+            '🔦 <code>/set torch_assist &lt;on|off&gt;</code> — Torch on alert\n' +
+            '💧 <code>/set webhook &lt;url&gt;</code> — Update webhook URL\n\n' +
+            '<i>Tip: Tap the buttons below your keyboard anytime!</i>'
           );
           break;
 
@@ -258,17 +317,22 @@
         case '/arm':
         case '/disarm':
         case '/torch':
+        case '/config':
+        case '/settings':
+        case '/set':
+        case '/target':
+        case '/action':
+        case '/camera':
         case '/refresh':
         case '/reload':
         case '/update':
           if (this.callbacks.onCommand) {
-            const args = cmdText.split(' ').slice(1);
             this.callbacks.onCommand(cleanCmd.replace('/', ''), reply, replyPhoto, args);
           }
           break;
 
         default:
-          reply(`❓ Unknown command: <code>${cleanCmd}</code>\nType <code>/help</code> for available commands.`);
+          reply(`❓ Unknown command: <code>${cleanCmd}</code>\nType <code>/help</code> or tap <b>📊 Status</b> below.`);
       }
     }
   };
