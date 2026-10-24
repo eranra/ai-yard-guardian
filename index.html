@@ -511,9 +511,27 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-title">Live Log</div>
-      <div id="logBox" class="log-box">System loaded. Tap 'Start Guardian' to begin.</div>
+    <!-- Collapsible Live Log Card -->
+    <div class="card" id="logCard" style="padding: 10px 14px;">
+      <!-- Collapsible Log Header -->
+      <div class="card-title" onclick="toggleLogPanel()" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; margin-bottom: 0;">
+        <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+          <span style="white-space: nowrap;">📋 Live Log</span>
+          <span id="logSummaryBadge" style="font-size: 0.7rem; font-weight: normal; color: #a5b4fc; background: #0f172a; padding: 2px 8px; border-radius: 999px; border: 1px solid #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">System loaded</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+          <button type="button" class="btn-stealth" style="padding: 2px 8px; font-size: 0.7rem;" onclick="event.stopPropagation(); clearLogs();">Clear</button>
+          <span id="logToggleArrow" style="font-size: 0.8rem; color: #38bdf8; font-weight: bold;">▼</span>
+        </div>
+      </div>
+
+      <!-- Expandable Log Terminal Box -->
+      <div id="logBody" style="display: none; margin-top: 10px; border-top: 1px solid #334155; padding-top: 8px;">
+        <div id="logBox" class="log-box">System loaded. Tap 'Start Guardian' to begin.</div>
+        <div style="text-align: center; margin-top: 8px;">
+          <button type="button" class="btn-stealth" style="padding: 3px 12px; font-size: 0.72rem;" onclick="toggleLogPanel()">▲ Collapse Log</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -743,6 +761,14 @@
         if (sArrow) sArrow.innerText = isSettingsExpanded ? '▲' : '▼';
 
         updateSettingsSummary();
+
+        // Restore log collapse/expand state (default to collapsed)
+        const savedLogExpanded = localStorage.getItem('yard_guardian_log_expanded');
+        isLogExpanded = savedLogExpanded === '1';
+        const lBody = document.getElementById('logBody');
+        const lArrow = document.getElementById('logToggleArrow');
+        if (lBody) lBody.style.display = isLogExpanded ? 'block' : 'none';
+        if (lArrow) lArrow.innerText = isLogExpanded ? '▲' : '▼';
       } catch (e) {}
     }
 
@@ -757,12 +783,45 @@
     function closeHelpModal() { helpModal.style.display = 'none'; }
     function closeModalOnBackdrop(e) { if (e.target === helpModal) closeHelpModal(); }
 
+    let isLogExpanded = false;
+
+    function toggleLogPanel() {
+      const body = document.getElementById('logBody');
+      const arrow = document.getElementById('logToggleArrow');
+      if (!body) return;
+
+      isLogExpanded = !isLogExpanded;
+      body.style.display = isLogExpanded ? 'block' : 'none';
+      if (arrow) arrow.innerText = isLogExpanded ? '▲' : '▼';
+      localStorage.setItem('yard_guardian_log_expanded', isLogExpanded ? '1' : '0');
+    }
+
     function log(msg) {
       const time = new Date().toLocaleTimeString();
       logBox.innerHTML = `[${time}] ${msg}<br>` + logBox.innerHTML;
+
+      const logSummaryBadge = document.getElementById('logSummaryBadge');
+      if (logSummaryBadge) {
+        const plain = msg.replace(/<[^>]*>/g, '');
+        logSummaryBadge.innerText = `[${time}] ${plain}`;
+        if (msg.includes('🚨') || msg.includes('Alert')) {
+          logSummaryBadge.style.color = '#ef4444';
+        } else if (msg.includes('✅') || msg.includes('💦')) {
+          logSummaryBadge.style.color = '#38bdf8';
+        } else {
+          logSummaryBadge.style.color = '#a5b4fc';
+        }
+      }
     }
 
-    function clearLogs() { logBox.innerHTML = "Logs cleared."; }
+    function clearLogs() {
+      logBox.innerHTML = "Logs cleared.";
+      const logSummaryBadge = document.getElementById('logSummaryBadge');
+      if (logSummaryBadge) {
+        logSummaryBadge.innerText = "Logs cleared";
+        logSummaryBadge.style.color = "#a5b4fc";
+      }
+    }
 
     async function requestWakeLock() {
       if ('wakeLock' in navigator) {
