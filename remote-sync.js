@@ -172,25 +172,50 @@
     },
 
     /**
-     * Compact SDP to keep QR code density minimal for easy smartphone scanning.
+     * Ultra-compact SDP parameter extraction to produce big, chunky, easily-scanned QR codes.
+     * Shrinks payload from ~2,000 chars down to ~150 chars.
      */
     compressSDP: function (desc) {
       try {
-        let sdp = desc.sdp;
-        // Strip non-essential extmap and feedback attributes (keep fmtp for H.264 profile negotiation)
-        sdp = sdp.replace(/^a=extmap:.*\r?\n/gm, '');
-        sdp = sdp.replace(/^a=rtcp-fb:.*\r?\n/gm, '');
-        sdp = sdp.replace(/^a=msid-semantic:.*\r?\n/gm, '');
+        const sdp = desc.sdp;
+        const ufrag = (sdp.match(/a=ice-ufrag:([^\r\n]+)/) || [])[1] || '';
+        const pwd = (sdp.match(/a=ice-pwd:([^\r\n]+)/) || [])[1] || '';
+        const fpMatch = (sdp.match(/a=fingerprint:sha-256 ([^\r\n]+)/) || [])[1] || '';
+        const fp = fpMatch.replace(/[^0-9a-fA-F]/g, '');
+
+        // Extract host candidate(s)
+        const candLines = sdp.match(/a=candidate:[^\r\n]+/g) || [];
+        const candList = [];
+        for (let cl of candLines) {
+          if (cl.includes(' typ host ') && cl.includes(' udp ')) {
+            const parts = cl.split(' ');
+            if (parts[4] && parts[5] && !parts[4].includes(':') && !parts[4].endsWith('.local')) {
+              candList.push(`${parts[4]}:${parts[5]}`);
+            }
+          }
+        }
+        // Fallback to any host candidate if IP was mDNS or obscure
+        if (candList.length === 0) {
+          for (let cl of candLines) {
+            if (cl.includes(' typ host ')) {
+              const parts = cl.split(' ');
+              if (parts[4] && parts[5]) {
+                candList.push(`${parts[4]}:${parts[5]}`);
+                break;
+              }
+            }
+          }
+        }
 
         const payload = {
           t: desc.type === 'offer' ? 'o' : 'a',
-          s: sdp
+          u: ufrag,
+          p: pwd,
+          f: fp,
+          c: candList.slice(0, 2).join(',')
         };
-        const json = JSON.stringify(payload);
-        if (window.LZString) {
-          return 'AYG:' + window.LZString.compressToEncodedURIComponent(json);
-        }
-        return 'AYG:' + btoa(json);
+
+        return 'AYG2:' + JSON.stringify(payload);
       } catch (err) {
         console.error("Compression error:", err);
         return JSON.stringify(desc);
@@ -199,21 +224,68 @@
 
     decompressSDP: function (str) {
       try {
+        if (str.startsWith('AYG2:')) {
+          const payload = JSON.parse(str.slice(5));
+          const isOffer = payload.t === 'o';
+          const fpFormatted = (payload.f.match(/.{2}/g) || []).join(':');
+
+          let candLines = '';
+          if (payload.c) {
+            const cands = payload.c.split(',');
+            cands.forEach((cand, idx) => {
+              if (cand.includes(':')) {
+                const [ip, port] = cand.split(':');
+                candLines += `a=candidate:${idx + 1} 1 udp 2122260223 ${ip} ${port} typ host generation 0\r\n`;
+              }
+            });
+          }
+
+          const rebuiltSdp = `v=0\r\n` +
+            `o=- ${Date.now()} 2 IN IP4 127.0.0.1\r\n` +
+            `s=-\r\n` +
+            `t=0 0\r\n` +
+            `a=group:BUNDLE 0 1\r\n` +
+            `a=msid-semantic: WMS\r\n` +
+            `m=video 9 UDP/TLS/RTP/SAVPF 96\r\n` +
+            `c=IN IP4 0.0.0.0\r\n` +
+            `a=rtcp:9 IN IP4 0.0.0.0\r\n` +
+            `a=ice-ufrag:${payload.u}\r\n` +
+            `a=ice-pwd:${payload.p}\r\n` +
+            `a=fingerprint:sha-256 ${fpFormatted}\r\n` +
+            `a=setup:${isOffer ? 'actpass' : 'active'}\r\n` +
+            `a=mid:0\r\n` +
+            `a=${isOffer ? 'sendonly' : 'recvonly'}\r\n` +
+            `a=rtcp-mux\r\n` +
+            `a=rtcp-rsize\r\n` +
+            `a=rtpmap:96 VP8/90000\r\n` +
+            candLines +
+            `m=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\n` +
+            `c=IN IP4 0.0.0.0\r\n` +
+            `a=ice-ufrag:${payload.u}\r\n` +
+            `a=ice-pwd:${payload.p}\r\n` +
+            `a=fingerprint:sha-256 ${fpFormatted}\r\n` +
+            `a=setup:${isOffer ? 'actpass' : 'active'}\r\n` +
+            `a=mid:1\r\n` +
+            `a=sctp-port:5000\r\n` +
+            candLines;
+
+          return {
+            type: isOffer ? 'offer' : 'answer',
+            sdp: rebuiltSdp
+          };
+        }
+
+        // Backward compatibility for AYG:
         if (str.startsWith('AYG:')) {
           const raw = str.slice(4);
-          let json = '';
-          if (window.LZString) {
-            json = window.LZString.decompressFromEncodedURIComponent(raw);
-          }
-          if (!json) {
-            json = atob(raw);
-          }
+          let json = window.LZString ? window.LZString.decompressFromEncodedURIComponent(raw) : atob(raw);
           const parsed = JSON.parse(json);
           return {
             type: parsed.t === 'o' ? 'offer' : 'answer',
             sdp: parsed.s
           };
         }
+
         return JSON.parse(str);
       } catch (err) {
         console.error("Decompression error:", err);
@@ -552,7 +624,7 @@
         height: size || 240,
         colorDark: '#0f172a',
         colorLight: '#ffffff',
-        correctLevel: window.QRCode.CorrectLevel.M
+        correctLevel: window.QRCode.CorrectLevel.L
       });
     },
 
@@ -577,7 +649,7 @@
           const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
             inversionAttempts: "dontInvert"
           });
-          if (code && code.data && code.data.startsWith('AYG:')) {
+          if (code && code.data && (code.data.startsWith('AYG2:') || code.data.startsWith('AYG:'))) {
             scanning = false;
             if (onFoundCallback) {
               onFoundCallback(code.data);
