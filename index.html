@@ -76,6 +76,30 @@
     }
     .btn-help:hover { background: #2563eb; }
 
+    /* Dynamic Camera Selector */
+    .camera-select {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 0.82rem;
+      color: #38bdf8;
+      font-weight: 600;
+      outline: none;
+      cursor: pointer;
+      appearance: auto;
+      transition: border-color 0.15s;
+    }
+    .camera-select:focus, .camera-select:hover {
+      border-color: #38bdf8;
+    }
+    .camera-select option {
+      background: #1e293b;
+      color: #f1f5f9;
+      font-weight: normal;
+    }
+
     /* Reusable Multi-select Combo Box Styles */
     .combo-box-wrapper { position: relative; width: 100%; margin-top: 4px; }
     .combo-box-btn {
@@ -318,6 +342,14 @@
     <div class="card">
       <div class="card-title">Detection & Deterrent Settings</div>
       
+      <!-- Camera Lens Selection (Auto-Discovered & Persisted) -->
+      <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 10px;">
+        <label for="cameraSelect">📷 Active Camera Lens</label>
+        <select id="cameraSelect" class="camera-select" onchange="onCameraChange(this.value)">
+          <option value="">Default Rear Camera</option>
+        </select>
+      </div>
+
       <!-- 1. Multi-select Animal Targets Combo Box -->
       <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 10px;">
         <label>🎯 Deterrent Target Animals</label>
@@ -579,12 +611,15 @@
 
     // Settings Persistence
     function saveSettings() {
+      const cameraSelect = document.getElementById('cameraSelect');
       const settings = {
         webhook: document.getElementById('webhookInput').value.trim(),
         conf: document.getElementById('confRange').value,
         humanSafety: document.getElementById('humanSafetyToggle').checked,
         targets: activeTargets,
         activations: activeActivations,
+        cameraId: cameraSelect ? cameraSelect.value : (localStorage.getItem('yard_guardian_camera_id') || ''),
+        cameraLabel: localStorage.getItem('yard_guardian_camera_label') || '',
         screenshotVersion: 1
       };
       localStorage.setItem('yard_guardian_settings', JSON.stringify(settings));
@@ -605,6 +640,8 @@
             document.getElementById('confVal').innerText = s.conf + '%';
           }
           if (s.humanSafety !== undefined) document.getElementById('humanSafetyToggle').checked = s.humanSafety;
+          if (s.cameraId) localStorage.setItem('yard_guardian_camera_id', s.cameraId);
+          if (s.cameraLabel) localStorage.setItem('yard_guardian_camera_label', s.cameraLabel);
           if (Array.isArray(s.targets)) loadedTargets = s.targets;
           if (Array.isArray(s.activations)) {
             loadedActivations = s.activations;
@@ -693,20 +730,147 @@
       }, 90);
     }
 
-    async function setupCamera() {
-      log("Initializing rear camera...");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false
-      });
-      video.srcObject = stream;
-      return new Promise(resolve => {
+    let currentStream = null;
+
+    async function populateCameraList() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        const cameraSelect = document.getElementById('cameraSelect');
+        if (!cameraSelect) return;
+
+        const savedCameraId = localStorage.getItem('yard_guardian_camera_id');
+        const savedCameraLabel = localStorage.getItem('yard_guardian_camera_label');
+
+        cameraSelect.innerHTML = '';
+
+        if (videoDevices.length === 0) {
+          const opt = document.createElement('option');
+          opt.value = "";
+          opt.innerText = "Default Camera (Auto)";
+          cameraSelect.appendChild(opt);
+          return;
+        }
+
+        let selectedIndex = 0;
+        let rearFound = false;
+
+        videoDevices.forEach((device, index) => {
+          const opt = document.createElement('option');
+          opt.value = device.deviceId;
+
+          const raw = device.label || `Camera ${index + 1}`;
+          const lower = raw.toLowerCase();
+          let displayLabel = raw;
+
+          if (lower.includes('front') || lower.includes('user') || lower.includes('selfie')) {
+            displayLabel = `🤳 Front: ${raw}`;
+          } else if (lower.includes('ultra')) {
+            displayLabel = `📷 Ultra-Wide: ${raw}`;
+          } else if (lower.includes('tele') || lower.includes('zoom')) {
+            displayLabel = `📷 Telephoto: ${raw}`;
+          } else if (lower.includes('back') || lower.includes('rear') || lower.includes('0') || lower.includes('environment')) {
+            displayLabel = `📷 Rear: ${raw}`;
+          } else {
+            displayLabel = `📹 Lens ${index + 1}: ${raw}`;
+          }
+
+          opt.innerText = displayLabel;
+
+          if (savedCameraId && device.deviceId === savedCameraId) {
+            selectedIndex = index;
+          } else if (!savedCameraId && savedCameraLabel && displayLabel === savedCameraLabel) {
+            selectedIndex = index;
+          } else if (!savedCameraId && !savedCameraLabel && !rearFound && (lower.includes('back') || lower.includes('rear') || lower.includes('0') || lower.includes('environment'))) {
+            selectedIndex = index;
+            rearFound = true;
+          }
+
+          cameraSelect.appendChild(opt);
+        });
+
+        if (videoDevices[selectedIndex]) {
+          cameraSelect.selectedIndex = selectedIndex;
+        }
+      } catch (e) {
+        console.warn("Could not enumerate camera devices:", e);
+      }
+    }
+
+    async function setupCamera(preferredDeviceId) {
+      log("Initializing camera stream...");
+
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+        currentStream = null;
+      }
+
+      const savedCameraId = preferredDeviceId || localStorage.getItem('yard_guardian_camera_id');
+      let videoConstraints = {
+        width: { ideal: 640 },
+        height: { ideal: 480 }
+      };
+
+      if (savedCameraId) {
+        videoConstraints.deviceId = { exact: savedCameraId };
+      } else {
+        videoConstraints.facingMode = { ideal: 'environment' };
+      }
+
+      try {
+        currentStream = await navigator.mediaDevices.getUserMedia({
+          video: videoConstraints,
+          audio: false
+        });
+      } catch (err) {
+        try {
+          currentStream = await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: savedCameraId ? { ideal: savedCameraId } : undefined, facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+            audio: false
+          });
+        } catch (err2) {
+          currentStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false
+          });
+        }
+      }
+
+      video.srcObject = currentStream;
+
+      await new Promise(resolve => {
         video.onloadedmetadata = () => {
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
           resolve();
         };
       });
+
+      await populateCameraList();
+    }
+
+    async function onCameraChange(deviceId) {
+      if (!deviceId) return;
+      const cameraSelect = document.getElementById('cameraSelect');
+      const selectedOption = cameraSelect.options[cameraSelect.selectedIndex];
+      const label = selectedOption ? selectedOption.innerText : '';
+
+      localStorage.setItem('yard_guardian_camera_id', deviceId);
+      localStorage.setItem('yard_guardian_camera_label', label);
+      saveSettings();
+
+      log(`📷 Camera set to: <b>${label}</b>`);
+
+      if (isRunning) {
+        log("🔄 Switching camera live...");
+        try {
+          await setupCamera(deviceId);
+          log(`✅ Switched active camera to: ${label}`);
+        } catch (err) {
+          log(`⚠️ Error switching camera: ${err.message}`);
+        }
+      }
     }
 
     let classifierModel = null;
@@ -755,12 +919,12 @@
 
     async function toggleGuardian() {
       if (!isRunning) {
-        if (!model) {
+        if (!currentStream) {
           toggleBtn.disabled = true;
-          toggleBtn.innerText = "Starting Camera & AI...";
+          toggleBtn.innerText = "Starting Camera...";
           try {
             await setupCamera();
-            await loadModel();
+            if (!model) await loadModel();
           } catch(err) {
             log("❌ Error accessing camera: " + err);
             toggleBtn.disabled = false;
@@ -782,6 +946,10 @@
       } else {
         isRunning = false;
         if (wakeLock) wakeLock.release().then(() => wakeLock = null);
+        if (currentStream) {
+          currentStream.getTracks().forEach(track => track.stop());
+          currentStream = null;
+        }
         toggleBtn.innerText = "▶️ Start Guardian";
         toggleBtn.className = "btn-primary";
         stealthBtn.disabled = true;
@@ -1062,6 +1230,10 @@
 
     // Initialize on page load
     loadSettings();
+    populateCameraList();
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', populateCameraList);
+    }
   </script>
 </body>
 </html>

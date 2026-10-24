@@ -9,6 +9,7 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
 ## ✨ Features
 
 - **Zero Installation (PWA):** Runs entirely in Chrome or Samsung Internet. Add it to your home screen with one tap to use it like a native app.
+- **📷 Dynamic Multi-Camera Lens Selection:** Automatically discovers all physical front and rear cameras/lenses (Main Wide, Ultra-Wide, Telephoto, Front) on any device (Samsung, Xiaomi, Pixel, etc.) without hardcoding names. Switch lenses anytime and your preference is saved permanently.
 - **On-Device AI Vision:** Uses TensorFlow.js (`mobilenet_v2`) running directly on your phone's GPU/NPU.
 - **🎯 Multi-Select Target Animals:** Choose exactly which animals trigger deterrents:
   - 🐱 Cat
