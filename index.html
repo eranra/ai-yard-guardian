@@ -2815,7 +2815,16 @@
     // Check URL query parameters for one-tap link pairing
     try {
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('pair')) {
+      if (urlParams.has('tg_token') || urlParams.has('tg_chat')) {
+        const token = urlParams.get('tg_token') || '';
+        const chatId = urlParams.get('tg_chat') || '';
+        if (window.TelegramBot) {
+          const cur = TelegramBot.getCredentials();
+          TelegramBot.saveCredentials(token || cur.token, chatId || cur.chatId, true, true);
+          loadSettings();
+          log("🤖 Configured Telegram Bot credentials from link!");
+        }
+      } else if (urlParams.has('pair')) {
         const pairCode = urlParams.get('pair');
         log("🔗 Received pairing link from URL! Switching to Viewer mode...");
         switchAppMode('viewer');
