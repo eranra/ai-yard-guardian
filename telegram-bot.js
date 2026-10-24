@@ -298,6 +298,7 @@
             '🔄 <code>/refresh</code> — Reload app from GitHub\n\n' +
             '<b>Remote Configuration:</b>\n' +
             '⚙️ <code>/config</code> — View full configuration\n' +
+            '🌱 <code>/set speed &lt;eco|balanced|turbo&gt;</code> — CPU & battery mode\n' +
             '🔋 <code>/set screen &lt;1|2|5|off&gt;</code> — Screen timeout (mins)\n' +
             '🎚️ <code>/set day &lt;%&gt;</code> — Day sensitivity (e.g. <code>/set day 40</code>)\n' +
             '🌙 <code>/set night &lt;%&gt;</code> — Night sensitivity (e.g. <code>/set night 25</code>)\n' +

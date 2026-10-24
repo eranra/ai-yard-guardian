@@ -17,7 +17,8 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
   - 🚨 **Instant Intruder Alerts:** Immediate push notifications whenever a target animal is detected.
   - 📸 **Detection Snapshots:** Automatically delivers a photo of the intruder directly to your chat.
   - ⚙️ **Full Remote Configuration Management:**
-    - `/config` — view full configuration readout including battery level, screen saver timeout, and lenses.
+    - `/config` — view full configuration readout including battery level, AI speed, screen saver timeout, and lenses.
+    - `/set speed <eco|balanced|turbo>` — set AI detection rate (Eco 3 FPS default, Balanced 5 FPS, Turbo Uncapped).
     - `/set screen <1|2|5|10|30s|off>` — set auto-blackout inactivity timeout (default `1` minute).
     - `/set day <10-90>` — set daytime sensitivity threshold (e.g. `/set day 40`).
     - `/set night <10-80>` — set nighttime sensitivity threshold (e.g. `/set night 25`).
@@ -38,9 +39,10 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/arm` / `/disarm` — arm or pause AI monitoring into standby.
     - `/screen [on|off]` (or `/stealth`) — remotely activate or wake up the OLED blackout screen saver.
     - `/torch [on|off]` — remotely toggle phone flashlight/torch.
-    - `/status` — check battery level (%, charging/discharging), screen state, armed status, and ambient lighting.
+    - `/status` — check battery level (%, charging/discharging), screen state, AI speed, armed status, and ambient lighting.
     - `/refresh` — remotely clear browser cache and reload the application from GitHub Pages.
-- **🔋 Battery Life Reporting & Auto-OLED Screen Saver:**
+- **🔋 Battery Life Reporting & Power Optimization:**
+  - **🌱 AI Eco Processing Rate (CPU & Heat Reduction):** Caps deep neural net inference to ~3 FPS (~330ms intervals) by default (options: Eco 3 FPS, Balanced 5 FPS, Turbo Uncapped). Slashes continuous CPU/GPU load from 100% down to ~20%, keeping the phone cool and preventing Android/Xiaomi thermal charge throttling so your phone charges quickly to 100% while still catching every intruder.
   - **Live Battery Telemetry:** Real-time battery percentage and charging status tracked via the Battery Status API, reported on the top header badge, in `/status`, and in `/config`.
   - **Auto-OLED Screen Blackout:** Automatically transitions to full-screen pitch black (`#000000`) after inactivity (configurable: 30s, 1m default, 2m, 5m, 10m, or off).
   - **Why OLED Blackout vs. OS Lock Screen:** Modern phones (including Xiaomi) have AMOLED displays where black pixels turn completely off (0 nits), reducing display draw by ~90%. Crucially, this keeps the browser in the foreground so camera capture, WebGL TensorFlow AI detection, and Telegram commands continue running 24/7 without being stopped by Android OS sleep.

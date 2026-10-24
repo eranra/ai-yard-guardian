@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v5.4 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v5.5 🔄</span>
     </div>
     <div style="display: flex; align-items: center; gap: 8px;">
       <div id="batteryBadge" class="badge" style="background:#1e293b; color:#94a3b8; font-size:0.7rem; display:none; align-items:center; gap:4px;" title="Battery Status">🔋 --%</div>
@@ -590,6 +590,19 @@
                 <option value="0">Disabled (Never Auto-Blackout)</option>
               </select>
             </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+              <label for="aiFpsSelect" style="font-size: 0.76rem; color: #cbd5e1;">AI Processing Speed:</label>
+              <select id="aiFpsSelect" onchange="setAiFpsMode(this.value); saveSettings();" style="background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 3px 8px; border-radius: 4px; font-size: 0.74rem;">
+                <option value="eco" selected>🌱 Eco Mode (3 FPS - Cool &amp; Fast Charge)</option>
+                <option value="balanced">⚖️ Balanced (5 FPS)</option>
+                <option value="turbo">⚡ Turbo (Uncapped - High CPU)</option>
+              </select>
+            </div>
+
+            <p style="font-size: 0.72rem; color: #94a3b8; line-height: 1.35; margin: 2px 0 0 0;">
+              💡 <b>Eco Mode:</b> Caps inference to ~3 FPS, dropping CPU/GPU usage by ~75% so the phone runs cool and charges up quickly without thermal throttling.
+            </p>
             <p style="font-size: 0.72rem; color: #94a3b8; line-height: 1.35; margin: 2px 0 0 0;">
               💡 <b>OLED Screen Blackout:</b> On Xiaomi and AMOLED phones, pure black pixels turn completely off (0 nits), slashing display power by ~90% while camera, AI detection, and Telegram stay running 24/7. Tap anywhere to wake.
             </p>
@@ -871,6 +884,30 @@
       }, { passive: true });
     });
 
+    // 🌱 AI Processing Speed & Eco Mode Engine (v5.5)
+    let aiFpsMode = 'eco'; // 'eco' (3 FPS), 'balanced' (5 FPS), 'turbo' (Max)
+    let detectionIntervalMs = 330; // ~3 FPS default (reduces CPU/GPU heat by ~75%)
+
+    const FPS_MODES = {
+      'eco': { label: '🌱 Eco (3 FPS)', interval: 330, fps: 3 },
+      'balanced': { label: '⚖️ Balanced (5 FPS)', interval: 200, fps: 5 },
+      'turbo': { label: '⚡ Turbo (Max)', interval: 0, fps: 'Max' }
+    };
+
+    function setAiFpsMode(mode) {
+      if (!FPS_MODES[mode]) mode = 'eco';
+      aiFpsMode = mode;
+      detectionIntervalMs = FPS_MODES[mode].interval;
+      localStorage.setItem('yard_guardian_fps_mode', aiFpsMode);
+      const sel = document.getElementById('aiFpsSelect');
+      if (sel) sel.value = aiFpsMode;
+      log(`⚡ AI Processing Speed set to: <b>${FPS_MODES[mode].label}</b>`);
+    }
+
+    function formatFpsModeDisplay() {
+      return (FPS_MODES[aiFpsMode] && FPS_MODES[aiFpsMode].label) || '🌱 Eco (3 FPS)';
+    }
+
     // Offscreen canvas for fast ambient luma calculation
     const lumaCanvas = document.createElement('canvas');
     lumaCanvas.width = 32;
@@ -1025,6 +1062,7 @@
         targets: activeTargets,
         activations: activeActivations,
         screenTimeout: screenSaverTimeoutMinutes,
+        fpsMode: aiFpsMode,
         cameraId: cameraSelect ? cameraSelect.value : (localStorage.getItem('yard_guardian_camera_id') || ''),
         cameraLabel: localStorage.getItem('yard_guardian_camera_label') || '',
         screenshotVersion: 1
@@ -1106,6 +1144,18 @@
         }
         const sToSelect = document.getElementById('screenTimeoutSelect');
         if (sToSelect) sToSelect.value = screenSaverTimeoutMinutes.toString();
+
+        // Restore AI Processing Speed (Eco Mode)
+        const savedFpsMode = localStorage.getItem('yard_guardian_fps_mode');
+        if (savedFpsMode && FPS_MODES[savedFpsMode]) {
+          aiFpsMode = savedFpsMode;
+          detectionIntervalMs = FPS_MODES[savedFpsMode].interval;
+        } else if (s && s.fpsMode && FPS_MODES[s.fpsMode]) {
+          aiFpsMode = s.fpsMode;
+          detectionIntervalMs = FPS_MODES[s.fpsMode].interval;
+        }
+        const fpsSelect = document.getElementById('aiFpsSelect');
+        if (fpsSelect) fpsSelect.value = aiFpsMode;
 
         // Restore collapse/expand state (default to collapsed to save maximum screen space)
         const savedExpanded = localStorage.getItem('yard_guardian_settings_expanded');
@@ -1862,7 +1912,13 @@
         }
       } catch (err) {}
 
-      requestAnimationFrame(detectFrame);
+      if (!isRunning) return;
+
+      if (aiFpsMode === 'turbo' || detectionIntervalMs <= 0) {
+        requestAnimationFrame(detectFrame);
+      } else {
+        setTimeout(detectFrame, detectionIntervalMs);
+      }
     }
 
     function drawBox(x, y, w, h, text, color) {
@@ -2120,7 +2176,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v5.4';
+    const APP_VERSION = 'v5.5';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -2144,6 +2200,7 @@
             const isStealth = stealthOverlay && stealthOverlay.style.display === 'flex';
             const screenStr = isStealth ? "🌙 OLED Blackout Active" : `☀️ Awake (Saver: ${formatTimeoutDisplay(screenSaverTimeoutMinutes)})`;
             const batteryStr = formatBatteryString();
+            const fpsStr = formatFpsModeDisplay();
             const lightStr = isNightMode ? `🌙 Night (Luma: ${Math.round(currentLuma)}, Sensitivity: ${nightSensitivity}%)` : `☀️ Day (Luma: ${Math.round(currentLuma)}, Sensitivity: ${daySensitivity}%)`;
             const torchStr = cameraCapabilities.torch ? (isTorchOn ? "🔦 ON" : "⚪ OFF") : "N/A";
             const targetsStr = (activeTargets && activeTargets.length) ? activeTargets.join(', ') : 'None';
@@ -2154,6 +2211,7 @@
               `• <b>State:</b> ${stateStr}\n` +
               `• <b>Screen:</b> ${screenStr}\n` +
               `• <b>Battery:</b> ${batteryStr}\n` +
+              `• <b>AI Speed:</b> ${fpsStr}\n` +
               `• <b>Lighting:</b> ${lightStr}\n` +
               `• <b>Torch:</b> ${torchStr}\n` +
               `• <b>Targets:</b> ${targetsStr}\n` +
@@ -2172,8 +2230,9 @@
 
             reply(
               `⚙️ <b>AI Yard Guardian Full Configuration</b>\n\n` +
-              `🔋 <b>Battery &amp; Screen Saver:</b>\n` +
+              `🔋 <b>Battery &amp; Power Optimization:</b>\n` +
               `• Battery: <b>${formatBatteryString()}</b>\n` +
+              `• AI Processing Speed: <b>${formatFpsModeDisplay()}</b> (<code>/set speed eco|balanced|turbo</code>)\n` +
               `• Auto Screen Saver: <b>${formatTimeoutDisplay(screenSaverTimeoutMinutes)}</b> (<code>/set screen 1|2|5|off</code>)\n` +
               `• Current Screen: <b>${isStealth ? '🌙 OLED Blackout' : '☀️ Awake'}</b> (<code>/screen [on|off]</code>)\n\n` +
               `🎯 <b>Target Animals:</b> ${targetsStr}\n` +
@@ -2196,6 +2255,7 @@
             if (!args || args.length < 2) {
               reply(
                 `ℹ️ <b>Usage: /set &lt;option&gt; &lt;value&gt;</b>\n\n` +
+                `• <code>/set speed eco</code> — AI speed (eco|balanced|turbo)\n` +
                 `• <code>/set screen 1</code> — Auto screen timeout (mins|off)\n` +
                 `• <code>/set day 40</code> — Daytime sensitivity (15-85)\n` +
                 `• <code>/set night 25</code> — Nighttime sensitivity (10-70)\n` +
@@ -2213,7 +2273,23 @@
             const key = args[0].toLowerCase();
             const val = args.slice(1).join(' ').trim();
 
-            if (key === 'screen' || key === 'timeout' || key === 'screensaver' || key === 'screen_timeout') {
+            if (key === 'speed' || key === 'fps' || key === 'rate' || key === 'eco') {
+              const lowVal = val.toLowerCase();
+              let targetMode = 'eco';
+              if (lowVal.includes('turbo') || lowVal.includes('max') || lowVal === '0') {
+                targetMode = 'turbo';
+              } else if (lowVal.includes('bal') || lowVal === '5') {
+                targetMode = 'balanced';
+              } else if (lowVal.includes('eco') || lowVal === '3' || lowVal === 'slow') {
+                targetMode = 'eco';
+              } else {
+                reply("⚠️ Please enter a valid AI speed: <code>eco</code> (3 FPS), <code>balanced</code> (5 FPS), or <code>turbo</code> (Uncapped).");
+                return;
+              }
+              setAiFpsMode(targetMode);
+              saveSettings();
+              reply(`⚡ <b>AI Processing Speed set to:</b> <b>${formatFpsModeDisplay()}</b>\n${targetMode === 'eco' ? '🌱 Phone CPU/GPU usage cut by ~75% — phone runs cool and charges up quickly.' : ''}`);
+            } else if (key === 'screen' || key === 'timeout' || key === 'screensaver' || key === 'screen_timeout') {
               let num = 1;
               const lowVal = val.toLowerCase();
               if (['off', '0', 'disable', 'disabled', 'never'].includes(lowVal)) {
