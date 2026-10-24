@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=5.0"></script>
+  <script src="telegram-bot.js?v=5.1"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -357,10 +357,10 @@
         <div style="font-size: 0.76rem; font-family: monospace; color: #38bdf8; margin-top: 4px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
           <span>/snap - Take photo</span>
           <span>/spray - Test deterrent</span>
-          <span>/status - Check health</span>
+          <span>/status - Version & health</span>
           <span>/arm - Arm guardian</span>
           <span>/disarm - Standby</span>
-          <span>/help - Show all</span>
+          <span>/refresh - Reload app</span>
         </div>
       </div>
 
@@ -374,7 +374,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v5.0 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v5.1 🔄</span>
     </div>
     <div style="display: flex; align-items: center; gap: 8px;">
       <div id="statusBadge" class="badge standby">Standby</div>
@@ -544,7 +544,7 @@
               <input type="checkbox" id="tgAlertsToggle" onchange="saveTelegramSettings()"> Enable Telegram Intruder Alerts &amp; Photos
             </label>
             <label class="toggle" style="font-size: 0.78rem;">
-              <input type="checkbox" id="tgRemoteToggle" checked onchange="saveTelegramSettings()"> Enable Two-Way Remote Control (/snap, /spray, /status)
+              <input type="checkbox" id="tgRemoteToggle" checked onchange="saveTelegramSettings()"> Enable Two-Way Remote Control (/snap, /spray, /status, /refresh)
             </label>
 
             <div style="margin-top: 4px;">
@@ -1603,6 +1603,8 @@
 
 
 
+    const APP_VERSION = 'v5.1';
+
     function forceAppRefresh() {
       if ('caches' in window) {
         try {
@@ -1611,7 +1613,7 @@
           });
         } catch (e) {}
       }
-      window.location.href = window.location.origin + window.location.pathname + '?v=5.0&nocache=' + Date.now();
+      window.location.href = window.location.origin + window.location.pathname + '?v=' + APP_VERSION + '&nocache=' + Date.now();
     }
 
     // Wire TelegramBot Handlers
@@ -1627,8 +1629,9 @@
             const confVal = document.getElementById('confVal')?.innerText || '40%';
             reply(
               `🏡 <b>Yard Guardian Status</b>\n\n` +
+              `• <b>Version:</b> ${APP_VERSION}\n` +
               `• <b>State:</b> ${stateStr}\n` +
-                            `• <b>Targets:</b> ${targetsStr}\n` +
+              `• <b>Targets:</b> ${targetsStr}\n` +
               `• <b>Activations:</b> ${activationsStr}\n` +
               `• <b>Sensitivity:</b> ${confVal}\n` +
               `• <b>Clock:</b> ${new Date().toLocaleTimeString()}`
@@ -1650,6 +1653,11 @@
             } else {
               reply("ℹ️ Guardian is already on standby.");
             }
+          } else if (cmd === 'refresh' || cmd === 'reload' || cmd === 'update') {
+            await reply("🔄 <b>Reloading Yard Guardian...</b>\nClearing cache and loading latest version from GitHub Pages.");
+            setTimeout(() => {
+              forceAppRefresh();
+            }, 1000);
           } else if (cmd === 'snap' || cmd === 'photo') {
             if (!video || !video.videoWidth) {
               reply("⚠️ Camera is not currently active. Make sure Guardian is armed.");

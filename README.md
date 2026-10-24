@@ -17,7 +17,8 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/spray` — remotely test or fire deterrent activations (sprinklers, siren, etc.).
     - `/arm` — start AI guardian monitoring remotely.
     - `/disarm` — pause AI monitoring into standby.
-    - `/status` — check armed state, active targets, sensitivity, and clock.
+    - `/status` — check application version, armed state, active targets, sensitivity, and clock.
+    - `/refresh` (or `/reload`) — remotely clear browser cache and reload the application to the latest version deployed on GitHub Pages.
 - **📷 Dynamic Multi-Camera Lens Selection:** Automatically discovers all physical front and rear cameras/lenses (Main Wide, Ultra-Wide, Telephoto, Front) on any device (Samsung, Xiaomi, Pixel, etc.). Switch lenses anytime and your preference is saved permanently.
 - **On-Device AI Vision:** Uses TensorFlow.js (`mobilenet_v2`) running directly on your phone's GPU/NPU.
 - **🎯 Multi-Select Target Animals:** Choose exactly which animals trigger deterrents:

@@ -242,9 +242,10 @@
             '🤖 <b>AI Yard Guardian Remote Commands:</b>\n\n' +
             '📸 <code>/snap</code> - Take a live photo now\n' +
             '💦 <code>/spray</code> - Trigger water valve spray\n' +
-            '📊 <code>/status</code> - Check armed status & targets\n' +
+            '📊 <code>/status</code> - Check armed status, targets & version\n' +
             '🛡️ <code>/arm</code> - Start AI detection\n' +
             '⏸️ <code>/disarm</code> - Pause AI detection\n' +
+            '🔄 <code>/refresh</code> or <code>/reload</code> - Reload app to latest version from GitHub\n' +
             '❓ <code>/help</code> - Show this menu'
           );
           break;
@@ -255,6 +256,9 @@
         case '/spray':
         case '/arm':
         case '/disarm':
+        case '/refresh':
+        case '/reload':
+        case '/update':
           if (this.callbacks.onCommand) {
             this.callbacks.onCommand(cleanCmd.replace('/', ''), reply, replyPhoto);
           }
