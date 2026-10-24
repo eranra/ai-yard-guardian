@@ -1246,6 +1246,7 @@
         }
 
         isRunning = true;
+        localStorage.setItem('yard_guardian_armed', 'true');
         await requestWakeLock();
         toggleBtn.innerText = "⏹️ Stop Guardian";
         toggleBtn.className = "btn-danger";
@@ -1261,9 +1262,8 @@
         detectFrame();
       } else {
         isRunning = false;
-        if (window.TelegramBot) {
-          TelegramBot.stopPolling();
-        }
+        localStorage.setItem('yard_guardian_armed', 'false');
+        localStorage.setItem('yard_guardian_stealth', 'false');
         if (wakeLock) wakeLock.release().then(() => wakeLock = null);
         if (currentStream) {
           currentStream.getTracks().forEach(track => track.stop());
@@ -1593,11 +1593,13 @@
 
     function enterStealthMode() {
       stealthOverlay.style.display = 'flex';
+      localStorage.setItem('yard_guardian_stealth', 'true');
       log("🌙 Stealth mode active (screen black, AI running).");
     }
 
     function exitStealthMode() {
       stealthOverlay.style.display = 'none';
+      localStorage.setItem('yard_guardian_stealth', 'false');
       log("☀️ Stealth mode disabled.");
     }
 
@@ -1682,6 +1684,10 @@
           }
         }
       });
+
+      if (TelegramBot.isConfigured() && TelegramBot.enabled && TelegramBot.remoteControlEnabled) {
+        TelegramBot.startPolling();
+      }
     }
 
     // Initialize on page load
@@ -1690,6 +1696,18 @@
     populateCameraList();
     if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
       navigator.mediaDevices.addEventListener('devicechange', populateCameraList);
+    }
+
+    // Auto-resume Armed / Stealth state if previously armed before reload
+    if (localStorage.getItem('yard_guardian_armed') === 'true') {
+      log("🔄 Resuming armed monitoring state...");
+      toggleGuardian().then(() => {
+        if (localStorage.getItem('yard_guardian_stealth') === 'true') {
+          enterStealthMode();
+        }
+      }).catch(e => {
+        console.warn("Auto-resume guardian error:", e);
+      });
     }
 
     // Check URL query parameters for one-tap Telegram configuration
