@@ -463,15 +463,35 @@
       <button class="btn-stealth" onclick="clearLogs()">Clear Log</button>
     </div>
 
-    <!-- Latest Detection Snapshot Preview Card -->
-    <div id="snapshotCard" class="card" style="display: none;">
-      <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
-        <span>📸 Latest Detection Screenshot</span>
-        <a id="snapshotDownloadBtn" href="#" download="" class="btn-help" style="text-decoration:none; padding:4px 10px; font-size:0.75rem;">📥 Download</a>
+    <!-- Compact & Collapsible Detection Snapshot Bar -->
+    <div id="snapshotCard" class="card" style="display: none; padding: 8px 12px; margin-bottom: 4px;">
+      <!-- Collapsed Summary Row: Minimalist, takes only ~42px height -->
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; min-width: 0;" onclick="toggleSnapshotPreview()">
+          <img id="snapshotThumb" src="" style="width: 36px; height: 36px; object-fit: cover; border-radius: 6px; border: 1px solid #475569; background: #000; flex-shrink: 0;" alt="Thumb">
+          <div style="min-width: 0;">
+            <div style="font-size: 0.8rem; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+              <span>📸 Captured Snapshot</span>
+              <span id="snapshotToggleIcon" style="font-size: 0.7rem; color: #94a3b8; font-weight: normal;">(Tap to view ▲)</span>
+            </div>
+            <div id="snapshotShortCaption" style="font-size: 0.72rem; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+          <button type="button" class="btn-help" style="padding: 4px 8px; font-size: 0.72rem;" onclick="toggleSnapshotPreview()" id="snapshotToggleBtn">👁️ View</button>
+          <a id="snapshotDownloadBtn" href="#" download="" class="btn-help" style="background: #059669; text-decoration: none; padding: 4px 8px; font-size: 0.72rem;">📥 Save</a>
+          <button type="button" onclick="dismissSnapshotCard()" style="background: none; border: none; color: #64748b; font-size: 1rem; cursor: pointer; padding: 2px 4px; line-height: 1;" title="Dismiss">✕</button>
+        </div>
       </div>
-      <div style="text-align: center; margin-top: 6px;">
-        <img id="snapshotImg" src="" style="width: 100%; max-height: 220px; object-fit: contain; border-radius: 6px; border: 1px solid #334155; background: #000;" alt="Detection Snapshot">
-        <div id="snapshotCaption" style="font-size: 0.75rem; color: #94a3b8; margin-top: 6px;"></div>
+
+      <!-- Expandable Preview: Collapsed by default, opens on tap -->
+      <div id="snapshotExpandedBody" style="display: none; margin-top: 8px; border-top: 1px solid #334155; padding-top: 8px; text-align: center;">
+        <img id="snapshotImg" src="" style="width: 100%; max-height: 220px; object-fit: contain; border-radius: 6px; border: 1px solid #334155; background: #000; cursor: pointer;" alt="Detection Snapshot" onclick="openFullImageInNewTab()" title="Tap to view full resolution">
+        <div id="snapshotCaption" style="font-size: 0.72rem; color: #94a3b8; margin-top: 6px;"></div>
+        <div style="margin-top: 6px;">
+          <button type="button" class="btn-stealth" style="padding: 3px 12px; font-size: 0.72rem;" onclick="toggleSnapshotPreview()">▲ Collapse View</button>
+        </div>
       </div>
     </div>
 
@@ -1163,15 +1183,19 @@
           if (link.parentNode) link.parentNode.removeChild(link);
         }, 300);
 
-        // 7. Update UI Snapshot Preview Card
+        // 7. Update UI Snapshot Preview Bar
         const snapshotCard = document.getElementById('snapshotCard');
+        const snapshotThumb = document.getElementById('snapshotThumb');
         const snapshotImg = document.getElementById('snapshotImg');
         const snapshotCaption = document.getElementById('snapshotCaption');
+        const snapshotShortCaption = document.getElementById('snapshotShortCaption');
         const snapshotDownloadBtn = document.getElementById('snapshotDownloadBtn');
 
         if (snapshotCard && snapshotImg && snapshotCaption && snapshotDownloadBtn) {
+          if (snapshotThumb) snapshotThumb.src = dataUrl;
           snapshotImg.src = dataUrl;
           snapshotCaption.innerText = `${filename} • ${dateStr}`;
+          if (snapshotShortCaption) snapshotShortCaption.innerText = `🎯 ${label.toUpperCase()} (${pct}%) • ${dateStr}`;
           snapshotDownloadBtn.href = dataUrl;
           snapshotDownloadBtn.download = filename;
           snapshotCard.style.display = 'block';
@@ -1180,6 +1204,38 @@
         log(`📸 <b>Screenshot captured & saved:</b> ${filename}`);
       } catch (err) {
         log(`⚠️ Screenshot error: ${err.message}`);
+      }
+    }
+
+    let isSnapshotExpanded = false;
+
+    function toggleSnapshotPreview() {
+      const body = document.getElementById('snapshotExpandedBody');
+      const toggleBtn = document.getElementById('snapshotToggleBtn');
+      const icon = document.getElementById('snapshotToggleIcon');
+      if (!body) return;
+
+      isSnapshotExpanded = !isSnapshotExpanded;
+      body.style.display = isSnapshotExpanded ? 'block' : 'none';
+      if (toggleBtn) toggleBtn.innerText = isSnapshotExpanded ? '▲ Hide' : '👁️ View';
+      if (icon) icon.innerText = isSnapshotExpanded ? '(Tap to hide ▼)' : '(Tap to view ▲)';
+    }
+
+    function dismissSnapshotCard() {
+      const card = document.getElementById('snapshotCard');
+      if (card) card.style.display = 'none';
+      isSnapshotExpanded = false;
+      const body = document.getElementById('snapshotExpandedBody');
+      if (body) body.style.display = 'none';
+    }
+
+    function openFullImageInNewTab() {
+      const img = document.getElementById('snapshotImg');
+      if (img && img.src) {
+        const w = window.open("");
+        if (w) {
+          w.document.write(`<title>AI Yard Guardian Snapshot</title><body style="margin:0; background:#0f172a; display:flex; justify-content:center; align-items:center; min-height:100vh;"><img src="${img.src}" style="max-width:100%; max-height:100vh; object-fit:contain;"></body>`);
+        }
       }
     }
 
