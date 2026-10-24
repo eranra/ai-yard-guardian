@@ -13,11 +13,12 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
   - 🔘 **Interactive Touch Buttons:** Persistent custom reply keyboard at the bottom of your chat:
     - `[ 📸 Snapshot ]` `[ 💦 Spray Test ]`
     - `[ 🛡️ Arm ]` `[ ⏸️ Disarm ]` `[ 🔦 Torch ]`
-    - `[ 📊 Status ]` `[ ⚙️ Config ]` `[ 🔄 Refresh ]`
+    - `[ 🌙 Screen ]` `[ 📊 Status ]` `[ ⚙️ Config ]` `[ 🔄 Refresh ]`
   - 🚨 **Instant Intruder Alerts:** Immediate push notifications whenever a target animal is detected.
   - 📸 **Detection Snapshots:** Automatically delivers a photo of the intruder directly to your chat.
   - ⚙️ **Full Remote Configuration Management:**
-    - `/config` — view full configuration readout with easy edit examples.
+    - `/config` — view full configuration readout including battery level, screen saver timeout, and lenses.
+    - `/set screen <1|2|5|10|30s|off>` — set auto-blackout inactivity timeout (default `1` minute).
     - `/set day <10-90>` — set daytime sensitivity threshold (e.g. `/set day 40`).
     - `/set night <10-80>` — set nighttime sensitivity threshold (e.g. `/set night 25`).
     - `/set mode <auto|day|night>` — set light detection mode.
@@ -35,9 +36,15 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/snap` — capture and send back a live photo from the garden phone right now.
     - `/spray` — remotely test or fire deterrent activations (sprinklers, siren, etc.).
     - `/arm` / `/disarm` — arm or pause AI monitoring into standby.
+    - `/screen [on|off]` (or `/stealth`) — remotely activate or wake up the OLED blackout screen saver.
     - `/torch [on|off]` — remotely toggle phone flashlight/torch.
-    - `/status` — check version, armed state, light mode, targets, and clock.
+    - `/status` — check battery level (%, charging/discharging), screen state, armed status, and ambient lighting.
     - `/refresh` — remotely clear browser cache and reload the application from GitHub Pages.
+- **🔋 Battery Life Reporting & Auto-OLED Screen Saver:**
+  - **Live Battery Telemetry:** Real-time battery percentage and charging status tracked via the Battery Status API, reported on the top header badge, in `/status`, and in `/config`.
+  - **Auto-OLED Screen Blackout:** Automatically transitions to full-screen pitch black (`#000000`) after inactivity (configurable: 30s, 1m default, 2m, 5m, 10m, or off).
+  - **Why OLED Blackout vs. OS Lock Screen:** Modern phones (including Xiaomi) have AMOLED displays where black pixels turn completely off (0 nits), reducing display draw by ~90%. Crucially, this keeps the browser in the foreground so camera capture, WebGL TensorFlow AI detection, and Telegram commands continue running 24/7 without being stopped by Android OS sleep.
+  - **One-Tap Wake:** Tap anywhere on the glass to instantly wake the control dashboard.
 - **🌙 Auto Night Vision & Low-Light Enhancement Engine:**
   - **Smart Ambient Luma Sensor:** Real-time luminance monitoring ($Y = 0.299R + 0.587G + 0.114B$) automatically switches between Day and Night modes with hysteresis.
   - **Dual Adaptive Sensitivity:** Separate customizable thresholds for Daytime (default `40%`) and Nighttime (default `25%`) to capture dark animal silhouettes without false daytime positives.

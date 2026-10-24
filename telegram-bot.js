@@ -21,7 +21,7 @@
     keyboard: [
       [{ text: '📸 Snapshot' }, { text: '💦 Spray Test' }],
       [{ text: '🛡️ Arm' }, { text: '⏸️ Disarm' }, { text: '🔦 Torch' }],
-      [{ text: '📊 Status' }, { text: '⚙️ Config' }, { text: '🔄 Refresh' }]
+      [{ text: '🌙 Screen' }, { text: '📊 Status' }, { text: '⚙️ Config' }, { text: '🔄 Refresh' }]
     ],
     resize_keyboard: true,
     is_persistent: true
@@ -264,6 +264,8 @@
         firstWord = '/arm';
       } else if (lowerFull.includes('torch') || lowerFull.includes('🔦')) {
         firstWord = '/torch';
+      } else if (lowerFull.includes('screen') || lowerFull.includes('stealth') || lowerFull.includes('🌙')) {
+        firstWord = '/screen';
       } else if (lowerFull.includes('status') || lowerFull.includes('📊')) {
         firstWord = '/status';
       } else if (lowerFull.includes('config') || lowerFull.includes('settings') || lowerFull.includes('⚙️')) {
@@ -290,11 +292,13 @@
             '💦 <code>/spray</code> — Trigger water deterrent\n' +
             '🛡️ <code>/arm</code> — Start AI detection\n' +
             '⏸️ <code>/disarm</code> — Pause AI into standby\n' +
+            '🌙 <code>/screen [on|off]</code> — OLED Blackout screen saver\n' +
             '🔦 <code>/torch [on|off]</code> — Toggle flashlight\n' +
-            '📊 <code>/status</code> — Armed & lighting status\n' +
+            '📊 <code>/status</code> — Armed, battery & lighting status\n' +
             '🔄 <code>/refresh</code> — Reload app from GitHub\n\n' +
             '<b>Remote Configuration:</b>\n' +
             '⚙️ <code>/config</code> — View full configuration\n' +
+            '🔋 <code>/set screen &lt;1|2|5|off&gt;</code> — Screen timeout (mins)\n' +
             '🎚️ <code>/set day &lt;%&gt;</code> — Day sensitivity (e.g. <code>/set day 40</code>)\n' +
             '🌙 <code>/set night &lt;%&gt;</code> — Night sensitivity (e.g. <code>/set night 25</code>)\n' +
             '🌓 <code>/set mode &lt;auto|day|night&gt;</code> — Light mode\n' +
@@ -317,6 +321,8 @@
         case '/arm':
         case '/disarm':
         case '/torch':
+        case '/screen':
+        case '/stealth':
         case '/config':
         case '/settings':
         case '/set':

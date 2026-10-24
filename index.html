@@ -377,9 +377,10 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v5.3 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v5.4 🔄</span>
     </div>
     <div style="display: flex; align-items: center; gap: 8px;">
+      <div id="batteryBadge" class="badge" style="background:#1e293b; color:#94a3b8; font-size:0.7rem; display:none; align-items:center; gap:4px;" title="Battery Status">🔋 --%</div>
       <div id="lightBadge" class="badge" style="background:#1e3a5f; color:#38bdf8; font-size:0.7rem; display:flex; align-items:center; gap:4px;" title="Current Ambient Lighting">☀️ Day</div>
       <div id="statusBadge" class="badge standby">Standby</div>
     </div>
@@ -568,6 +569,33 @@
           </div>
         </div>
 
+        <!-- 🔋 Battery Saver & Auto Screen Saver (OLED Blackout) Section -->
+        <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 10px; background: #0f172a; padding: 10px; border-radius: 8px; border: 1px solid #1e293b; width: 100%;">
+          <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+              <span>🔋 Battery Saver &amp; Auto Screen Saver</span>
+            </div>
+            <span id="batterySettingBadge" style="font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; background: #1e293b; color: #94a3b8;">🔋 Checking...</span>
+          </div>
+
+          <div style="width: 100%; display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label for="screenTimeoutSelect" style="font-size: 0.76rem; color: #cbd5e1;">Auto-Blackout Timeout:</label>
+              <select id="screenTimeoutSelect" onchange="onScreenTimeoutChange(this.value)" style="background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 3px 8px; border-radius: 4px; font-size: 0.74rem;">
+                <option value="0.5">30 Seconds</option>
+                <option value="1" selected>1 Minute (Default)</option>
+                <option value="2">2 Minutes</option>
+                <option value="5">5 Minutes</option>
+                <option value="10">10 Minutes</option>
+                <option value="0">Disabled (Never Auto-Blackout)</option>
+              </select>
+            </div>
+            <p style="font-size: 0.72rem; color: #94a3b8; line-height: 1.35; margin: 2px 0 0 0;">
+              💡 <b>OLED Screen Blackout:</b> On Xiaomi and AMOLED phones, pure black pixels turn completely off (0 nits), slashing display power by ~90% while camera, AI detection, and Telegram stay running 24/7. Tap anywhere to wake.
+            </p>
+          </div>
+        </div>
+
         <!-- Safety Cutoff Toggle -->
         <div class="setting-row">
           <label class="toggle">
@@ -739,6 +767,110 @@
     let isTorchOn = false;
     let cameraCapabilities = {};
 
+    // 🔋 Battery Status & Auto Screen Saver Engine (v5.4)
+    let batteryInfo = {
+      supported: false,
+      level: null,
+      charging: false
+    };
+    let screenSaverTimeoutMinutes = 1; // default 1 minute; 0 = disabled
+    let userInactivityTimer = null;
+
+    function formatBatteryString() {
+      if (!batteryInfo.supported || batteryInfo.level === null) {
+        return "N/A";
+      }
+      const icon = batteryInfo.charging ? "⚡ 🔋" : (batteryInfo.level <= 20 ? "🪫" : "🔋");
+      const chargeTag = batteryInfo.charging ? " (⚡ Charging)" : " (Discharging)";
+      return `${icon} ${batteryInfo.level}%${chargeTag}`;
+    }
+
+    function updateBatteryUI() {
+      const badge = document.getElementById('batteryBadge');
+      const settingBadge = document.getElementById('batterySettingBadge');
+      if (batteryInfo.supported && batteryInfo.level !== null) {
+        const text = `${batteryInfo.charging ? '⚡ ' : ''}🔋 ${batteryInfo.level}%`;
+        if (badge) {
+          badge.innerText = text;
+          badge.style.display = 'inline-flex';
+          badge.style.color = (batteryInfo.level <= 20 && !batteryInfo.charging) ? '#f87171' : '#38bdf8';
+        }
+        if (settingBadge) {
+          settingBadge.innerText = formatBatteryString();
+          settingBadge.style.color = batteryInfo.charging ? '#4ade80' : '#cbd5e1';
+        }
+      } else {
+        if (settingBadge) {
+          settingBadge.innerText = "🔋 Battery API N/A";
+        }
+      }
+    }
+
+    function initBatteryMonitoring() {
+      if ('getBattery' in navigator) {
+        navigator.getBattery().then(battery => {
+          batteryInfo.supported = true;
+          batteryInfo.level = Math.round(battery.level * 100);
+          batteryInfo.charging = battery.charging;
+          updateBatteryUI();
+
+          battery.addEventListener('levelchange', () => {
+            batteryInfo.level = Math.round(battery.level * 100);
+            updateBatteryUI();
+          });
+
+          battery.addEventListener('chargingchange', () => {
+            batteryInfo.charging = battery.charging;
+            updateBatteryUI();
+          });
+        }).catch(err => {
+          console.warn("Battery API error:", err);
+        });
+      }
+    }
+
+    function formatTimeoutDisplay(mins) {
+      if (mins <= 0) return 'Disabled';
+      if (mins < 1) return `${Math.round(mins * 60)}s`;
+      return `${mins} min${mins > 1 ? 's' : ''}`;
+    }
+
+    function onScreenTimeoutChange(val) {
+      const num = parseFloat(val);
+      screenSaverTimeoutMinutes = isNaN(num) ? 1 : num;
+      localStorage.setItem('yard_guardian_screen_timeout', screenSaverTimeoutMinutes.toString());
+      resetInactivityTimer();
+      log(`⏱️ Auto Screen Saver timeout: <b>${formatTimeoutDisplay(screenSaverTimeoutMinutes)}</b>`);
+    }
+
+    function resetInactivityTimer() {
+      if (userInactivityTimer) {
+        clearTimeout(userInactivityTimer);
+        userInactivityTimer = null;
+      }
+      const overlay = document.getElementById('stealthOverlay');
+      const isCurrentlyInStealth = overlay && overlay.style.display === 'flex';
+      if (isRunning && screenSaverTimeoutMinutes > 0 && !isCurrentlyInStealth) {
+        const ms = screenSaverTimeoutMinutes * 60 * 1000;
+        userInactivityTimer = setTimeout(() => {
+          if (isRunning && overlay && overlay.style.display !== 'flex') {
+            enterStealthMode();
+            log(`🌙 Auto Screen Saver activated after ${formatTimeoutDisplay(screenSaverTimeoutMinutes)} of inactivity.`);
+          }
+        }, ms);
+      }
+    }
+
+    // Reset inactivity countdown when user interacts with the app
+    ['touchstart', 'mousedown', 'mousemove', 'keydown', 'scroll'].forEach(evt => {
+      window.addEventListener(evt, () => {
+        const overlay = document.getElementById('stealthOverlay');
+        if (!overlay || overlay.style.display !== 'flex') {
+          resetInactivityTimer();
+        }
+      }, { passive: true });
+    });
+
     // Offscreen canvas for fast ambient luma calculation
     const lumaCanvas = document.createElement('canvas');
     lumaCanvas.width = 32;
@@ -892,6 +1024,7 @@
         humanSafety: document.getElementById('humanSafetyToggle').checked,
         targets: activeTargets,
         activations: activeActivations,
+        screenTimeout: screenSaverTimeoutMinutes,
         cameraId: cameraSelect ? cameraSelect.value : (localStorage.getItem('yard_guardian_camera_id') || ''),
         cameraLabel: localStorage.getItem('yard_guardian_camera_label') || '',
         screenshotVersion: 1
@@ -961,6 +1094,18 @@
           cb.checked = activeActivations.includes(cb.value);
         });
         updateActivationComboText();
+
+        // Restore Auto Screen Saver Timeout
+        const savedTimeout = localStorage.getItem('yard_guardian_screen_timeout');
+        if (savedTimeout !== null) {
+          const parsed = parseFloat(savedTimeout);
+          if (!isNaN(parsed)) screenSaverTimeoutMinutes = parsed;
+        } else if (s && s.screenTimeout !== undefined) {
+          const parsed = parseFloat(s.screenTimeout);
+          if (!isNaN(parsed)) screenSaverTimeoutMinutes = parsed;
+        }
+        const sToSelect = document.getElementById('screenTimeoutSelect');
+        if (sToSelect) sToSelect.value = screenSaverTimeoutMinutes.toString();
 
         // Restore collapse/expand state (default to collapsed to save maximum screen space)
         const savedExpanded = localStorage.getItem('yard_guardian_settings_expanded');
@@ -1602,6 +1747,7 @@
 
         startLumaMonitor();
         checkAmbientLuma();
+        resetInactivityTimer();
 
         if (window.TelegramBot && TelegramBot.enabled && TelegramBot.isConfigured() && TelegramBot.remoteControlEnabled) {
           TelegramBot.startPolling();
@@ -1610,6 +1756,10 @@
         detectFrame();
       } else {
         isRunning = false;
+        if (userInactivityTimer) {
+          clearTimeout(userInactivityTimer);
+          userInactivityTimer = null;
+        }
         stopLumaMonitor();
         setTorch(false);
         localStorage.setItem('yard_guardian_armed', 'false');
@@ -1954,20 +2104,23 @@
     }
 
     function enterStealthMode() {
+      if (userInactivityTimer) {
+        clearTimeout(userInactivityTimer);
+        userInactivityTimer = null;
+      }
       stealthOverlay.style.display = 'flex';
       localStorage.setItem('yard_guardian_stealth', 'true');
-      log("🌙 Stealth mode active (screen black, AI running).");
+      log("🌙 Stealth mode active (OLED screen black, AI running).");
     }
 
     function exitStealthMode() {
       stealthOverlay.style.display = 'none';
       localStorage.setItem('yard_guardian_stealth', 'false');
+      resetInactivityTimer();
       log("☀️ Stealth mode disabled.");
     }
 
-
-
-    const APP_VERSION = 'v5.3';
+    const APP_VERSION = 'v5.4';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -1988,6 +2141,9 @@
           log(`🤖 Received Telegram command: <b>/${cmd}</b>`);
           if (cmd === 'status') {
             const stateStr = isRunning ? "🟢 Armed & Monitoring" : "⚪ Standby";
+            const isStealth = stealthOverlay && stealthOverlay.style.display === 'flex';
+            const screenStr = isStealth ? "🌙 OLED Blackout Active" : `☀️ Awake (Saver: ${formatTimeoutDisplay(screenSaverTimeoutMinutes)})`;
+            const batteryStr = formatBatteryString();
             const lightStr = isNightMode ? `🌙 Night (Luma: ${Math.round(currentLuma)}, Sensitivity: ${nightSensitivity}%)` : `☀️ Day (Luma: ${Math.round(currentLuma)}, Sensitivity: ${daySensitivity}%)`;
             const torchStr = cameraCapabilities.torch ? (isTorchOn ? "🔦 ON" : "⚪ OFF") : "N/A";
             const targetsStr = (activeTargets && activeTargets.length) ? activeTargets.join(', ') : 'None';
@@ -1996,6 +2152,8 @@
               `🏡 <b>Yard Guardian Status</b>\n\n` +
               `• <b>Version:</b> ${APP_VERSION}\n` +
               `• <b>State:</b> ${stateStr}\n` +
+              `• <b>Screen:</b> ${screenStr}\n` +
+              `• <b>Battery:</b> ${batteryStr}\n` +
               `• <b>Lighting:</b> ${lightStr}\n` +
               `• <b>Torch:</b> ${torchStr}\n` +
               `• <b>Targets:</b> ${targetsStr}\n` +
@@ -2010,9 +2168,14 @@
             const webhookVal = document.getElementById('webhookInput')?.value || '';
             const webhookDisplay = webhookVal ? `Configured` : `Not Set`;
             const safetyOn = document.getElementById('humanSafetyToggle')?.checked;
+            const isStealth = stealthOverlay && stealthOverlay.style.display === 'flex';
 
             reply(
               `⚙️ <b>AI Yard Guardian Full Configuration</b>\n\n` +
+              `🔋 <b>Battery &amp; Screen Saver:</b>\n` +
+              `• Battery: <b>${formatBatteryString()}</b>\n` +
+              `• Auto Screen Saver: <b>${formatTimeoutDisplay(screenSaverTimeoutMinutes)}</b> (<code>/set screen 1|2|5|off</code>)\n` +
+              `• Current Screen: <b>${isStealth ? '🌙 OLED Blackout' : '☀️ Awake'}</b> (<code>/screen [on|off]</code>)\n\n` +
               `🎯 <b>Target Animals:</b> ${targetsStr}\n` +
               `<i>Edit: <code>/set targets cat,dog,bird</code></i>\n\n` +
               `⚡ <b>Deterrent Actions:</b> ${activationsStr}\n` +
@@ -2033,6 +2196,7 @@
             if (!args || args.length < 2) {
               reply(
                 `ℹ️ <b>Usage: /set &lt;option&gt; &lt;value&gt;</b>\n\n` +
+                `• <code>/set screen 1</code> — Auto screen timeout (mins|off)\n` +
                 `• <code>/set day 40</code> — Daytime sensitivity (15-85)\n` +
                 `• <code>/set night 25</code> — Nighttime sensitivity (10-70)\n` +
                 `• <code>/set mode auto|day|night</code> — Lighting mode\n` +
@@ -2049,7 +2213,26 @@
             const key = args[0].toLowerCase();
             const val = args.slice(1).join(' ').trim();
 
-            if (key === 'day' || key === 'day_sens') {
+            if (key === 'screen' || key === 'timeout' || key === 'screensaver' || key === 'screen_timeout') {
+              let num = 1;
+              const lowVal = val.toLowerCase();
+              if (['off', '0', 'disable', 'disabled', 'never'].includes(lowVal)) {
+                num = 0;
+              } else if (lowVal === '30s' || lowVal === '30sec' || lowVal === '0.5') {
+                num = 0.5;
+              } else {
+                num = parseFloat(val);
+                if (isNaN(num) || num < 0 || num > 60) {
+                  reply("⚠️ Please enter a screen timeout in minutes (e.g. <code>/set screen 1</code>, <code>/set screen 2</code>, <code>/set screen off</code>).");
+                  return;
+                }
+              }
+              onScreenTimeoutChange(num);
+              const sSel = document.getElementById('screenTimeoutSelect');
+              if (sSel) sSel.value = num.toString();
+              saveSettings();
+              reply(`🔋 <b>Auto Screen Saver timeout set to:</b> <b>${formatTimeoutDisplay(num)}</b>`);
+            } else if (key === 'day' || key === 'day_sens') {
               const num = parseInt(val);
               if (isNaN(num) || num < 10 || num > 90) {
                 reply("⚠️ Please enter a day sensitivity between 10 and 90 (e.g. <code>/set day 40</code>).");
@@ -2273,6 +2456,24 @@
               await setTorch(newState);
               reply(`🔦 Flashlight toggled <b>${newState ? 'ON' : 'OFF'}</b>.`);
             }
+          } else if (cmd === 'screen' || cmd === 'stealth') {
+            const arg = (args && args[0]) ? args[0].toLowerCase() : '';
+            const isStealth = stealthOverlay && stealthOverlay.style.display === 'flex';
+            if (arg === 'on') {
+              enterStealthMode();
+              reply("🌙 Screen switched to <b>OLED Blackout Mode</b>.\nDisplay power reduced by ~90%. Camera & AI monitoring continue running.");
+            } else if (arg === 'off') {
+              exitStealthMode();
+              reply("☀️ Screen <b>Awakened</b>. UI controls visible.");
+            } else {
+              if (isStealth) {
+                exitStealthMode();
+                reply("☀️ Screen <b>Awakened</b>. UI controls visible.");
+              } else {
+                enterStealthMode();
+                reply("🌙 Screen switched to <b>OLED Blackout Mode</b>.\nDisplay power reduced by ~90%. Camera & AI monitoring continue running.");
+              }
+            }
           } else if (cmd === 'refresh' || cmd === 'reload' || cmd === 'update') {
             await reply("🔄 <b>Reloading Yard Guardian...</b>\nClearing cache and loading latest version from GitHub Pages.");
             setTimeout(() => {
@@ -2314,6 +2515,7 @@
 
     // Initialize on page load
     loadSettings();
+    initBatteryMonitoring();
     initTelegramBot();
     populateCameraList();
     if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
