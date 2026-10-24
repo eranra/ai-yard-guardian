@@ -26,6 +26,128 @@
     remoteStream: null,
     callbacks: {},
     incomingChunks: {},
+    heartbeatInterval: null,
+    lastHeartbeatPong: Date.now(),
+
+    /**
+     * Persistent Multi-Guardian Store (saved in localStorage on Viewer phone)
+     */
+    guardianStore: {
+      STORAGE_KEY: 'yard_guardian_saved_guardians',
+      ACTIVE_KEY: 'yard_guardian_active_id',
+
+      getGuardians: function () {
+        try {
+          const raw = localStorage.getItem(this.STORAGE_KEY);
+          return raw ? JSON.parse(raw) : [];
+        } catch (e) {
+          return [];
+        }
+      },
+
+      saveGuardian: function (guardian) {
+        const list = this.getGuardians();
+        const id = guardian.id || ('guardian_' + Date.now().toString(36));
+        const idx = list.findIndex(g => g.id === id);
+        const item = Object.assign({
+          id: id,
+          name: guardian.name || ('Garden Camera ' + (list.length + 1)),
+          addedAt: Date.now(),
+          lastSeen: Date.now()
+        }, guardian);
+
+        if (idx >= 0) {
+          list[idx] = Object.assign(list[idx], item, { lastSeen: Date.now() });
+        } else {
+          list.push(item);
+        }
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(list));
+        if (!this.getActiveId()) {
+          this.setActiveId(id);
+        }
+        return list;
+      },
+
+      renameGuardian: function (id, newName) {
+        const list = this.getGuardians();
+        const g = list.find(x => x.id === id);
+        if (g && newName) {
+          g.name = newName.trim();
+          localStorage.setItem(this.STORAGE_KEY, JSON.stringify(list));
+        }
+        return list;
+      },
+
+      removeGuardian: function (id) {
+        let list = this.getGuardians();
+        list = list.filter(x => x.id !== id);
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(list));
+        if (this.getActiveId() === id) {
+          this.setActiveId(list.length > 0 ? list[0].id : null);
+        }
+        return list;
+      },
+
+      getActiveId: function () {
+        const id = localStorage.getItem(this.ACTIVE_KEY);
+        if (id) return id;
+        const list = this.getGuardians();
+        return list.length > 0 ? list[0].id : null;
+      },
+
+      setActiveId: function (id) {
+        if (id) {
+          localStorage.setItem(this.ACTIVE_KEY, id);
+        } else {
+          localStorage.removeItem(this.ACTIVE_KEY);
+        }
+      },
+
+      getActiveGuardian: function () {
+        const id = this.getActiveId();
+        const list = this.getGuardians();
+        return list.find(g => g.id === id) || (list[0] || null);
+      }
+    },
+
+    /**
+     * Start background heartbeat keep-alive
+     */
+    _startHeartbeat: function () {
+      this._stopHeartbeat();
+      this.lastHeartbeatPong = Date.now();
+      this.heartbeatInterval = setInterval(() => {
+        if (this.dataChannel && this.dataChannel.readyState === 'open') {
+          try {
+            this.dataChannel.send(JSON.stringify({ type: 'HEARTBEAT_PING', timestamp: Date.now() }));
+          } catch (e) {}
+
+          // Check if peer missed heartbeats (> 9 seconds)
+          if (Date.now() - this.lastHeartbeatPong > 9000 && this.isConnected) {
+            console.warn("Heartbeat missed. Triggering ICE recovery.");
+            this._attemptAutoRecovery();
+          }
+        }
+      }, 3000);
+    },
+
+    _stopHeartbeat: function () {
+      if (this.heartbeatInterval) {
+        clearInterval(this.heartbeatInterval);
+        this.heartbeatInterval = null;
+      }
+    },
+
+    _attemptAutoRecovery: function () {
+      if (!this.peerConnection) return;
+      try {
+        if (this.peerConnection.restartIce) {
+          this.peerConnection.restartIce();
+        }
+      } catch (e) {
+        console.warn("ICE restart error:", e);
+      }
+    },
 
     /**
      * Initialize RemoteSync with event listeners
@@ -103,6 +225,7 @@
      * Clean up existing peer connection
      */
     closeConnection: function () {
+      this._stopHeartbeat();
       if (this.dataChannel) {
         try { this.dataChannel.close(); } catch (e) {}
         this.dataChannel = null;
@@ -295,6 +418,7 @@
       this.dataChannel = dc;
       dc.onopen = () => {
         this.isConnected = true;
+        this._startHeartbeat();
         if (this.callbacks.onConnectionChange) {
           this.callbacks.onConnectionChange(true, 'connected');
         }
@@ -305,6 +429,7 @@
       };
       dc.onclose = () => {
         this.isConnected = false;
+        this._stopHeartbeat();
         if (this.callbacks.onConnectionChange) {
           this.callbacks.onConnectionChange(false, 'closed');
         }
@@ -344,6 +469,14 @@
 
     _dispatchMessage: function (msg) {
       switch (msg.type) {
+        case 'HEARTBEAT_PING':
+          if (this.dataChannel && this.dataChannel.readyState === 'open') {
+            try { this.dataChannel.send(JSON.stringify({ type: 'HEARTBEAT_PONG', timestamp: Date.now() })); } catch (e) {}
+          }
+          break;
+        case 'HEARTBEAT_PONG':
+          this.lastHeartbeatPong = Date.now();
+          break;
         case 'SYNC_SETTINGS':
           if (this.callbacks.onSettingsSynced) {
             this.callbacks.onSettingsSynced(msg.data);

@@ -451,6 +451,20 @@
     <span id="liveDetections">None</span>
   </div>
 
+  <!-- Multi-Guardian Selector (Viewer Mode) -->
+  <div id="guardianSelectorBanner" style="display: none; background: #1e293b; border-bottom: 1px solid #334155; padding: 6px 12px; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+      <span style="font-size: 0.74rem; color: #94a3b8; font-weight: 600; white-space: nowrap;">📹 CAMERA:</span>
+      <select id="guardianSelect" onchange="onGuardianSelectChange(this.value)" style="background: #0f172a; color: #38bdf8; border: 1px solid #475569; border-radius: 6px; padding: 3px 8px; font-size: 0.78rem; font-weight: 600; outline: none; cursor: pointer; max-width: 190px; text-overflow: ellipsis;">
+        <option value="">Garden Camera 1</option>
+      </select>
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+      <button type="button" class="btn-stealth" style="padding: 2px 7px; font-size: 0.7rem;" onclick="renameActiveGuardian()" title="Rename this camera">✏️ Rename</button>
+      <button type="button" class="btn-stealth" style="padding: 2px 7px; font-size: 0.7rem;" onclick="addNewGuardianPrompt()" title="Add another camera">➕ Add</button>
+    </div>
+  </div>
+
   <div class="controls-panel">
     <div class="btn-row">
       <button id="toggleBtn" class="btn-primary" onclick="toggleGuardian()">▶️ Start Guardian</button>
@@ -1626,8 +1640,11 @@
       const badge = document.getElementById('appModeBadge');
       const stealth = document.getElementById('stealthBtn');
       const toggle = document.getElementById('toggleBtn');
+      const gBanner = document.getElementById('guardianSelectorBanner');
 
       if (currentAppMode === 'viewer') {
+        if (gBanner) gBanner.style.display = 'flex';
+        renderGuardianSelector();
         if (badge) {
           badge.innerText = '👀 VIEWER';
           badge.style.background = '#8b5cf6';
@@ -1660,6 +1677,7 @@
         }
       } else {
         // Guardian Mode
+        if (gBanner) gBanner.style.display = 'none';
         if (badge) {
           badge.innerText = '🛡️ GUARDIAN';
           badge.style.background = '#0284c7';
@@ -1780,6 +1798,22 @@
         RemoteSync.createViewerAnswer(scannedData, (compressedAnswer) => {
           RemoteSync.renderQRCode(qrContainer, compressedAnswer, 220);
           log("📱 Answer QR ready! Hold this screen in front of your Garden Phone's camera.");
+
+          // Multi-Guardian Registration
+          if (RemoteSync.guardianStore) {
+            const list = RemoteSync.guardianStore.getGuardians();
+            let defName = list.length === 0 ? "Garden Camera 1" : `Garden Camera ${list.length + 1}`;
+            let chosen = prompt("Enter a name for this camera (e.g. Back Yard, Front Porch):", defName);
+            if (!chosen || !chosen.trim()) chosen = defName;
+            const newId = 'guardian_' + Date.now().toString(36);
+            RemoteSync.guardianStore.saveGuardian({
+              id: newId,
+              name: chosen.trim(),
+              offer: scannedData
+            });
+            RemoteSync.guardianStore.setActiveId(newId);
+            renderGuardianSelector();
+          }
         }, (err) => {
           log("❌ Viewer answer error: " + err.message);
           resetViewerPairing();
@@ -1790,6 +1824,68 @@
     function resetViewerPairing() {
       document.getElementById('viewerStep1').style.display = 'block';
       document.getElementById('viewerStep2').style.display = 'none';
+    }
+
+    // Multi-Guardian Selector Management
+    function renderGuardianSelector() {
+      const select = document.getElementById('guardianSelect');
+      if (!select || !window.RemoteSync || !RemoteSync.guardianStore) return;
+
+      const guardians = RemoteSync.guardianStore.getGuardians();
+      const activeId = RemoteSync.guardianStore.getActiveId();
+
+      select.innerHTML = '';
+      if (guardians.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = "";
+        opt.innerText = "Default Garden Camera";
+        select.appendChild(opt);
+        return;
+      }
+
+      guardians.forEach((g) => {
+        const opt = document.createElement('option');
+        opt.value = g.id;
+        const statusMark = (RemoteSync.isConnected && g.id === activeId) ? "🟢 " : "⚪ ";
+        opt.innerText = `${statusMark}${g.name}`;
+        if (g.id === activeId) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    function onGuardianSelectChange(selectedId) {
+      if (!selectedId || !window.RemoteSync || !RemoteSync.guardianStore) return;
+      RemoteSync.guardianStore.setActiveId(selectedId);
+      renderGuardianSelector();
+      const active = RemoteSync.guardianStore.getActiveGuardian();
+      log(`📹 Switched active camera view to: <b>${active ? active.name : selectedId}</b>`);
+
+      if (RemoteSync.isConnected) {
+        log("🔄 Reconnecting stream to selected camera...");
+        RemoteSync.closeConnection();
+        applyAppModeUI();
+      }
+    }
+
+    function renameActiveGuardian() {
+      if (!window.RemoteSync || !RemoteSync.guardianStore) return;
+      const active = RemoteSync.guardianStore.getActiveGuardian();
+      if (!active) {
+        alert("No camera selected to rename.");
+        return;
+      }
+      const newName = prompt(`Rename camera '${active.name}':`, active.name);
+      if (newName && newName.trim()) {
+        RemoteSync.guardianStore.renameGuardian(active.id, newName.trim());
+        renderGuardianSelector();
+        log(`✏️ Renamed camera to: <b>${newName.trim()}</b>`);
+      }
+    }
+
+    function addNewGuardianPrompt() {
+      openPairingModal();
+      const tabV = document.getElementById('btnTabViewer');
+      if (tabV) tabV.click();
     }
 
     // Camera QR Scanner Overlay
@@ -1861,6 +1957,7 @@
         onConnectionChange: function(connected, state) {
           updatePairingModalStatus();
           applyAppModeUI();
+          renderGuardianSelector();
           if (connected) {
             log(`🟢 <b>Local Wi-Fi Peer Connected!</b> (${currentAppMode.toUpperCase()})`);
             if (currentAppMode === 'guardian') {
@@ -2027,6 +2124,16 @@
     if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
       navigator.mediaDevices.addEventListener('devicechange', populateCameraList);
     }
+
+    // Auto-reconnect WebRTC session when phone wakes up / app resumes
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && currentAppMode === 'viewer') {
+        if (window.RemoteSync && !RemoteSync.isConnected && RemoteSync.peerConnection) {
+          log("🔄 Phone resumed. Re-verifying local Wi-Fi link to Garden Phone...");
+          RemoteSync._attemptAutoRecovery();
+        }
+      }
+    });
   </script>
 </body>
 </html>
