@@ -629,35 +629,64 @@
     },
 
     /**
-     * Helper scanner loop using jsQR
+     * Dual-Engine QR Scanner:
+     * 1. Uses native hardware-accelerated BarcodeDetector (Chrome/Android ML Kit)
+     * 2. Fallbacks to jsQR with attemptBoth (handles dark screens & reflections)
      */
     startQRScanner: function (videoEl, canvasEl, onFoundCallback) {
-      if (!window.jsQR) {
-        console.error("jsQR library not available");
-        return null;
-      }
       let scanning = true;
-      const ctx = canvasEl.getContext('2d', { willReadFrequently: true });
+      let barcodeDetector = null;
 
-      const scanFrame = () => {
+      if ('BarcodeDetector' in window) {
+        try {
+          barcodeDetector = new window.BarcodeDetector({ formats: ['qr_code'] });
+        } catch (e) {
+          barcodeDetector = null;
+        }
+      }
+
+      const ctx = canvasEl ? canvasEl.getContext('2d', { willReadFrequently: true }) : null;
+
+      const scanFrame = async () => {
         if (!scanning) return;
-        if (videoEl.readyState === videoEl.HAVE_ENOUGH_DATA) {
-          canvasEl.width = videoEl.videoWidth || 480;
-          canvasEl.height = videoEl.videoHeight || 360;
-          ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
-          const imageData = ctx.getImageData(0, 0, canvasEl.width, canvasEl.height);
-          const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: "dontInvert"
-          });
-          if (code && code.data && (code.data.startsWith('AYG2:') || code.data.startsWith('AYG:'))) {
-            scanning = false;
-            if (onFoundCallback) {
-              onFoundCallback(code.data);
+
+        if (videoEl.readyState >= videoEl.HAVE_CURRENT_DATA) {
+          // 1. Native Hardware BarcodeDetector
+          if (barcodeDetector) {
+            try {
+              const barcodes = await barcodeDetector.detect(videoEl);
+              if (barcodes && barcodes.length > 0) {
+                for (let b of barcodes) {
+                  if (b.rawValue && (b.rawValue.startsWith('AYG2:') || b.rawValue.startsWith('AYG:'))) {
+                    scanning = false;
+                    if (onFoundCallback) onFoundCallback(b.rawValue);
+                    return;
+                  }
+                }
+              }
+            } catch (err) {}
+          }
+
+          // 2. Pure JS fallback with both color inversions for screen reflections
+          if (scanning && window.jsQR && canvasEl && ctx) {
+            canvasEl.width = videoEl.videoWidth || 640;
+            canvasEl.height = videoEl.videoHeight || 480;
+            ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+            const imageData = ctx.getImageData(0, 0, canvasEl.width, canvasEl.height);
+            const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
+              inversionAttempts: "attemptBoth"
+            });
+            if (code && code.data && (code.data.startsWith('AYG2:') || code.data.startsWith('AYG:'))) {
+              scanning = false;
+              if (onFoundCallback) onFoundCallback(code.data);
+              return;
             }
-            return;
           }
         }
-        requestAnimationFrame(scanFrame);
+
+        if (scanning) {
+          requestAnimationFrame(scanFrame);
+        }
       };
 
       requestAnimationFrame(scanFrame);

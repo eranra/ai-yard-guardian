@@ -367,9 +367,10 @@
             2. Tap <b>"Scan Garden Phone QR"</b> on your Viewer phone.<br>
             3. Show your Viewer phone's Answer QR back to this screen!
           </p>
-          <div style="margin-top: 10px; display: flex; gap: 8px; justify-content: center;">
-            <button type="button" class="btn-primary" style="padding: 6px 14px; font-size: 0.78rem;" onclick="openScannerForAnswer()">📷 Scan Viewer Answer QR</button>
-            <button type="button" class="btn-stealth" style="padding: 6px 14px; font-size: 0.78rem;" onclick="resetGuardianPairing()">Reset</button>
+          <div style="margin-top: 10px; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
+            <button type="button" class="btn-primary" style="padding: 6px 12px; font-size: 0.78rem;" onclick="openScannerForAnswer()">📷 Scan Viewer Answer</button>
+            <button type="button" class="btn-stealth" style="padding: 6px 10px; font-size: 0.78rem;" onclick="copyCurrentOfferCode()">📋 Copy Code</button>
+            <button type="button" class="btn-stealth" style="padding: 6px 10px; font-size: 0.78rem;" onclick="resetGuardianPairing()">Reset</button>
           </div>
         </div>
       </div>
@@ -403,8 +404,9 @@
           <p style="font-size: 0.8rem; color: #38bdf8; font-weight: 600; line-height: 1.35; margin-top: 4px;">
             Now point your Garden Phone's camera at this Answer QR to finish pairing!
           </p>
-          <div style="margin-top: 10px;">
-            <button type="button" class="btn-stealth" style="padding: 6px 14px; font-size: 0.78rem;" onclick="resetViewerPairing()">Back</button>
+          <div style="margin-top: 10px; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
+            <button type="button" class="btn-stealth" style="padding: 6px 12px; font-size: 0.78rem;" onclick="copyCurrentAnswerCode()">📋 Copy Code</button>
+            <button type="button" class="btn-stealth" style="padding: 6px 12px; font-size: 0.78rem;" onclick="resetViewerPairing()">Back</button>
           </div>
         </div>
       </div>
@@ -416,8 +418,20 @@
           <canvas id="scannerCanvas" style="display: none;"></canvas>
           <div style="position: absolute; top: 50%; left: 0; width: 100%; height: 2px; background: #38bdf8; box-shadow: 0 0 8px #38bdf8;"></div>
         </div>
-        <p id="scannerPrompt" style="color: #f8fafc; font-size: 0.85rem; margin-top: 14px; text-align: center;">Point camera at the QR code</p>
-        <button type="button" class="btn-danger" style="margin-top: 16px; padding: 8px 20px; font-size: 0.85rem;" onclick="stopQRScanner()">Cancel Scan</button>
+        <p id="scannerPrompt" style="color: #f8fafc; font-size: 0.85rem; margin-top: 12px; text-align: center;">Point camera at the QR code</p>
+        
+        <!-- Manual Paste Fallback -->
+        <div style="margin-top: 10px; width: 90%; max-width: 320px; text-align: center;">
+          <details style="background: #1e293b; border-radius: 8px; padding: 6px 10px; font-size: 0.78rem; color: #cbd5e1; border: 1px solid #334155;">
+            <summary style="cursor: pointer; color: #38bdf8; font-weight: 600;">📥 Or Paste Pairing Code Manually</summary>
+            <div style="margin-top: 8px; display: flex; gap: 6px;">
+              <input type="text" id="manualCodeInput" placeholder="Paste code here" style="flex: 1; font-size: 0.75rem; padding: 6px 8px; background: #0f172a; color: white; border: 1px solid #475569; border-radius: 6px;">
+              <button type="button" class="btn-primary" style="padding: 6px 12px; font-size: 0.75rem;" onclick="submitManualCode()">Pair</button>
+            </div>
+          </details>
+        </div>
+
+        <button type="button" class="btn-danger" style="margin-top: 14px; padding: 8px 20px; font-size: 0.85rem;" onclick="stopQRScanner()">Cancel Scan</button>
       </div>
 
       <div style="text-align: right; margin-top: 12px;">
@@ -668,7 +682,7 @@
   </div>
 
   <!-- Serverless Local Wi-Fi Peer-to-Peer Sync Module -->
-  <script src="remote-sync.js"></script>
+  <script src="remote-sync.js?v=4.0"></script>
 
   <script>
     const video = document.getElementById('webcam');
@@ -1757,11 +1771,41 @@
       document.getElementById('guardianStep2').style.display = 'block';
 
       RemoteSync.startHostOffer(currentStream, (compressedOffer) => {
-        RemoteSync.renderQRCode(qrContainer, compressedOffer, 220);
+        latestOfferCode = compressedOffer;
+        RemoteSync.renderQRCode(qrContainer, compressedOffer, 240);
         log("📱 Viewer Pairing QR generated. Scan it with your Viewer phone!");
       }, (err) => {
         log("❌ Offer generation error: " + err.message);
         resetGuardianPairing();
+      });
+    }
+
+    let latestOfferCode = '';
+    let latestAnswerCode = '';
+
+    function copyCurrentOfferCode() {
+      if (!latestOfferCode) {
+        alert("Please generate the QR code first.");
+        return;
+      }
+      navigator.clipboard.writeText(latestOfferCode).then(() => {
+        log("📋 Pairing Code copied to clipboard!");
+        alert("Pairing code copied! You can paste it into your Viewer phone.");
+      }).catch(() => {
+        prompt("Copy this code manually:", latestOfferCode);
+      });
+    }
+
+    function copyCurrentAnswerCode() {
+      if (!latestAnswerCode) {
+        alert("Please generate the Answer QR first.");
+        return;
+      }
+      navigator.clipboard.writeText(latestAnswerCode).then(() => {
+        log("📋 Answer Code copied to clipboard!");
+        alert("Answer code copied! You can paste it into your Garden phone.");
+      }).catch(() => {
+        prompt("Copy this code manually:", latestAnswerCode);
       });
     }
 
@@ -1796,7 +1840,8 @@
         document.getElementById('viewerStep2').style.display = 'block';
 
         RemoteSync.createViewerAnswer(scannedData, (compressedAnswer) => {
-          RemoteSync.renderQRCode(qrContainer, compressedAnswer, 220);
+          latestAnswerCode = compressedAnswer;
+          RemoteSync.renderQRCode(qrContainer, compressedAnswer, 240);
           log("📱 Answer QR ready! Hold this screen in front of your Garden Phone's camera.");
 
           // Multi-Guardian Registration
@@ -1888,8 +1933,25 @@
       if (tabV) tabV.click();
     }
 
+    let activeScanCallback = null;
+
+    function submitManualCode() {
+      const input = document.getElementById('manualCodeInput');
+      if (!input || !input.value.trim()) {
+        alert("Please paste the pairing code first.");
+        return;
+      }
+      const code = input.value.trim();
+      input.value = '';
+      if (activeScanCallback) {
+        log("📥 Processing manually pasted pairing code...");
+        activeScanCallback(code);
+      }
+    }
+
     // Camera QR Scanner Overlay
     async function startQRScannerLoop(promptText, onScanned) {
+      activeScanCallback = onScanned;
       const overlay = document.getElementById('scannerModalOverlay');
       const videoEl = document.getElementById('scannerVideo');
       const canvasEl = document.getElementById('scannerCanvas');
@@ -1900,7 +1962,7 @@
 
       try {
         scannerStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false
         });
         videoEl.srcObject = scannerStream;
@@ -1908,8 +1970,7 @@
 
         activeScannerLoop = RemoteSync.startQRScanner(videoEl, canvasEl, onScanned);
       } catch (err) {
-        log("⚠️ Camera scanner access error: " + err.message);
-        stopQRScanner();
+        log("ℹ️ Note: Camera scanner not started (" + err.message + "). You can still paste the code manually below.");
       }
     }
 
