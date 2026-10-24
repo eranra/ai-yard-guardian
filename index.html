@@ -11,14 +11,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
-  <!-- Serverless Local Wi-Fi Peer-to-Peer QR Pairing -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
-
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=4.4"></script>
+  <script src="telegram-bot.js?v=5.0"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -376,223 +370,13 @@
     </div>
   </div>
 
-  <!-- Pairing & Dual-Mode Modal -->
-  <div id="pairingModal" class="modal-overlay" onclick="closePairingModalOnBackdrop(event)">
-    <div class="modal-content" style="max-width: 440px;">
-      <div class="modal-header">
-        <h3>🔗 Local Wi-Fi Device Pairing</h3>
-        <button class="close-btn" onclick="closePairingModal()">✕</button>
-      </div>
-
-      <!-- Version Indicator & Force Refresh Helper -->
-      <div style="font-size: 0.72rem; color: #94a3b8; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: #0f172a; padding: 5px 10px; border-radius: 6px; border: 1px solid #334155;">
-        <span>App Version: <b style="color: #38bdf8;">v4.4</b></span>
-        <button type="button" class="btn-stealth" style="padding: 2px 8px; font-size: 0.68rem;" onclick="forceAppRefresh()">🔄 Force Refresh App</button>
-      </div>
-
-      <!-- Telegram Zero-Pairing Option Banner -->
-      <div style="background: linear-gradient(135deg, #0c4a6e 0%, #0369a1 100%); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #0284c7; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-        <div style="min-width: 0;">
-          <div style="font-size: 0.78rem; font-weight: 700; color: #f0f9ff; display: flex; align-items: center; gap: 5px;">
-            <span>🤖 Zero-Pairing Alternative</span>
-          </div>
-          <div style="font-size: 0.7rem; color: #bae6fd; line-height: 1.2; margin-top: 2px;">
-            Receive alerts &amp; snapshots anywhere over Telegram (No Wi-Fi handshake needed!)
-          </div>
-        </div>
-        <button type="button" class="btn-primary" style="padding: 4px 10px; font-size: 0.72rem; white-space: nowrap; background: #0284c7;" onclick="closePairingModal(); toggleSettingsPanel(true); scrollToTelegramSettings();">
-          Configure
-        </button>
-      </div>
-
-      <!-- Mode Selector Tabs -->
-      <div style="background: #0f172a; padding: 5px; border-radius: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; border: 1px solid #334155;">
-        <button id="btnTabGuardian" type="button" onclick="switchAppMode('guardian')" style="padding: 8px; font-size: 0.82rem; border-radius: 6px; border: none; cursor: pointer; font-weight: 700; background: #0284c7; color: white;">🛡️ Guardian Mode</button>
-        <button id="btnTabViewer" type="button" onclick="switchAppMode('viewer')" style="padding: 8px; font-size: 0.82rem; border-radius: 6px; border: none; cursor: pointer; font-weight: 700; background: transparent; color: #94a3b8;">👀 Viewer Mode</button>
-      </div>
-
-      <!-- Guardian Mode Pairing Box -->
-      <div id="guardianPairingView">
-        <p style="font-size: 0.82rem; color: #cbd5e1; margin-bottom: 10px; line-height: 1.4;">
-          <b>Garden Phone Role:</b> Stays outside running AI detection and streams video directly over your home Wi-Fi.
-        </p>
-        
-        <div style="padding: 8px 12px; border-radius: 6px; background: #0f172a; border: 1px solid #334155; font-size: 0.8rem; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
-          <div style="display:flex; align-items:center; gap: 6px;">
-            <span id="guardianDot" style="width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; display: inline-block;"></span>
-            <span>Link: <b id="guardianStatusLabel" style="color: #94a3b8;">Not connected</b></span>
-          </div>
-          <button id="btnDisconnectGuardian" type="button" class="btn-stealth" style="padding: 2px 8px; font-size: 0.72rem; display: none;" onclick="disconnectRemote()">Disconnect</button>
-        </div>
-
-        <!-- Step 1: Offer Button -->
-        <div id="guardianStep1">
-          <button type="button" class="btn-primary" style="width: 100%; padding: 12px; font-size: 0.88rem; font-weight: 700;" onclick="generateGuardianOffer()">
-            📱 1. Generate Pairing Code / Link
-          </button>
-        </div>
-
-        <!-- Step 2: Text First (Never Blocked by QR) -->
-        <div id="guardianStep2" style="display: none;">
-          <!-- 1. Pairing Code & Share Controls -->
-          <div style="background: #0f172a; border-radius: 8px; padding: 10px; border: 1px solid #334155; margin-bottom: 10px; text-align: left;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <span style="font-size: 0.78rem; color: #38bdf8; font-weight: 700;">📋 1. Garden Phone Code:</span>
-              <button type="button" class="btn-primary" style="padding: 3px 10px; font-size: 0.74rem;" onclick="copyCurrentOfferCode()">📋 Copy Code</button>
-            </div>
-            <textarea id="guardianCodeBox" readonly rows="2" style="width: 100%; font-size: 0.72rem; font-family: monospace; background: #1e293b; color: #38bdf8; border: 1px solid #475569; border-radius: 6px; padding: 6px; resize: none; word-break: break-all; margin-bottom: 8px;"></textarea>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-              <button type="button" class="btn-primary" style="padding: 8px 10px; font-size: 0.78rem; background: #0284c7;" onclick="shareCurrentOfferLink()">📲 Share Link</button>
-              <button type="button" class="btn-stealth" style="padding: 8px 10px; font-size: 0.78rem;" onclick="copyCurrentOfferLink()">📋 Copy Link</button>
-            </div>
-          </div>
-
-          <!-- 2. Enter Viewer Answer Code (Always Visible) -->
-          <div style="background: #0f172a; border-radius: 8px; padding: 10px; border: 1px solid #334155; margin-bottom: 10px; text-align: left;">
-            <div style="font-size: 0.78rem; color: #10b981; font-weight: 700; margin-bottom: 6px;">
-              📥 2. Enter Viewer's Answer Code:
-            </div>
-            <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-              <input type="text" id="guardianAnswerInput" placeholder="Paste viewer answer code here" style="flex: 1; font-size: 0.75rem; padding: 8px 10px; background: #1e293b; color: white; border: 1px solid #475569; border-radius: 6px;">
-              <button type="button" class="btn-primary" style="padding: 8px 14px; font-size: 0.78rem; background: #059669;" onclick="submitGuardianManualAnswer()">Connect</button>
-            </div>
-            <button type="button" class="btn-stealth" style="width: 100%; padding: 6px 10px; font-size: 0.74rem;" onclick="pasteFromClipboardToGuardian()">📋 Paste Answer from Clipboard &amp; Connect</button>
-          </div>
-
-          <!-- 3. Optional QR Code Accordion (Does Not Hide Controls) -->
-          <details style="background: #1e293b; border-radius: 8px; padding: 8px 12px; border: 1px solid #334155; margin-bottom: 10px;">
-            <summary style="cursor: pointer; color: #38bdf8; font-size: 0.78rem; font-weight: 600;">📷 Or Use QR Code Handshake (Camera Scan)</summary>
-            <div style="text-align: center; margin-top: 10px;">
-              <div style="background: white; padding: 8px; border-radius: 8px; display: inline-block; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
-                <div id="guardianQRCode"></div>
-              </div>
-              <p style="font-size: 0.74rem; color: #94a3b8; margin: 8px 0 6px;">Point Viewer phone camera at this QR, then scan Viewer's answer back:</p>
-              <button type="button" class="btn-primary" style="width: 100%; padding: 8px 12px; font-size: 0.8rem; background: #059669;" onclick="openScannerForAnswer()">📷 Scan Viewer's Answer QR</button>
-            </div>
-          </details>
-
-          <div style="text-align: center; margin-top: 8px;">
-            <button type="button" class="btn-stealth" style="padding: 4px 14px; font-size: 0.74rem;" onclick="resetGuardianPairing()">Reset Pairing</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Viewer Mode Pairing Box -->
-      <div id="viewerPairingView" style="display: none;">
-        <p style="font-size: 0.82rem; color: #cbd5e1; margin-bottom: 10px; line-height: 1.4;">
-          <b>Viewer Phone Role:</b> Remote monitor in your hand. Watches the live stream, receives instant intruder alerts, and controls settings.
-        </p>
-
-        <div style="padding: 8px 12px; border-radius: 6px; background: #0f172a; border: 1px solid #334155; font-size: 0.8rem; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
-          <div style="display:flex; align-items:center; gap: 6px;">
-            <span id="viewerDot" style="width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; display: inline-block;"></span>
-            <span>Link: <b id="viewerStatusLabel" style="color: #94a3b8;">Not connected</b></span>
-          </div>
-          <button id="btnDisconnectViewer" type="button" class="btn-stealth" style="padding: 2px 8px; font-size: 0.72rem; display: none;" onclick="disconnectRemote()">Disconnect</button>
-        </div>
-
-        <!-- Step 1: Paste Code / Link (First) or Camera Scan -->
-        <div id="viewerStep1">
-          <!-- 1. Text Paste Card (Top) -->
-          <div style="background: #0f172a; border-radius: 8px; padding: 10px; border: 1px solid #334155; margin-bottom: 10px; text-align: left;">
-            <div style="font-size: 0.78rem; color: #38bdf8; font-weight: 700; margin-bottom: 6px;">
-              📥 1. Paste Garden Phone Code or Link:
-            </div>
-            <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-              <input type="text" id="viewerManualInput" placeholder="Paste code or link here" style="flex: 1; font-size: 0.75rem; padding: 8px 10px; background: #1e293b; color: white; border: 1px solid #475569; border-radius: 6px;">
-              <button type="button" class="btn-primary" style="padding: 8px 14px; font-size: 0.78rem;" onclick="connectViewerManualCode()">Connect</button>
-            </div>
-            <button type="button" class="btn-stealth" style="width: 100%; padding: 6px 10px; font-size: 0.74rem;" onclick="pasteFromClipboardToViewer()">📋 Paste from Clipboard &amp; Connect</button>
-          </div>
-
-          <!-- 2. Optional Camera Scan -->
-          <div style="text-align: center; margin-top: 10px;">
-            <button type="button" class="btn-stealth" style="width: 100%; padding: 8px; font-size: 0.78rem; border: 1px dashed #475569;" onclick="startViewerScanner()">
-              📷 Or Scan Garden Phone QR with Camera
-            </button>
-          </div>
-        </div>
-
-        <!-- Step 2: Show Answer (Text First) -->
-        <div id="viewerStep2" style="display: none; text-align: left;">
-          <div style="background: #0f172a; border-radius: 8px; padding: 10px; border: 1px solid #334155; margin-bottom: 10px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <span style="font-size: 0.78rem; color: #10b981; font-weight: 700;">✅ Answer Code Ready:</span>
-              <button type="button" class="btn-primary" style="padding: 3px 10px; font-size: 0.74rem; background: #059669;" onclick="copyCurrentAnswerCode()">📋 Copy Code</button>
-            </div>
-            <textarea id="viewerAnswerCodeBox" readonly rows="2" style="width: 100%; font-size: 0.72rem; font-family: monospace; background: #1e293b; color: #38bdf8; border: 1px solid #475569; border-radius: 6px; padding: 6px; resize: none; word-break: break-all; margin-bottom: 8px;"></textarea>
-            <p style="font-size: 0.74rem; color: #cbd5e1; margin-bottom: 8px;">
-              👉 <b>Next:</b> Paste this Answer code back into your Garden Phone to finish pairing!
-            </p>
-            <div style="display: flex; gap: 8px;">
-              <button type="button" class="btn-primary" style="flex: 1; padding: 8px; font-size: 0.78rem;" onclick="copyCurrentAnswerCode()">📋 Copy Answer Code</button>
-              <button type="button" class="btn-stealth" style="padding: 8px 12px; font-size: 0.78rem;" onclick="resetViewerPairing()">Back</button>
-            </div>
-          </div>
-
-          <!-- Optional QR Display -->
-          <details style="background: #1e293b; border-radius: 8px; padding: 8px 12px; border: 1px solid #334155; text-align: center;">
-            <summary style="cursor: pointer; color: #38bdf8; font-size: 0.78rem; font-weight: 600;">📷 Or Show Answer QR to Garden Phone</summary>
-            <div style="background: white; padding: 8px; border-radius: 8px; display: inline-block; margin-top: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
-              <div id="viewerQRCode"></div>
-            </div>
-          </details>
-        </div>
-
-        <!-- Paired Cameras Registry & Management -->
-        <div style="margin-top: 14px; background: #0f172a; border-radius: 8px; padding: 10px; border: 1px solid #334155; text-align: left;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <span style="font-size: 0.78rem; color: #38bdf8; font-weight: 700;">📹 Paired Cameras (<span id="pairedCamerasCount">0</span>)</span>
-            <button type="button" class="btn-stealth" style="padding: 2px 8px; font-size: 0.7rem;" onclick="addNewGuardianPrompt()">➕ Add New</button>
-          </div>
-          <div id="pairedCamerasListContainer" style="display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto;">
-            <!-- Dynamically populated by renderPairedCamerasRegistry() -->
-          </div>
-        </div>
-      </div>
-
-      <!-- Fullscreen QR Scanner Overlay -->
-      <div id="scannerModalOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 10000; flex-direction: column; align-items: center; justify-content: center; padding: 16px;">
-        <div style="position: relative; width: 90%; max-width: 320px; aspect-ratio: 1; border: 2px solid #38bdf8; border-radius: 12px; overflow: hidden; background: #000;">
-          <video id="scannerVideo" playsinline autoplay muted style="width: 100%; height: 100%; object-fit: cover;"></video>
-          <canvas id="scannerCanvas" style="display: none;"></canvas>
-          <div style="position: absolute; top: 50%; left: 0; width: 100%; height: 2px; background: #38bdf8; box-shadow: 0 0 8px #38bdf8;"></div>
-        </div>
-        <p id="scannerPrompt" style="color: #f8fafc; font-size: 0.85rem; margin-top: 10px; text-align: center;">Point camera at the QR code</p>
-        
-        <!-- Manual Paste Fallback -->
-        <div style="margin-top: 10px; width: 90%; max-width: 320px; text-align: center;">
-          <div style="background: #1e293b; border-radius: 8px; padding: 8px 10px; font-size: 0.78rem; color: #cbd5e1; border: 1px solid #334155;">
-            <div style="font-size: 0.75rem; color: #38bdf8; font-weight: 600; margin-bottom: 6px; text-align: left;">Or Paste Code / Link:</div>
-            <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-              <input type="text" id="manualCodeInput" placeholder="Paste pairing code or link" style="flex: 1; font-size: 0.75rem; padding: 6px 8px; background: #0f172a; color: white; border: 1px solid #475569; border-radius: 6px;">
-              <button type="button" class="btn-primary" style="padding: 6px 12px; font-size: 0.75rem;" onclick="submitManualCode()">Connect</button>
-            </div>
-            <button type="button" class="btn-stealth" style="width: 100%; padding: 5px 8px; font-size: 0.72rem;" onclick="pasteFromClipboardToOverlay()">📋 Paste from Clipboard &amp; Connect</button>
-          </div>
-        </div>
-
-        <button type="button" class="btn-danger" style="margin-top: 12px; padding: 8px 20px; font-size: 0.85rem;" onclick="stopQRScanner()">Cancel Scan</button>
-      </div>
-
-      <div style="text-align: right; margin-top: 12px;">
-        <button type="button" class="btn-stealth" style="padding: 6px 16px; font-size: 0.82rem;" onclick="closePairingModal()">Close</button>
-      </div>
-    </div>
-  </div>
 
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
-      <span id="appModeBadge" onclick="openPairingModal()" title="Tap to switch mode / pair" style="cursor: pointer; background: #0284c7; color: white; padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase;">🛡️ GUARDIAN</span>
-      <span>Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v4.4 🔄</span>
+      <span>🛡️ Yard Guardian</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v5.0 🔄</span>
     </div>
     <div style="display: flex; align-items: center; gap: 8px;">
-      <button id="btnOpenPairing" onclick="openPairingModal()" type="button" style="padding: 4px 10px; font-size: 0.74rem; background: #334155; color: #f8fafc; border-radius: 999px; border: 1px solid #475569; display: flex; align-items: center; gap: 5px; cursor: pointer;">
-        <span id="pairStatusDot" style="width: 7px; height: 7px; border-radius: 50%; background: #94a3b8; display: inline-block;"></span>
-        <span id="pairStatusText">Pair</span>
-      </button>
       <div id="statusBadge" class="badge standby">Standby</div>
     </div>
   </header>
@@ -606,21 +390,6 @@
   <div class="live-detection-banner">
     <span style="color:#94a3b8;">👁️ Seeing:</span>
     <span id="liveDetections">None</span>
-  </div>
-
-  <!-- Multi-Guardian Selector (Viewer Mode) -->
-  <div id="guardianSelectorBanner" style="display: none; background: #1e293b; border-bottom: 1px solid #334155; padding: 6px 12px; align-items: center; justify-content: space-between;">
-    <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
-      <span style="font-size: 0.74rem; color: #94a3b8; font-weight: 600; white-space: nowrap;">📹 CAMERA:</span>
-      <select id="guardianSelect" onchange="onGuardianSelectChange(this.value)" style="background: #0f172a; color: #38bdf8; border: 1px solid #475569; border-radius: 6px; padding: 3px 8px; font-size: 0.78rem; font-weight: 600; outline: none; cursor: pointer; max-width: 170px; text-overflow: ellipsis;">
-        <option value="">Garden Camera 1</option>
-      </select>
-    </div>
-    <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
-      <button type="button" class="btn-stealth" style="padding: 2px 7px; font-size: 0.7rem;" onclick="renameActiveGuardian()" title="Rename this camera">✏️ Rename</button>
-      <button type="button" class="btn-stealth" style="padding: 2px 7px; font-size: 0.7rem; color: #f87171; border-color: #7f1d1d;" onclick="unpairActiveGuardian()" title="Unpair / delete this camera">🗑️ Unpair</button>
-      <button type="button" class="btn-stealth" style="padding: 2px 7px; font-size: 0.7rem;" onclick="addNewGuardianPrompt()" title="Add another camera">➕ Add</button>
-    </div>
   </div>
 
   <div class="controls-panel">
@@ -862,8 +631,6 @@
     </div>
   </div>
 
-  <!-- Serverless Local Wi-Fi Peer-to-Peer Sync Module -->
-  <script src="remote-sync.js?v=4.4"></script>
 
   <script>
     const video = document.getElementById('webcam');
@@ -994,9 +761,6 @@
       updateComboText();
       updateSettingsSummary();
       saveSettings();
-      if (currentAppMode === 'viewer' && window.RemoteSync && RemoteSync.isConnected) {
-        sendRemoteCommand('update_targets', activeTargets);
-      }
     }
 
     function updateComboText() {
@@ -1018,9 +782,6 @@
       updateActivationComboText();
       updateSettingsSummary();
       saveSettings();
-      if (currentAppMode === 'viewer' && window.RemoteSync && RemoteSync.isConnected) {
-        sendRemoteCommand('update_activations', activeActivations);
-      }
     }
 
     function updateActivationComboText() {
@@ -1173,9 +934,6 @@
       document.getElementById('confVal').innerText = val + '%';
       updateSettingsSummary();
       saveSettings();
-      if (currentAppMode === 'viewer' && window.RemoteSync && RemoteSync.isConnected) {
-        sendRemoteCommand('update_conf', val);
-      }
     }
 
     // Modal Controls
@@ -1415,12 +1173,6 @@
 
       log(`📷 Camera set to: <b>${label}</b>`);
 
-      if (currentAppMode === 'viewer' && window.RemoteSync && RemoteSync.isConnected) {
-        log(`📡 Commanding Garden Phone to switch lens to: ${label}...`);
-        sendRemoteCommand('switch_camera', deviceId);
-        return;
-      }
-
       if (isRunning) {
         log("🔄 Switching camera live...");
         try {
@@ -1631,15 +1383,6 @@
       const scorePercent = Math.round(score * 100);
       log(`🚨 <b>${label.toUpperCase()} DETECTED (${scorePercent}%)!</b> Triggering deterrents...`);
 
-      // Broadcast alert to connected remote viewer
-      if (window.RemoteSync && RemoteSync.isConnected) {
-        RemoteSync.send('DETECTION_ALERT', {
-          target: label,
-          score: score,
-          time: new Date().toLocaleTimeString()
-        });
-      }
-
       // Send alert to Telegram Bot (if configured & enabled)
       if (window.TelegramBot && TelegramBot.enabled && TelegramBot.isConfigured()) {
         TelegramBot.sendIntruderAlert(label, score, new Date().toLocaleTimeString());
@@ -1762,17 +1505,6 @@
           snapshotCard.style.display = 'block';
         }
 
-        // Broadcast snapshot to connected remote viewer
-        if (window.RemoteSync && RemoteSync.isConnected) {
-          RemoteSync.send('SNAPSHOT_BROADCAST', {
-            target: label,
-            score: score,
-            filename: filename,
-            dataUrl: dataUrl,
-            dateStr: dateStr
-          });
-        }
-
         // Send photo to Telegram Bot (if configured & enabled)
         if (window.TelegramBot && TelegramBot.enabled && TelegramBot.isConfigured()) {
           try {
@@ -1826,16 +1558,6 @@
 
     // Manual test button
     function manualWaterSpray() {
-      if (currentAppMode === 'viewer') {
-        if (!window.RemoteSync || !RemoteSync.isConnected) {
-          log("⚠️ Cannot test: Not connected to Garden Phone.");
-          return;
-        }
-        log("📡 Sending test trigger command to Garden Phone...");
-        sendRemoteCommand('trigger_manual_test');
-        return;
-      }
-
       log("🧪 <b>Testing active activations manually:</b>");
       if (activeActivations.length === 0) {
         log("ℹ️ No activations enabled. Select Sprinklers, Screenshot, or Siren above.");
@@ -1879,425 +1601,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    // ==========================================
-    // Serverless Local Wi-Fi Pairing & Dual Mode
-    // ==========================================
-    let currentAppMode = 'guardian';
-    let scannerStream = null;
-    let activeScannerLoop = null;
 
-    function openPairingModal() {
-      const modal = document.getElementById('pairingModal');
-      if (modal) modal.style.display = 'flex';
-      updatePairingModalStatus();
-      if (currentAppMode === 'viewer') {
-        renderPairedCamerasRegistry();
-      }
-    }
-
-    function closePairingModal() {
-      const modal = document.getElementById('pairingModal');
-      if (modal) modal.style.display = 'none';
-      stopQRScanner();
-    }
-
-    function closePairingModalOnBackdrop(e) {
-      if (e.target && e.target.id === 'pairingModal') {
-        closePairingModal();
-      }
-    }
-
-    function switchAppMode(mode) {
-      currentAppMode = mode;
-      localStorage.setItem('yard_guardian_mode', mode);
-      if (window.RemoteSync) RemoteSync.setMode(mode);
-
-      const btnG = document.getElementById('btnTabGuardian');
-      const btnV = document.getElementById('btnTabViewer');
-      const viewG = document.getElementById('guardianPairingView');
-      const viewV = document.getElementById('viewerPairingView');
-
-      if (mode === 'guardian') {
-        if (btnG) { btnG.style.background = '#0284c7'; btnG.style.color = 'white'; }
-        if (btnV) { btnV.style.background = 'transparent'; btnV.style.color = '#94a3b8'; }
-        if (viewG) viewG.style.display = 'block';
-        if (viewV) viewV.style.display = 'none';
-      } else {
-        if (btnG) { btnG.style.background = 'transparent'; btnG.style.color = '#94a3b8'; }
-        if (btnV) { btnV.style.background = '#8b5cf6'; btnV.style.color = 'white'; }
-        if (viewG) viewG.style.display = 'none';
-        if (viewV) viewV.style.display = 'block';
-        renderPairedCamerasRegistry();
-      }
-
-      applyAppModeUI();
-      updatePairingModalStatus();
-    }
-
-    function applyAppModeUI() {
-      const badge = document.getElementById('appModeBadge');
-      const stealth = document.getElementById('stealthBtn');
-      const toggle = document.getElementById('toggleBtn');
-      const gBanner = document.getElementById('guardianSelectorBanner');
-
-      if (currentAppMode === 'viewer') {
-        if (gBanner) gBanner.style.display = 'flex';
-        renderGuardianSelector();
-        if (badge) {
-          badge.innerText = '👀 VIEWER';
-          badge.style.background = '#8b5cf6';
-        }
-        if (stealth) {
-          stealth.innerText = '📸 Request Snapshot';
-          stealth.disabled = !(window.RemoteSync && RemoteSync.isConnected);
-          stealth.onclick = () => {
-            log("📡 Requesting snapshot from Garden Phone...");
-            sendRemoteCommand('request_snapshot');
-          };
-        }
-        if (toggle) {
-          if (window.RemoteSync && RemoteSync.isConnected) {
-            toggle.innerText = '🟢 Live from Garden';
-            toggle.className = 'btn-spray';
-            toggle.disabled = false;
-            toggle.onclick = () => log("ℹ️ Connected to Garden Phone live stream.");
-          } else {
-            toggle.innerText = '🔗 Pair to Garden Phone';
-            toggle.className = 'btn-primary';
-            toggle.disabled = false;
-            toggle.onclick = openPairingModal;
-          }
-        }
-        if (liveDetections) {
-          liveDetections.innerHTML = (window.RemoteSync && RemoteSync.isConnected)
-            ? '<span style="color:#22c55e;">Connected to Garden Phone (Local Wi-Fi)</span>'
-            : '<span style="color:#94a3b8;">Not connected (Tap Pair to connect)</span>';
-        }
-      } else {
-        // Guardian Mode
-        if (gBanner) gBanner.style.display = 'none';
-        if (badge) {
-          badge.innerText = '🛡️ GUARDIAN';
-          badge.style.background = '#0284c7';
-        }
-        if (stealth) {
-          stealth.innerText = '🌙 Black Screen';
-          stealth.disabled = !isRunning;
-          stealth.onclick = enterStealthMode;
-        }
-        if (toggle) {
-          toggle.onclick = toggleGuardian;
-          if (isRunning) {
-            toggle.innerText = '⏹️ Stop Guardian';
-            toggle.className = 'btn-danger';
-          } else {
-            toggle.innerText = '▶️ Start Guardian';
-            toggle.className = 'btn-primary';
-          }
-        }
-      }
-    }
-
-    function updatePairingModalStatus() {
-      const isConn = window.RemoteSync && RemoteSync.isConnected;
-      const gDot = document.getElementById('guardianDot');
-      const gLbl = document.getElementById('guardianStatusLabel');
-      const gBtn = document.getElementById('btnDisconnectGuardian');
-
-      const vDot = document.getElementById('viewerDot');
-      const vLbl = document.getElementById('viewerStatusLabel');
-      const vBtn = document.getElementById('btnDisconnectViewer');
-
-      const pairDot = document.getElementById('pairStatusDot');
-      const pairText = document.getElementById('pairStatusText');
-
-      if (pairDot) pairDot.style.background = isConn ? '#22c55e' : '#94a3b8';
-      if (pairText) pairText.innerText = isConn ? 'Linked' : 'Pair';
-
-      if (gDot) gDot.style.background = isConn ? '#22c55e' : '#94a3b8';
-      if (gLbl) {
-        gLbl.innerText = isConn ? '🟢 Connected to Viewer' : 'Not connected';
-        gLbl.style.color = isConn ? '#22c55e' : '#94a3b8';
-      }
-      if (gBtn) gBtn.style.display = isConn ? 'inline-block' : 'none';
-
-      if (vDot) vDot.style.background = isConn ? '#22c55e' : '#94a3b8';
-      if (vLbl) {
-        vLbl.innerText = isConn ? '🟢 Connected to Garden Phone' : 'Not connected';
-        vLbl.style.color = isConn ? '#22c55e' : '#94a3b8';
-      }
-      if (vBtn) vBtn.style.display = isConn ? 'inline-block' : 'none';
-    }
-
-    function disconnectRemote() {
-      if (window.RemoteSync) RemoteSync.closeConnection();
-      resetGuardianPairing();
-      resetViewerPairing();
-      updatePairingModalStatus();
-      applyAppModeUI();
-      log("🔌 Remote link closed.");
-    }
-
-    // Guardian Offer Generation
-    async function generateGuardianOffer() {
-      if (!currentStream) {
-        log("📷 Starting camera feed for stream...");
-        try {
-          await setupCamera();
-        } catch (e) {
-          log("⚠️ Camera error: " + e.message);
-        }
-      }
-
-      const qrContainer = document.getElementById('guardianQRCode');
-      if (qrContainer) qrContainer.innerHTML = '<p style="color:#64748b; font-size:0.8rem;">Generating handshake...</p>';
-      document.getElementById('guardianStep1').style.display = 'none';
-      document.getElementById('guardianStep2').style.display = 'block';
-
-      RemoteSync.startHostOffer(currentStream, (compressedOffer) => {
-        latestOfferCode = compressedOffer;
-        RemoteSync.renderQRCode(qrContainer, compressedOffer, 160);
-        
-        const codeBox = document.getElementById('guardianCodeBox');
-        if (codeBox) codeBox.value = compressedOffer;
-
-        log("📱 Viewer Pairing QR generated. Scan it with your Viewer phone or tap 'Share Link'!");
-      }, (err) => {
-        log("❌ Offer generation error: " + err.message);
-        resetGuardianPairing();
-      });
-    }
-
-    let latestOfferCode = '';
-    let latestAnswerCode = '';
-
-    function getOfferPairUrl() {
-      if (!latestOfferCode) return '';
-      const base = window.location.origin + window.location.pathname;
-      return `${base}?pair=${encodeURIComponent(latestOfferCode)}`;
-    }
-
-    function shareCurrentOfferLink() {
-      const url = getOfferPairUrl();
-      if (!url) {
-        alert("Please generate the pairing code first.");
-        return;
-      }
-      if (navigator.share) {
-        navigator.share({
-          title: 'AI Yard Guardian Camera Pairing',
-          text: 'Tap this link on your second phone to connect as Viewer: ' + url,
-          url: url
-        }).then(() => {
-          log("📲 Pairing link shared successfully!");
-        }).catch((e) => {
-          if (e.name !== 'AbortError') {
-            copyCurrentOfferLink();
-          }
-        });
-      } else {
-        copyCurrentOfferLink();
-      }
-    }
-
-    function copyCurrentOfferLink() {
-      const url = getOfferPairUrl();
-      if (!url) {
-        alert("Please generate the pairing code first.");
-        return;
-      }
-      navigator.clipboard.writeText(url).then(() => {
-        log("📋 Pairing Link copied to clipboard!");
-        alert("Pairing link copied! Send it to your Viewer phone (WhatsApp/Email/Notes) or open it there.");
-      }).catch(() => {
-        prompt("Copy this pairing link:", url);
-      });
-    }
-
-    function copyCurrentOfferCode() {
-      if (!latestOfferCode) {
-        alert("Please generate the QR code first.");
-        return;
-      }
-      navigator.clipboard.writeText(latestOfferCode).then(() => {
-        log("📋 Pairing Code copied to clipboard!");
-        alert("Pairing code copied! You can paste it into your Viewer phone.");
-      }).catch(() => {
-        prompt("Copy this code manually:", latestOfferCode);
-      });
-    }
-
-    function copyCurrentAnswerCode() {
-      if (!latestAnswerCode) {
-        alert("Please generate the Answer QR first.");
-        return;
-      }
-      navigator.clipboard.writeText(latestAnswerCode).then(() => {
-        log("📋 Answer Code copied to clipboard!");
-        alert("Answer code copied! You can paste it into your Garden phone.");
-      }).catch(() => {
-        prompt("Copy this code manually:", latestAnswerCode);
-      });
-    }
-
-    function resetGuardianPairing() {
-      document.getElementById('guardianStep1').style.display = 'block';
-      document.getElementById('guardianStep2').style.display = 'none';
-    }
-
-    function openScannerForAnswer() {
-      startQRScannerLoop("Point camera at your Viewer phone's Answer QR", (scannedData) => {
-        log("🔍 Scanned Viewer Answer QR! Negotiating peer connection...");
-        RemoteSync.acceptAnswer(scannedData, () => {
-          log("✅ <b>WebRTC Connected!</b> Live streaming to Viewer Phone over Wi-Fi.");
-          stopQRScanner();
-          closePairingModal();
-        }, (err) => {
-          log("❌ Answer connection error: " + err.message);
-          stopQRScanner();
-        });
-      });
-    }
-
-    function submitGuardianManualAnswer() {
-      const input = document.getElementById('guardianAnswerInput');
-      if (!input || !input.value.trim()) {
-        alert("Please paste the Viewer answer code first.");
-        return;
-      }
-      const raw = input.value.trim();
-      input.value = '';
-      log("📥 Connecting with pasted Viewer answer code...");
-      RemoteSync.acceptAnswer(raw, () => {
-        log("✅ <b>WebRTC Connected!</b> Live streaming to Viewer Phone over Wi-Fi.");
-        closePairingModal();
-      }, (err) => {
-        log("❌ Failed to connect with answer code: " + err.message);
-        alert("Could not connect with that answer code: " + err.message);
-      });
-    }
-
-    // Viewer Scanner & Answer Generation
-    function handleViewerIncomingOffer(rawOffer) {
-      if (!rawOffer || !rawOffer.trim()) {
-        alert("Please provide a valid pairing code or link.");
-        return;
-      }
-      stopQRScanner();
-      log("🔍 Processing Garden Phone offer...");
-
-      const qrContainer = document.getElementById('viewerQRCode');
-      if (qrContainer) qrContainer.innerHTML = '<p style="color:#64748b; font-size:0.8rem;">Creating Answer...</p>';
-      document.getElementById('viewerStep1').style.display = 'none';
-      document.getElementById('viewerStep2').style.display = 'block';
-
-      RemoteSync.createViewerAnswer(rawOffer, (compressedAnswer) => {
-        latestAnswerCode = compressedAnswer;
-        RemoteSync.renderQRCode(qrContainer, compressedAnswer, 160);
-
-        const codeBox = document.getElementById('viewerAnswerCodeBox');
-        if (codeBox) codeBox.value = compressedAnswer;
-
-        log("📱 Answer QR ready! Hold this screen in front of your Garden Phone's camera or copy the code.");
-
-        // Multi-Guardian Registration
-        if (RemoteSync.guardianStore) {
-          const list = RemoteSync.guardianStore.getGuardians();
-          let defName = list.length === 0 ? "Garden Camera 1" : `Garden Camera ${list.length + 1}`;
-          let chosen = prompt("Enter a name for this camera (e.g. Back Yard, Front Porch):", defName);
-          if (!chosen || !chosen.trim()) chosen = defName;
-          const newId = 'guardian_' + Date.now().toString(36);
-          RemoteSync.guardianStore.saveGuardian({
-            id: newId,
-            name: chosen.trim(),
-            offer: rawOffer
-          });
-          RemoteSync.guardianStore.setActiveId(newId);
-          renderGuardianSelector();
-          renderPairedCamerasRegistry();
-        }
-      }, (err) => {
-        log("❌ Viewer answer error: " + err.message);
-        alert("Failed to process Garden Phone offer: " + err.message);
-        resetViewerPairing();
-      });
-    }
-
-    function startViewerScanner() {
-      startQRScannerLoop("Point camera at your Garden phone's Offer QR", (scannedData) => {
-        handleViewerIncomingOffer(scannedData);
-      });
-    }
-
-    function connectViewerManualCode() {
-      const input = document.getElementById('viewerManualInput');
-      if (!input || !input.value.trim()) {
-        alert("Please paste the pairing code or link first.");
-        return;
-      }
-      const val = input.value.trim();
-      input.value = '';
-      handleViewerIncomingOffer(val);
-    }
-
-    function pasteFromClipboardToViewer() {
-      if (!navigator.clipboard || !navigator.clipboard.readText) {
-        alert("Clipboard access not available in this browser. Please tap the box and paste manually.");
-        return;
-      }
-      navigator.clipboard.readText().then(text => {
-        if (!text || !text.trim()) {
-          alert("Clipboard is empty. Copy the pairing link or code on your phone first.");
-          return;
-        }
-        const input = document.getElementById('viewerManualInput');
-        if (input) input.value = text.trim();
-        connectViewerManualCode();
-      }).catch(err => {
-        alert("Please paste manually into the text box.");
-      });
-    }
-
-    function pasteFromClipboardToOverlay() {
-      if (!navigator.clipboard || !navigator.clipboard.readText) {
-        alert("Clipboard access not available. Please paste directly into the box.");
-        return;
-      }
-      navigator.clipboard.readText().then(text => {
-        if (!text || !text.trim()) {
-          alert("Clipboard is empty.");
-          return;
-        }
-        const input = document.getElementById('manualCodeInput');
-        if (input) input.value = text.trim();
-        submitManualCode();
-      }).catch(err => {
-        alert("Please paste manually into the text box.");
-      });
-    }
-
-    function pasteFromClipboardToGuardian() {
-      if (!navigator.clipboard || !navigator.clipboard.readText) {
-        alert("Clipboard access not available in this browser. Please tap the box and paste manually.");
-        return;
-      }
-      navigator.clipboard.readText().then(text => {
-        if (!text || !text.trim()) {
-          alert("Clipboard is empty.");
-          return;
-        }
-        const input = document.getElementById('guardianAnswerInput');
-        if (input) input.value = text.trim();
-        submitGuardianManualAnswer();
-      }).catch(err => {
-        alert("Please paste manually into the text box.");
-      });
-    }
-
-    function resetViewerPairing() {
-      document.getElementById('viewerStep1').style.display = 'block';
-      document.getElementById('viewerStep2').style.display = 'none';
-    }
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -2307,437 +1611,7 @@
           });
         } catch (e) {}
       }
-      window.location.href = window.location.origin + window.location.pathname + '?v=4.4&nocache=' + Date.now();
-    }
-
-    // Multi-Guardian Selector Management
-    function renderGuardianSelector() {
-      const select = document.getElementById('guardianSelect');
-      if (!select || !window.RemoteSync || !RemoteSync.guardianStore) return;
-
-      const guardians = RemoteSync.guardianStore.getGuardians();
-      const activeId = RemoteSync.guardianStore.getActiveId();
-
-      select.innerHTML = '';
-      if (guardians.length === 0) {
-        const opt = document.createElement('option');
-        opt.value = "";
-        opt.innerText = "Default Garden Camera";
-        select.appendChild(opt);
-        return;
-      }
-
-      guardians.forEach((g) => {
-        const opt = document.createElement('option');
-        opt.value = g.id;
-        const statusMark = (RemoteSync.isConnected && g.id === activeId) ? "🟢 " : "⚪ ";
-        opt.innerText = `${statusMark}${g.name}`;
-        if (g.id === activeId) opt.selected = true;
-        select.appendChild(opt);
-      });
-    }
-
-    function onGuardianSelectChange(selectedId) {
-      if (!selectedId || !window.RemoteSync || !RemoteSync.guardianStore) return;
-      RemoteSync.guardianStore.setActiveId(selectedId);
-      renderGuardianSelector();
-      const active = RemoteSync.guardianStore.getActiveGuardian();
-      log(`📹 Switched active camera view to: <b>${active ? active.name : selectedId}</b>`);
-
-      if (RemoteSync.isConnected) {
-        log("🔄 Reconnecting stream to selected camera...");
-        RemoteSync.closeConnection();
-        applyAppModeUI();
-      }
-    }
-
-    function renameActiveGuardian() {
-      if (!window.RemoteSync || !RemoteSync.guardianStore) return;
-      const active = RemoteSync.guardianStore.getActiveGuardian();
-      if (!active) {
-        alert("No camera selected to rename.");
-        return;
-      }
-      const newName = prompt(`Rename camera '${active.name}':`, active.name);
-      if (newName && newName.trim()) {
-        RemoteSync.guardianStore.renameGuardian(active.id, newName.trim());
-        renderGuardianSelector();
-        renderPairedCamerasRegistry();
-        log(`✏️ Renamed camera to: <b>${newName.trim()}</b>`);
-      }
-    }
-
-    function unpairActiveGuardian() {
-      if (!window.RemoteSync || !RemoteSync.guardianStore) return;
-      const active = RemoteSync.guardianStore.getActiveGuardian();
-      if (!active) {
-        alert("No camera selected to unpair.");
-        return;
-      }
-      unpairGuardianById(active.id, active.name);
-    }
-
-    function unpairGuardianById(id, name) {
-      if (!window.RemoteSync || !RemoteSync.guardianStore) return;
-      const targetName = name || 'this camera';
-      if (!confirm(`Are you sure you want to unpair and remove "${targetName}"?`)) {
-        return;
-      }
-      const wasActive = (RemoteSync.guardianStore.getActiveId() === id);
-      if (wasActive && RemoteSync.isConnected) {
-        RemoteSync.closeConnection();
-      }
-      RemoteSync.guardianStore.removeGuardian(id);
-      renderGuardianSelector();
-      renderPairedCamerasRegistry();
-      applyAppModeUI();
-      log(`🗑️ Removed camera: <b>${targetName}</b>`);
-    }
-
-    function renameGuardianById(id, currentName) {
-      if (!window.RemoteSync || !RemoteSync.guardianStore) return;
-      const newName = prompt(`Rename camera '${currentName}':`, currentName);
-      if (newName && newName.trim()) {
-        RemoteSync.guardianStore.renameGuardian(id, newName.trim());
-        renderGuardianSelector();
-        renderPairedCamerasRegistry();
-        log(`✏️ Renamed camera to: <b>${newName.trim()}</b>`);
-      }
-    }
-
-    function switchActiveGuardian(id) {
-      if (!window.RemoteSync || !RemoteSync.guardianStore) return;
-      RemoteSync.guardianStore.setActiveId(id);
-      renderGuardianSelector();
-      renderPairedCamerasRegistry();
-      const active = RemoteSync.guardianStore.getActiveGuardian();
-      log(`📹 Switched to camera: <b>${active ? active.name : id}</b>`);
-      if (RemoteSync.isConnected) {
-        RemoteSync.closeConnection();
-        applyAppModeUI();
-      }
-    }
-
-    function renderPairedCamerasRegistry() {
-      const container = document.getElementById('pairedCamerasListContainer');
-      const countBadge = document.getElementById('pairedCamerasCount');
-      if (!container || !window.RemoteSync || !RemoteSync.guardianStore) return;
-
-      const list = RemoteSync.guardianStore.getGuardians();
-      const activeId = RemoteSync.guardianStore.getActiveId();
-      if (countBadge) countBadge.innerText = list.length;
-
-      if (list.length === 0) {
-        container.innerHTML = '<div style="font-size: 0.74rem; color: #94a3b8; text-align: center; padding: 10px;">No paired cameras yet. Connect one using the code box above.</div>';
-        return;
-      }
-
-      container.innerHTML = '';
-      list.forEach(g => {
-        const isActive = (g.id === activeId);
-        const row = document.createElement('div');
-        row.style.cssText = `display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 6px; background: ${isActive ? '#1e293b' : '#0b1120'}; border: 1px solid ${isActive ? '#38bdf8' : '#334155'};`;
-        
-        const infoCol = document.createElement('div');
-        infoCol.style.cssText = 'min-width: 0; flex: 1; display: flex; align-items: center; gap: 6px; cursor: pointer;';
-        infoCol.onclick = () => switchActiveGuardian(g.id);
-        
-        const dot = document.createElement('span');
-        dot.style.cssText = `width: 7px; height: 7px; border-radius: 50%; background: ${isActive ? (RemoteSync.isConnected ? '#22c55e' : '#38bdf8') : '#64748b'}; flex-shrink: 0;`;
-        
-        const nameSpan = document.createElement('span');
-        nameSpan.style.cssText = `font-size: 0.78rem; font-weight: ${isActive ? '700' : '500'}; color: ${isActive ? '#38bdf8' : '#cbd5e1'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;`;
-        nameSpan.innerText = g.name + (isActive ? ' (Active)' : '');
-        
-        infoCol.appendChild(dot);
-        infoCol.appendChild(nameSpan);
-
-        const actionsCol = document.createElement('div');
-        actionsCol.style.cssText = 'display: flex; align-items: center; gap: 4px; flex-shrink: 0;';
-
-        if (!isActive) {
-          const switchBtn = document.createElement('button');
-          switchBtn.type = 'button';
-          switchBtn.className = 'btn-stealth';
-          switchBtn.style.cssText = 'padding: 2px 6px; font-size: 0.68rem;';
-          switchBtn.innerText = 'Switch';
-          switchBtn.onclick = () => switchActiveGuardian(g.id);
-          actionsCol.appendChild(switchBtn);
-        }
-
-        const renameBtn = document.createElement('button');
-        renameBtn.type = 'button';
-        renameBtn.className = 'btn-stealth';
-        renameBtn.style.cssText = 'padding: 2px 6px; font-size: 0.68rem;';
-        renameBtn.innerText = '✏️';
-        renameBtn.title = 'Rename camera';
-        renameBtn.onclick = () => renameGuardianById(g.id, g.name);
-        actionsCol.appendChild(renameBtn);
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.type = 'button';
-        deleteBtn.className = 'btn-stealth';
-        deleteBtn.style.cssText = 'padding: 2px 6px; font-size: 0.68rem; color: #f87171; border-color: #7f1d1d;';
-        deleteBtn.innerText = '🗑️';
-        deleteBtn.title = 'Unpair / Delete camera';
-        deleteBtn.onclick = () => unpairGuardianById(g.id, g.name);
-        actionsCol.appendChild(deleteBtn);
-
-        row.appendChild(infoCol);
-        row.appendChild(actionsCol);
-        container.appendChild(row);
-      });
-    }
-
-    function addNewGuardianPrompt() {
-      openPairingModal();
-      const tabV = document.getElementById('btnTabViewer');
-      if (tabV) tabV.click();
-    }
-
-    let activeScanCallback = null;
-
-    function submitManualCode() {
-      const input = document.getElementById('manualCodeInput');
-      if (!input || !input.value.trim()) {
-        alert("Please paste the pairing code first.");
-        return;
-      }
-      const code = input.value.trim();
-      input.value = '';
-      if (activeScanCallback) {
-        log("📥 Processing manually pasted pairing code...");
-        activeScanCallback(code);
-      }
-    }
-
-    // Camera QR Scanner Overlay
-    async function startQRScannerLoop(promptText, onScanned) {
-      activeScanCallback = onScanned;
-      const overlay = document.getElementById('scannerModalOverlay');
-      const videoEl = document.getElementById('scannerVideo');
-      const canvasEl = document.getElementById('scannerCanvas');
-      const promptEl = document.getElementById('scannerPrompt');
-
-      if (promptEl) promptEl.innerText = promptText;
-      if (overlay) overlay.style.display = 'flex';
-
-      try {
-        scannerStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false
-        });
-        videoEl.srcObject = scannerStream;
-        await videoEl.play();
-
-        activeScannerLoop = RemoteSync.startQRScanner(videoEl, canvasEl, onScanned);
-      } catch (err) {
-        log("ℹ️ Note: Camera scanner not started (" + err.message + "). You can still paste the code manually below.");
-      }
-    }
-
-    function stopQRScanner() {
-      if (activeScannerLoop) {
-        try { activeScannerLoop.stop(); } catch (e) {}
-        activeScannerLoop = null;
-      }
-      if (scannerStream) {
-        try { scannerStream.getTracks().forEach(t => t.stop()); } catch (e) {}
-        scannerStream = null;
-      }
-      const overlay = document.getElementById('scannerModalOverlay');
-      if (overlay) overlay.style.display = 'none';
-    }
-
-    // Remote Control Commands (Viewer -> Guardian)
-    function sendRemoteCommand(cmd, payload) {
-      if (!window.RemoteSync || !RemoteSync.isConnected) return;
-      RemoteSync.send('REMOTE_COMMAND', { command: cmd, payload: payload });
-    }
-
-    function syncCurrentSettingsToViewer() {
-      if (!window.RemoteSync || !RemoteSync.isConnected) return;
-      const cameraSelect = document.getElementById('cameraSelect');
-      const cameras = [];
-      if (cameraSelect) {
-        Array.from(cameraSelect.options).forEach(opt => {
-          cameras.push({ id: opt.value, label: opt.innerText });
-        });
-      }
-      RemoteSync.send('SYNC_SETTINGS', {
-        targets: activeTargets,
-        activations: activeActivations,
-        conf: document.getElementById('confRange') ? document.getElementById('confRange').value : 40,
-        cameras: cameras,
-        selectedCameraId: cameraSelect ? cameraSelect.value : ''
-      });
-    }
-
-    // Wire RemoteSync Handlers
-    function initRemoteSync() {
-      if (!window.RemoteSync) return;
-      const initialMode = RemoteSync.init({
-        onConnectionChange: function(connected, state) {
-          updatePairingModalStatus();
-          applyAppModeUI();
-          renderGuardianSelector();
-          if (connected) {
-            log(`🟢 <b>Local Wi-Fi Peer Connected!</b> (${currentAppMode.toUpperCase()})`);
-            if (currentAppMode === 'guardian') {
-              syncCurrentSettingsToViewer();
-            }
-          } else {
-            log(`ℹ️ Peer connection status: ${state || 'disconnected'}`);
-          }
-        },
-
-        onHostReadyToSync: function() {
-          syncCurrentSettingsToViewer();
-        },
-
-        onRemoteStream: function(stream) {
-          if (currentAppMode === 'viewer') {
-            video.srcObject = stream;
-            video.play().catch(e => console.log("Stream play error:", e));
-            log("📺 Receiving live video from Garden Phone!");
-          }
-        },
-
-        onDetectionAlert: function(data) {
-          if (currentAppMode === 'viewer') {
-            const pct = Math.round((data.score || 0) * 100);
-            statusBadge.innerText = `Alert: ${(data.target || '').toUpperCase()}`;
-            statusBadge.className = "badge alert";
-            playAlarmSound();
-            log(`🚨 <b>REMOTE INTRUDER ALERT:</b> ${(data.target || '').toUpperCase()} (${pct}%) at ${data.time}`);
-            setTimeout(() => {
-              if (currentAppMode === 'viewer') {
-                statusBadge.innerText = "Monitoring";
-                statusBadge.className = "badge armed";
-              }
-            }, 6000);
-          }
-        },
-
-        onSnapshotBroadcast: function(data) {
-          if (currentAppMode === 'viewer') {
-            const snapshotCard = document.getElementById('snapshotCard');
-            const snapshotThumb = document.getElementById('snapshotThumb');
-            const snapshotImg = document.getElementById('snapshotImg');
-            const snapshotCaption = document.getElementById('snapshotCaption');
-            const snapshotShortCaption = document.getElementById('snapshotShortCaption');
-            const snapshotDownloadBtn = document.getElementById('snapshotDownloadBtn');
-
-            if (snapshotCard && snapshotImg) {
-              if (snapshotThumb) snapshotThumb.src = data.dataUrl;
-              snapshotImg.src = data.dataUrl;
-              if (snapshotCaption) snapshotCaption.innerText = `${data.filename} • ${data.dateStr}`;
-              if (snapshotShortCaption) snapshotShortCaption.innerText = `🎯 ${(data.target || '').toUpperCase()} (${Math.round(data.score * 100)}%) • ${data.dateStr}`;
-              if (snapshotDownloadBtn) {
-                snapshotDownloadBtn.href = data.dataUrl;
-                snapshotDownloadBtn.download = data.filename;
-              }
-              snapshotCard.style.display = 'block';
-            }
-            log(`📸 <b>Evidence received from Garden:</b> ${data.filename}`);
-          }
-        },
-
-        onRemoteCommand: function(command, payload) {
-          if (currentAppMode === 'guardian') {
-            log(`📡 Remote command received: <b>${command}</b>`);
-            switch (command) {
-              case 'trigger_manual_test':
-                manualWaterSpray();
-                break;
-              case 'request_snapshot':
-                captureDetectionSnapshot('remote_request', 1.0);
-                break;
-              case 'switch_camera':
-                if (payload) {
-                  const cameraSelect = document.getElementById('cameraSelect');
-                  if (cameraSelect) cameraSelect.value = payload;
-                  onCameraChange(payload);
-                }
-                break;
-              case 'update_targets':
-                if (Array.isArray(payload)) {
-                  activeTargets = payload;
-                  document.querySelectorAll('.target-checkbox').forEach(cb => {
-                    cb.checked = activeTargets.includes(cb.value);
-                  });
-                  updateComboText();
-                  updateSettingsSummary();
-                  saveSettings();
-                }
-                break;
-              case 'update_activations':
-                if (Array.isArray(payload)) {
-                  activeActivations = payload;
-                  document.querySelectorAll('.activation-checkbox').forEach(cb => {
-                    cb.checked = activeActivations.includes(cb.value);
-                  });
-                  updateActivationComboText();
-                  updateSettingsSummary();
-                  saveSettings();
-                }
-                break;
-              case 'update_conf':
-                if (payload) {
-                  const range = document.getElementById('confRange');
-                  const val = document.getElementById('confVal');
-                  if (range) range.value = payload;
-                  if (val) val.innerText = payload + '%';
-                  updateSettingsSummary();
-                  saveSettings();
-                }
-                break;
-            }
-          }
-        },
-
-        onSettingsSynced: function(settings) {
-          if (currentAppMode === 'viewer') {
-            if (Array.isArray(settings.targets)) {
-              activeTargets = settings.targets;
-              document.querySelectorAll('.target-checkbox').forEach(cb => {
-                cb.checked = activeTargets.includes(cb.value);
-              });
-              updateComboText();
-            }
-            if (Array.isArray(settings.activations)) {
-              activeActivations = settings.activations;
-              document.querySelectorAll('.activation-checkbox').forEach(cb => {
-                cb.checked = activeActivations.includes(cb.value);
-              });
-              updateActivationComboText();
-            }
-            if (settings.conf !== undefined) {
-              const range = document.getElementById('confRange');
-              const val = document.getElementById('confVal');
-              if (range) range.value = settings.conf;
-              if (val) val.innerText = settings.conf + '%';
-            }
-            if (Array.isArray(settings.cameras)) {
-              const sel = document.getElementById('cameraSelect');
-              if (sel) {
-                sel.innerHTML = '';
-                settings.cameras.forEach(c => {
-                  const opt = document.createElement('option');
-                  opt.value = c.id;
-                  opt.innerText = c.label;
-                  if (c.id === settings.selectedCameraId) opt.selected = true;
-                  sel.appendChild(opt);
-                });
-              }
-            }
-            updateSettingsSummary();
-            log("⚙️ Synchronized settings from Garden Phone!");
-          }
-        }
-      });
-
-      switchAppMode(initialMode || 'guardian');
+      window.location.href = window.location.origin + window.location.pathname + '?v=5.0&nocache=' + Date.now();
     }
 
     // Wire TelegramBot Handlers
@@ -2754,8 +1628,7 @@
             reply(
               `🏡 <b>Yard Guardian Status</b>\n\n` +
               `• <b>State:</b> ${stateStr}\n` +
-              `• <b>App Mode:</b> ${currentAppMode}\n` +
-              `• <b>Targets:</b> ${targetsStr}\n` +
+                            `• <b>Targets:</b> ${targetsStr}\n` +
               `• <b>Activations:</b> ${activationsStr}\n` +
               `• <b>Sensitivity:</b> ${confVal}\n` +
               `• <b>Clock:</b> ${new Date().toLocaleTimeString()}`
@@ -2805,14 +1678,13 @@
 
     // Initialize on page load
     loadSettings();
-    initRemoteSync();
     initTelegramBot();
     populateCameraList();
     if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
       navigator.mediaDevices.addEventListener('devicechange', populateCameraList);
     }
 
-    // Check URL query parameters for one-tap link pairing
+    // Check URL query parameters for one-tap Telegram configuration
     try {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.has('tg_token') || urlParams.has('tg_chat')) {
@@ -2824,36 +1696,10 @@
           loadSettings();
           log("🤖 Configured Telegram Bot credentials from link!");
         }
-      } else if (urlParams.has('pair')) {
-        const pairCode = urlParams.get('pair');
-        log("🔗 Received pairing link from URL! Switching to Viewer mode...");
-        switchAppMode('viewer');
-        openPairingModal();
-        setTimeout(() => {
-          handleViewerIncomingOffer(pairCode);
-        }, 400);
-      } else if (urlParams.has('answer')) {
-        const answerCode = urlParams.get('answer');
-        log("🔗 Received answer from URL! Completing handshake...");
-        switchAppMode('guardian');
-        RemoteSync.acceptAnswer(answerCode, () => {
-          log("✅ <b>WebRTC Connected!</b> Live streaming over Wi-Fi.");
-          closePairingModal();
-        });
       }
     } catch (e) {
-      console.warn("URL pairing parse error:", e);
+      console.warn("URL parameter parse error:", e);
     }
-
-    // Auto-reconnect WebRTC session when phone wakes up / app resumes
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && currentAppMode === 'viewer') {
-        if (window.RemoteSync && !RemoteSync.isConnected && RemoteSync.peerConnection) {
-          log("🔄 Phone resumed. Re-verifying local Wi-Fi link to Garden Phone...");
-          RemoteSync._attemptAutoRecovery();
-        }
-      }
-    });
   </script>
 </body>
 </html>
