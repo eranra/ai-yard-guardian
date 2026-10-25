@@ -307,6 +307,8 @@
             '📸 <code>/set autosnap &lt;on|off|5&gt;</code> (or <code>thresh 5</code>, <code>noise on|off|clear</code>) — Auto-snapshots\n' +
             '🔄 <code>/set rotate &lt;0|90|180|270&gt;</code> — Set camera angle\n' +
             '📷 <code>/set res &lt;vga|720p|1080p|max&gt;</code> — Camera resolution\n' +
+            '🔍 <code>/set scanner &lt;horizon|2zone|off&gt;</code> — Deep yard scanner\n' +
+            '🖼️ <code>/set scanner snap &lt;both|full|crop&gt;</code> — Snapshot detail mode\n' +
             '🌱 <code>/set speed &lt;eco|eco-fast|balanced|turbo&gt;</code> — CPU & battery mode\n' +
             '🔋 <code>/set screen &lt;1|2|5|off&gt;</code> — Screen timeout (mins)\n' +
             '🎚️ <code>/set day &lt;%&gt;</code> — Day sensitivity (e.g. <code>/set day 40</code>)\n' +
@@ -360,6 +362,12 @@
         case '/resolution':
           if (this.callbacks.onCommand) {
             this.callbacks.onCommand('set', reply, replyPhoto, ['res', ...args]);
+          }
+          break;
+
+        case '/scanner':
+          if (this.callbacks.onCommand) {
+            this.callbacks.onCommand('set', reply, replyPhoto, ['scanner', ...args]);
           }
           break;
 

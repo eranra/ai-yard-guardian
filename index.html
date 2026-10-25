@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.7.6"></script>
+  <script src="telegram-bot.js?v=0.7.7"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.7.6 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.7.7 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -453,6 +453,29 @@
             <option value="max">Max (4K / Sensor Max)</option>
           </select>
         </div>
+
+        <!-- Deep Yard Scanner Control (v0.7.7) -->
+        <div class="setting-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <label for="scannerModeSelect" style="font-size: 0.76rem; color: #cbd5e1;">🔍 Deep Yard Scanner:</label>
+          <select id="scannerModeSelect" onchange="setScannerMode(this.value); saveSettings();" style="background: #0f172a; border: 1px solid #475569; color: #38bdf8; padding: 3px 8px; border-radius: 6px; font-size: 0.74rem; font-weight: bold;">
+            <option value="horizon" selected>🔭 Horizon (Far Lawn / Fence)</option>
+            <option value="2zone">⚖️ 2-Zone (Left &amp; Right Yard)</option>
+            <option value="off">Off (Full Frame Only)</option>
+          </select>
+        </div>
+
+        <!-- Scanner Snapshot Mode (v0.7.7) -->
+        <div class="setting-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <label for="scannerSnapSelect" style="font-size: 0.76rem; color: #cbd5e1;">📸 Scanner Snapshot Mode:</label>
+          <select id="scannerSnapSelect" onchange="setScannerSnap(this.value); saveSettings();" style="background: #0f172a; border: 1px solid #475569; color: #38bdf8; padding: 3px 8px; border-radius: 6px; font-size: 0.74rem; font-weight: bold;">
+            <option value="both" selected>🖼️ Dual (Full Context + Zoomed Crop)</option>
+            <option value="full">Full Frame Only</option>
+            <option value="crop">Zoomed Crop Only</option>
+          </select>
+        </div>
+        <p style="font-size: 0.71rem; color: #94a3b8; line-height: 1.35; margin: 0 0 10px 0;">
+          💡 <b>Deep Yard Scanner:</b> Scans high-resolution macro-zones (e.g. Far Lawn / Horizon) alongside the full view to magnify distant animals by up to 2×–3×, catching small cats or wildlife across the yard without extra heat.
+        </p>
 
         <!-- 1. Multi-select Animal Targets Combo Box -->
         <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 10px;">
@@ -1042,6 +1065,112 @@
       return `${(CAMERA_RESOLUTIONS[cameraResolution] && CAMERA_RESOLUTIONS[cameraResolution].label) || cameraResolution}${actual}`;
     }
 
+    // 🔍 Deep Yard Scanner & Multi-Zone Scanning Engine (v0.7.7)
+    let scannerMode = 'horizon'; // 'horizon' (default), '2zone', 'off'
+    let scannerSnap = 'both';    // 'both' (default), 'full', 'crop'
+
+    const scannerCanvas = document.createElement('canvas');
+    let scannerCtx = null;
+
+    function setScannerMode(mode) {
+      if (!['horizon', '2zone', 'off'].includes(mode)) mode = 'horizon';
+      scannerMode = mode;
+      localStorage.setItem('yard_guardian_scanner_mode', scannerMode);
+      const sel = document.getElementById('scannerModeSelect');
+      if (sel) sel.value = scannerMode;
+      saveSettings();
+      log(`🔍 Deep Yard Scanner set to: <b>${formatScannerModeDisplay()}</b>`);
+    }
+
+    function setScannerSnap(mode) {
+      if (!['both', 'full', 'crop'].includes(mode)) mode = 'both';
+      scannerSnap = mode;
+      localStorage.setItem('yard_guardian_scanner_snap', scannerSnap);
+      const sel = document.getElementById('scannerSnapSelect');
+      if (sel) sel.value = scannerSnap;
+      saveSettings();
+      log(`📸 Scanner Snapshot Mode set to: <b>${formatScannerSnapDisplay()}</b>`);
+    }
+
+    function formatScannerModeDisplay() {
+      if (scannerMode === 'horizon') return '🔭 Horizon (Far Lawn / Fence)';
+      if (scannerMode === '2zone') return '⚖️ 2-Zone (Left & Right Yard)';
+      return '⚪ Off (Full Frame Only)';
+    }
+
+    function formatScannerSnapDisplay() {
+      if (scannerSnap === 'both') return '🖼️ Dual (Full Context + Zoomed Crop)';
+      if (scannerSnap === 'crop') return '🔍 Zoomed Crop Only';
+      return '📷 Full Frame Only';
+    }
+
+    function calculateIoU(boxA, boxB) {
+      const xA = Math.max(boxA[0], boxB[0]);
+      const yA = Math.max(boxA[1], boxB[1]);
+      const xB = Math.min(boxA[0] + boxA[2], boxB[0] + boxB[2]);
+      const yB = Math.min(boxA[1] + boxA[3], boxB[1] + boxB[3]);
+      const interW = Math.max(0, xB - xA);
+      const interH = Math.max(0, yB - yA);
+      const interArea = interW * interH;
+      if (interArea === 0) return 0;
+      const areaA = boxA[2] * boxA[3];
+      const areaB = boxB[2] * boxB[3];
+      return interArea / (areaA + areaB - interArea);
+    }
+
+    function mergePredictions(preds1, preds2) {
+      const merged = [...preds1];
+      for (let j = 0; j < preds2.length; j++) {
+        const p2 = preds2[j];
+        let duplicate = false;
+        for (let i = 0; i < merged.length; i++) {
+          const p1 = merged[i];
+          if (p1.class === p2.class && calculateIoU(p1.bbox, p2.bbox) > 0.35) {
+            duplicate = true;
+            if (p2.score > p1.score) {
+              merged[i] = p2;
+            }
+            break;
+          }
+        }
+        if (!duplicate) {
+          merged.push(p2);
+        }
+      }
+      return merged;
+    }
+
+    function generateFocusCrop(sourceCanvas, bbox, targetW, targetH, label, score) {
+      if (!sourceCanvas || !bbox || bbox.length < 4) return null;
+      const [bx, by, bw, bh] = bbox;
+      const padX = Math.max(bw * 0.40, 50);
+      const padY = Math.max(bh * 0.40, 50);
+      const cx = Math.max(0, Math.round(bx - padX));
+      const cy = Math.max(0, Math.round(by - padY));
+      const cw = Math.min(targetW - cx, Math.round(bw + padX * 2));
+      const ch = Math.min(targetH - cy, Math.round(bh + padY * 2));
+
+      if (cw <= 20 || ch <= 20) return null;
+
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = cw;
+      cropCanvas.height = ch;
+      const cCtx = cropCanvas.getContext('2d');
+      cCtx.drawImage(sourceCanvas, cx, cy, cw, ch, 0, 0, cw, ch);
+
+      // Focus label overlay on bottom
+      const bannerH = Math.max(24, Math.round(ch * 0.08));
+      cCtx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      cCtx.fillRect(0, ch - bannerH, cw, bannerH);
+      cCtx.fillStyle = '#38bdf8';
+      cCtx.font = `bold ${Math.max(11, Math.round(bannerH * 0.52))}px monospace, sans-serif`;
+      cCtx.textBaseline = 'middle';
+      const pctStr = score !== undefined ? ` (${Math.round(score * 100)}%)` : '';
+      cCtx.fillText(`🔍 ZOOM: ${(label || 'TARGET').toUpperCase()}${pctStr}`, 8, ch - (bannerH / 2));
+
+      return cropCanvas;
+    }
+
     // Offscreen canvas for fast ambient luma calculation
     const lumaCanvas = document.createElement('canvas');
     lumaCanvas.width = 32;
@@ -1199,6 +1328,8 @@
         screenTimeout: screenSaverTimeoutMinutes,
         fpsMode: aiFpsMode,
         cameraRes: cameraResolution,
+        scannerMode: scannerMode,
+        scannerSnap: scannerSnap,
         rotation: cameraRotation,
         autoSnap: autoSnapEnabled,
         autoSnapRate: autoSnapMaxPerMin,
@@ -1211,6 +1342,8 @@
       localStorage.setItem('yard_guardian_settings', JSON.stringify(settings));
       localStorage.setItem('yard_guardian_boost_level', nightBoostLevel.toString());
       localStorage.setItem('yard_guardian_camera_res', cameraResolution);
+      localStorage.setItem('yard_guardian_scanner_mode', scannerMode);
+      localStorage.setItem('yard_guardian_scanner_snap', scannerSnap);
       localStorage.setItem('yard_guardian_rotation', cameraRotation.toString());
       localStorage.setItem('yard_guardian_autosnap', autoSnapEnabled ? '1' : '0');
       localStorage.setItem('yard_guardian_autosnap_rate', autoSnapMaxPerMin.toString());
@@ -1357,6 +1490,25 @@
         }
         const resSel = document.getElementById('cameraResSelect');
         if (resSel) resSel.value = cameraResolution;
+
+        // Restore Deep Yard Scanner Settings (v0.7.7)
+        const savedScannerMode = localStorage.getItem('yard_guardian_scanner_mode');
+        if (savedScannerMode && ['horizon', '2zone', 'off'].includes(savedScannerMode)) {
+          scannerMode = savedScannerMode;
+        } else if (s && s.scannerMode && ['horizon', '2zone', 'off'].includes(s.scannerMode)) {
+          scannerMode = s.scannerMode;
+        }
+        const smSel = document.getElementById('scannerModeSelect');
+        if (smSel) smSel.value = scannerMode;
+
+        const savedScannerSnap = localStorage.getItem('yard_guardian_scanner_snap');
+        if (savedScannerSnap && ['both', 'full', 'crop'].includes(savedScannerSnap)) {
+          scannerSnap = savedScannerSnap;
+        } else if (s && s.scannerSnap && ['both', 'full', 'crop'].includes(s.scannerSnap)) {
+          scannerSnap = s.scannerSnap;
+        }
+        const ssSel = document.getElementById('scannerSnapSelect');
+        if (ssSel) ssSel.value = scannerSnap;
 
         // Restore Delta Auto-Snapshot Settings (v0.7.0)
         const savedAutoSnap = localStorage.getItem('yard_guardian_autosnap');
@@ -1821,12 +1973,44 @@
                         `• <b>Lighting:</b> ${modeTag} (Sens: ${activeSensitivity}%)\n` +
                         `• <b>Time:</b> ${dateStr}`;
 
-        snapCanvas.toBlob(blob => {
-          if (blob && window.TelegramBot) {
-            TelegramBot.sendPhotoBlob(blob, caption);
-            log(`📸 <b>Delta Auto-Snapshot sent to Telegram:</b> ${newSig} ${quotaInfo}`);
-          }
-        }, 'image/jpeg', 0.85);
+        const primaryPred = (predictions && predictions.length > 0)
+          ? (predictions.find(p => activeTargets.includes(p.class) && p.score >= autoSnapMinScore) ||
+             predictions.find(p => p.score >= autoSnapMinScore))
+          : null;
+
+        let cropCanvas = null;
+        if (primaryPred && (scannerSnap === 'both' || scannerSnap === 'crop')) {
+          cropCanvas = generateFocusCrop(snapCanvas, primaryPred.bbox, targetW, targetH, primaryPred.class, primaryPred.score);
+        }
+
+        if (scannerSnap === 'crop' && cropCanvas) {
+          cropCanvas.toBlob(cropBlob => {
+            if (cropBlob && window.TelegramBot) {
+              TelegramBot.sendPhotoBlob(cropBlob, caption);
+              log(`📸 <b>Focused Auto-Snapshot sent to Telegram:</b> ${newSig} ${quotaInfo}`);
+            }
+          }, 'image/jpeg', 0.88);
+        } else {
+          snapCanvas.toBlob(blob => {
+            if (blob && window.TelegramBot) {
+              TelegramBot.sendPhotoBlob(blob, caption);
+              log(`📸 <b>Delta Auto-Snapshot sent to Telegram:</b> ${newSig} ${quotaInfo}`);
+
+              if (scannerSnap === 'both' && cropCanvas) {
+                cropCanvas.toBlob(cropBlob => {
+                  if (cropBlob && window.TelegramBot) {
+                    setTimeout(() => {
+                      const cropCaption = `🔍 <b>Magnified Focus Crop:</b> <b>${primaryPred.class.toUpperCase()}</b> (${Math.round(primaryPred.score * 100)}%)\n` +
+                                          `• <b>Sensor:</b> ${formatResolutionDisplay()}\n` +
+                                          `• <b>Time:</b> ${dateStr}`;
+                      TelegramBot.sendPhotoBlob(cropBlob, cropCaption);
+                    }, 350);
+                  }
+                }, 'image/jpeg', 0.88);
+              }
+            }
+          }, 'image/jpeg', 0.85);
+        }
 
         // Learn newly observed non-target objects into 60m sliding noise filter
         if (autoSnapLearnNoise && predictions && predictions.length > 0) {
@@ -2581,7 +2765,55 @@
         const aiInput = getAiInputFrame();
         const autoSnapMinScore = autoSnapThreshold / 100;
         const detectThreshold = Math.max(0.01, Math.min(0.05, autoSnapEnabled ? Math.min(minScore, autoSnapMinScore) : minScore));
-        const predictions = await model.detect(aiInput, 20, detectThreshold);
+        const targetW = aiInput.videoWidth || aiInput.width || video.videoWidth;
+        const targetH = aiInput.videoHeight || aiInput.height || video.videoHeight;
+
+        let predictions = [];
+
+        if (scannerMode === 'off') {
+          predictions = await model.detect(aiInput, 20, detectThreshold);
+        } else if (scannerMode === 'horizon') {
+          // Pass 1: Full Frame
+          const fullPreds = await model.detect(aiInput, 20, detectThreshold);
+
+          // Pass 2: Horizon Sub-Frame (top 65% of frame where distant perimeter is)
+          const hzH = Math.round(targetH * 0.65);
+          if (scannerCanvas.width !== targetW || scannerCanvas.height !== hzH) {
+            scannerCanvas.width = targetW;
+            scannerCanvas.height = hzH;
+            scannerCtx = scannerCanvas.getContext('2d', { willReadFrequently: true });
+          }
+          scannerCtx.drawImage(aiInput, 0, 0, targetW, hzH, 0, 0, targetW, hzH);
+          const horizonPreds = await model.detect(scannerCanvas, 20, detectThreshold);
+          for (let i = 0; i < horizonPreds.length; i++) {
+            horizonPreds[i].zone = 'horizon';
+          }
+          predictions = mergePredictions(fullPreds, horizonPreds);
+        } else if (scannerMode === '2zone') {
+          // Pass 1 & 2: Left 60% and Right 60% with 20% central overlap
+          const zW = Math.round(targetW * 0.60);
+          const rightX = Math.round(targetW * 0.40);
+
+          if (scannerCanvas.width !== zW || scannerCanvas.height !== targetH) {
+            scannerCanvas.width = zW;
+            scannerCanvas.height = targetH;
+            scannerCtx = scannerCanvas.getContext('2d', { willReadFrequently: true });
+          }
+
+          // Left zone
+          scannerCtx.drawImage(aiInput, 0, 0, zW, targetH, 0, 0, zW, targetH);
+          const leftPreds = await model.detect(scannerCanvas, 20, detectThreshold);
+
+          // Right zone
+          scannerCtx.drawImage(aiInput, rightX, 0, zW, targetH, 0, 0, zW, targetH);
+          const rightPreds = await model.detect(scannerCanvas, 20, detectThreshold);
+          for (let i = 0; i < rightPreds.length; i++) {
+            rightPreds[i].bbox[0] += rightX;
+            rightPreds[i].zone = 'right';
+          }
+
+          predictions = mergePredictions(leftPreds, rightPreds);
+        }
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -2614,7 +2846,7 @@
             humanDetected = true;
             drawBox(x, y, w, h, `Human (${Math.round(score * 100)}%)`, '#f59e0b');
           } else if (activeTargets.includes(label)) {
-            targetDetected = { label, score };
+            targetDetected = { label, score, bbox: [x, y, w, h] };
             drawBox(x, y, w, h, `🎯 ${label.toUpperCase()} (${Math.round(score * 100)}%)`, '#ef4444');
           } else {
             drawBox(x, y, w, h, `${label} (${Math.round(score * 100)}%)`, '#64748b');
@@ -2630,7 +2862,7 @@
               r.className.toLowerCase().includes('hedgehog')
             );
             if (pMatch && pMatch.probability >= 0.30) {
-              targetDetected = { label: 'porcupine', score: pMatch.probability };
+              targetDetected = { label: 'porcupine', score: pMatch.probability, bbox: [video.videoWidth * 0.1, video.videoHeight * 0.1, video.videoWidth * 0.8, video.videoHeight * 0.8] };
               seenLabels.push(`porcupine (${Math.round(pMatch.probability * 100)}%)`);
               drawBox(video.videoWidth * 0.1, video.videoHeight * 0.1, video.videoWidth * 0.8, video.videoHeight * 0.8, `🎯 PORCUPINE (${Math.round(pMatch.probability * 100)}%)`, '#ef4444');
             }
@@ -2648,7 +2880,7 @@
         } else if (targetDetected) {
           statusBadge.innerText = `Alert: ${targetDetected.label.toUpperCase()}`;
           statusBadge.className = "badge alert";
-          triggerDeterrent(targetDetected.label, targetDetected.score);
+          triggerDeterrent(targetDetected.label, targetDetected.score, targetDetected.bbox);
         } else {
           statusBadge.innerText = "Armed";
           statusBadge.className = "badge armed";
@@ -2694,7 +2926,7 @@
     }
 
     // Dispatches active deterrents (Sprinklers, Siren, Strobe, etc.)
-    function triggerDeterrent(label, score) {
+    function triggerDeterrent(label, score, bbox) {
       const now = Date.now();
       if (now - lastTriggerTime < cooldownMs) return;
 
@@ -2720,7 +2952,7 @@
 
       // 1. Screenshot Capture (Single screenshot per detection event)
       if (activeActivations.includes('screenshot')) {
-        captureDetectionSnapshot(label, score);
+        captureDetectionSnapshot(label, score, bbox);
       }
 
       // 2. Phone Siren
@@ -2754,7 +2986,7 @@
     }
 
     // Captures single annotated screenshot per detection event
-    function captureDetectionSnapshot(label, score) {
+    function captureDetectionSnapshot(label, score, bbox) {
       try {
         if (!video.videoWidth || !video.videoHeight) {
           log("⚠️ Screenshot skipped: Camera feed not active.");
@@ -2835,21 +3067,43 @@
           snapshotCard.style.display = 'block';
         }
 
+        let cropCanvas = null;
+        if (bbox && (scannerSnap === 'both' || scannerSnap === 'crop')) {
+          cropCanvas = generateFocusCrop(snapCanvas, bbox, targetW, targetH, label, score);
+        }
+
         // Send photo to Telegram Bot (if configured & enabled)
         if (window.TelegramBot && TelegramBot.enabled && TelegramBot.isConfigured()) {
           try {
-            snapCanvas.toBlob((blob) => {
-              if (blob) {
-                TelegramBot.sendPhotoBlob(blob, `🎯 Intruder Alert: ${label.toUpperCase()} (${pct}% confidence)\n🕒 ${dateStr}`);
-                if (autoSnapEnabled) {
-                  lastAutoSnapTime = Date.now();
-                  autoSnapHistory.push(lastAutoSnapTime);
-                  lastDetectionSignature = `${label}:1`;
-                  pendingSignature = '';
-                  pendingSignatureFrames = 0;
+            if (scannerSnap === 'crop' && cropCanvas) {
+              cropCanvas.toBlob((cropBlob) => {
+                if (cropBlob) {
+                  TelegramBot.sendPhotoBlob(cropBlob, `🎯 <b>Intruder Zoom:</b> ${label.toUpperCase()} (${pct}% confidence)\n🕒 ${dateStr}`);
                 }
-              }
-            }, 'image/jpeg', 0.85);
+              }, 'image/jpeg', 0.88);
+            } else {
+              snapCanvas.toBlob((blob) => {
+                if (blob) {
+                  TelegramBot.sendPhotoBlob(blob, `🎯 Intruder Alert: ${label.toUpperCase()} (${pct}% confidence)\n🕒 ${dateStr}`);
+                  if (scannerSnap === 'both' && cropCanvas) {
+                    cropCanvas.toBlob((cropBlob) => {
+                      if (cropBlob) {
+                        setTimeout(() => {
+                          TelegramBot.sendPhotoBlob(cropBlob, `🔍 <b>Intruder Zoom Detail:</b> <b>${label.toUpperCase()}</b> (${pct}%)\n🕒 ${dateStr}`);
+                        }, 350);
+                      }
+                    }, 'image/jpeg', 0.88);
+                  }
+                  if (autoSnapEnabled) {
+                    lastAutoSnapTime = Date.now();
+                    autoSnapHistory.push(lastAutoSnapTime);
+                    lastDetectionSignature = `${label}:1`;
+                    pendingSignature = '';
+                    pendingSignatureFrames = 0;
+                  }
+                }
+              }, 'image/jpeg', 0.85);
+            }
           } catch (tgErr) {
             console.error("Telegram sendPhoto error:", tgErr);
           }
@@ -2945,7 +3199,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.7.6';
+    const APP_VERSION = 'v0.7.7';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -2984,6 +3238,7 @@
               `• <b>Battery:</b> ${batteryStr}\n` +
               `• <b>AI Speed:</b> ${fpsStr}\n` +
               `• <b>Resolution:</b> ${formatResolutionDisplay()}\n` +
+              `• <b>Scanner:</b> ${formatScannerModeDisplay()} [${scannerSnap.toUpperCase()}]\n` +
               `• <b>Rotation:</b> ${cameraRotation}°\n` +
               `• <b>Auto-Snapshots:</b> ${autoSnapStr}\n` +
               `• <b>Noise Filter:</b> ${noiseStr}\n` +
@@ -3028,6 +3283,7 @@
               `• Torch Assist on Alert: <b>${torchAssistEnabled ? 'ON' : 'OFF'}</b> (<code>/set torch_assist on|off</code>)\n\n` +
               `🔄 <b>Camera Orientation:</b> <b>${cameraRotation}°</b> (<code>/rotate</code> or <code>/set rotate 0|90|180|270</code>)\n` +
               `📷 <b>Camera Resolution:</b> <b>${formatResolutionDisplay()}</b> (<code>/set res vga|720p|1080p|max</code>)\n` +
+              `🔍 <b>Deep Yard Scanner:</b> <b>${formatScannerModeDisplay()}</b> (Snaps: <b>${formatScannerSnapDisplay()}</b>) (<code>/set scanner horizon|2zone|off</code>, <code>/set scanner snap both|full|crop</code>)\n` +
               `🔒 <b>Human Safety Pause:</b> <b>${safetyOn ? 'ON' : 'OFF'}</b> (<code>/set safety on|off</code>)\n` +
               `📷 <b>Active Lens:</b> ${camName} (<code>/camera list</code>)\n` +
               `💧 <b>Smart Life Webhook:</b> ${webhookDisplay} (<code>/set webhook &lt;url&gt;</code>)`
@@ -3037,6 +3293,8 @@
               reply(
                 `ℹ️ <b>Usage: /set &lt;option&gt; &lt;value&gt;</b>\n\n` +
                 `• <code>/set res 1080p</code> — Stream resolution (vga|720p|1080p|max)\n` +
+                `• <code>/set scanner horizon</code> — Deep scanner (horizon|2zone|off)\n` +
+                `• <code>/set scanner snap both</code> — Snapshot detail (both|full|crop)\n` +
                 `• <code>/set speed eco-fast</code> — AI speed (eco|eco-fast|balanced|turbo)\n` +
                 `• <code>/set autosnap on|off|5</code> — Delta auto-snapshots\n` +
                 `• <code>/set autosnap thresh 5</code> — Auto-snapshot threshold (1-99%)\n` +
@@ -3094,6 +3352,38 @@
               }
               await setCameraResolution(targetRes);
               reply(`📷 <b>Camera Resolution set to:</b> <b>${formatResolutionDisplay()}</b>\n${targetRes === 'max' ? '✨ Maximized camera sensor resolution for sharpest detail.' : ''}`);
+            } else if (key === 'scanner' || key === 'scan' || key === 'tiles' || key === 'tiling') {
+              const subKey = args[1] ? args[1].toLowerCase() : '';
+              const subVal = args.slice(2).join(' ').trim().toLowerCase();
+
+              if (subKey === 'snap' || subKey === 'snapshot' || subKey === 'photos') {
+                let targetSnap = 'both';
+                if (subVal.includes('crop') || subVal.includes('zoom')) {
+                  targetSnap = 'crop';
+                } else if (subVal.includes('full') || subVal.includes('single')) {
+                  targetSnap = 'full';
+                } else {
+                  targetSnap = 'both';
+                }
+                setScannerSnap(targetSnap);
+                reply(`📸 <b>Scanner Snapshot Mode set to:</b> <b>${formatScannerSnapDisplay()}</b>\n${targetSnap === 'both' ? '🖼️ Sends both Full Context Overview and High-Res Zoomed Crop!' : ''}`);
+                return;
+              }
+
+              const lowVal = val.toLowerCase();
+              let targetMode = 'horizon';
+              if (['off', '0', 'disable', 'disabled'].includes(lowVal)) {
+                targetMode = 'off';
+              } else if (lowVal.includes('2zone') || lowVal.includes('zone') || lowVal.includes('split') || lowVal === '2') {
+                targetMode = '2zone';
+              } else if (lowVal.includes('horizon') || lowVal.includes('far') || lowVal.includes('lawn') || lowVal.includes('on')) {
+                targetMode = 'horizon';
+              } else {
+                reply("⚠️ Please enter a valid scanner mode: <code>horizon</code> (Default: Far lawn/fence), <code>2zone</code> (Left & Right yard), or <code>off</code>.");
+                return;
+              }
+              setScannerMode(targetMode);
+              reply(`🔍 <b>Deep Yard Scanner set to:</b> <b>${formatScannerModeDisplay()}</b>\n${targetMode !== 'off' ? '🔭 High-resolution macro-zoning active to magnify small distant animals!' : ''}`);
             } else if (key === 'screen' || key === 'timeout' || key === 'screensaver' || key === 'screen_timeout') {
               let num = 1;
               const lowVal = val.toLowerCase();
@@ -3488,7 +3778,37 @@
               if (model) {
                 try {
                   const detectThreshold = Math.max(0.01, Math.min(0.05, minScore));
-                  const predictions = await model.detect(frame, 20, detectThreshold);
+                  let predictions = [];
+
+                  if (scannerMode === 'off') {
+                    predictions = await model.detect(frame, 20, detectThreshold);
+                  } else if (scannerMode === 'horizon') {
+                    const fullPreds = await model.detect(frame, 20, detectThreshold);
+                    const hzH = Math.round(targetH * 0.65);
+                    if (scannerCanvas.width !== targetW || scannerCanvas.height !== hzH) {
+                      scannerCanvas.width = targetW;
+                      scannerCanvas.height = hzH;
+                      scannerCtx = scannerCanvas.getContext('2d', { willReadFrequently: true });
+                    }
+                    scannerCtx.drawImage(frame, 0, 0, targetW, hzH, 0, 0, targetW, hzH);
+                    const horizonPreds = await model.detect(scannerCanvas, 20, detectThreshold);
+                    for (let i = 0; i < horizonPreds.length; i++) horizonPreds[i].zone = 'horizon';
+                    predictions = mergePredictions(fullPreds, horizonPreds);
+                  } else if (scannerMode === '2zone') {
+                    const zW = Math.round(targetW * 0.60);
+                    const rightX = Math.round(targetW * 0.40);
+                    if (scannerCanvas.width !== zW || scannerCanvas.height !== targetH) {
+                      scannerCanvas.width = zW;
+                      scannerCanvas.height = targetH;
+                      scannerCtx = scannerCanvas.getContext('2d', { willReadFrequently: true });
+                    }
+                    scannerCtx.drawImage(frame, 0, 0, zW, targetH, 0, 0, zW, targetH);
+                    const leftPreds = await model.detect(scannerCanvas, 20, detectThreshold);
+                    scannerCtx.drawImage(frame, rightX, 0, zW, targetH, 0, 0, zW, targetH);
+                    const rightPreds = await model.detect(scannerCanvas, 20, detectThreshold);
+                    for (let i = 0; i < rightPreds.length; i++) rightPreds[i].bbox[0] += rightX;
+                    predictions = mergePredictions(leftPreds, rightPreds);
+                  }
                   for (let i = 0; i < predictions.length; i++) {
                     const p = predictions[i];
                     const scorePercent = Math.round(p.score * 100);
@@ -3577,13 +3897,45 @@
                           `🕒 <b>Time:</b> ${dateStr}`;
               }
 
-              snapCanvas.toBlob(blob => {
-                if (blob) {
-                  replyPhoto(blob, caption);
-                } else {
-                  reply("⚠️ Failed to generate snapshot image.");
-                }
-              }, 'image/jpeg', 0.85);
+              const primaryPred = (predictions && predictions.length > 0)
+                ? (predictions.find(p => activeTargets.includes(p.class) && p.score >= minScore) ||
+                   predictions.find(p => p.score >= minScore))
+                : null;
+
+              let cropCanvas = null;
+              if (primaryPred && (scannerSnap === 'both' || scannerSnap === 'crop')) {
+                cropCanvas = generateFocusCrop(snapCanvas, primaryPred.bbox, targetW, targetH, primaryPred.class, primaryPred.score);
+              }
+
+              if (scannerSnap === 'crop' && cropCanvas) {
+                cropCanvas.toBlob(cropBlob => {
+                  if (cropBlob) {
+                    replyPhoto(cropBlob, caption);
+                  } else {
+                    reply("⚠️ Failed to generate crop image.");
+                  }
+                }, 'image/jpeg', 0.88);
+              } else {
+                snapCanvas.toBlob(blob => {
+                  if (blob) {
+                    replyPhoto(blob, caption);
+                    if (scannerSnap === 'both' && cropCanvas && primaryPred) {
+                      cropCanvas.toBlob(cropBlob => {
+                        if (cropBlob) {
+                          setTimeout(() => {
+                            const cropCaption = `🔍 <b>Magnified Focus Crop:</b> <b>${primaryPred.class.toUpperCase()}</b> (${Math.round(primaryPred.score * 100)}%)\n` +
+                                                `• <b>Sensor:</b> ${formatResolutionDisplay()}\n` +
+                                                `• <b>Time:</b> ${dateStr}`;
+                            replyPhoto(cropBlob, cropCaption);
+                          }, 350);
+                        }
+                      }, 'image/jpeg', 0.88);
+                    }
+                  } else {
+                    reply("⚠️ Failed to generate snapshot image.");
+                  }
+                }, 'image/jpeg', 0.85);
+              }
             } catch (err) {
               reply("⚠️ Error taking snapshot: " + err.message);
             }

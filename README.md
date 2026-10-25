@@ -25,6 +25,8 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/rotate [angle]` — rotate camera 90° clockwise (or set direct angle e.g. `/rotate 270`) and immediately send back a test snapshot.
     - `/set rotate <0|90|180|270>` — set exact camera rotation angle directly (e.g. `/set rotate 270` for sideways phones).
     - `/res <vga|720p|1080p|max>` or `/set res <vga|720p|1080p|max>` — set camera stream resolution (VGA 640×480, 720p HD, 1080p Full HD default, or Max 4K/sensor hardware maximum).
+    - `/scanner <horizon|2zone|off>` or `/set scanner <horizon|2zone|off>` — configure Deep Yard Scanner (Horizon Far Lawn default, 2-Zone Left/Right, or Off).
+    - `/set scanner snap <both|full|crop>` — configure snapshot detail mode (Dual Full + Magnified Zoom Crop default, Full only, or Zoom only).
     - `/speed <eco|eco-fast|balanced|turbo>` or `/set speed <eco|eco-fast|balanced|turbo>` — set AI detection rate (Eco 1 FPS Ultra Low Power, Eco-Fast 3 FPS Smooth, Balanced 5 FPS, Turbo Uncapped).
     - `/set screen <1|2|5|10|30s|off>` — set auto-blackout inactivity timeout (default `1` minute).
     - `/set day <1-99>` — set daytime sensitivity threshold (e.g. `/set day 15`).
@@ -61,6 +63,10 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
 - **🔋 Battery Life Reporting & Power Optimization:**
   - **🌱 AI Eco Processing Rate (CPU & Heat Reduction):** Configurable inference speeds: **Eco Mode (1 FPS / 1000ms)** drops CPU/GPU usage to near zero so the phone stays cold and charges at maximum wattage; **Eco-Fast (3 FPS / 330ms)** maintains smooth animal tracking with ~75% energy savings; **Balanced (5 FPS)**; and **Turbo (Uncapped)**.
   - **📷 Camera Stream Resolution Setting (v0.7.6):** Select stream resolution between `vga` (640×480 - Cold), `720p` (1280×720 - HD), `1080p` (1920×1080 - Full HD Default), and `max` (3840×2160 / 4K / Sensor Max) via UI dropdown or `/set res <vga|720p|1080p|max>`. Higher resolutions produce ultra-sharp Telegram auto-snapshots while MobileNet efficiently downscales for fast inference.
+  - **🔍 Deep Yard Scanner & Dual-Photo Delivery (v0.7.7):**
+    - **Macro-Zoning AI Passes:** Solves small object detection for distant animals (cats, hedgehogs, birds across the lawn) without requiring 90 tiny tiles. In `horizon` mode (default), evaluates the full view alongside the top 65% distant perimeter band (1.54× pixel magnification); in `2zone` mode, scans Left and Right overlapping zones (1.67× magnification).
+    - **IoU Prediction Fusion:** Merges full-frame and zoomed-zone predictions using Non-Maximum Suppression (IoU > 0.35) so there is zero temporal flickering or duplicate boxes.
+    - **🖼️ Dual-Photo Delivery:** When an animal is detected, Telegram automatically receives **both** the full context photo (showing where the animal is on the property) and an immediate magnified high-resolution detail crop (showing the animal up close). Configurable via `/set scanner snap both|full|crop`.
   - **Live Battery Telemetry:** Real-time battery percentage and charging status tracked via the Battery Status API, reported on the top header badge, in `/status`, and in `/config`.
   - **Auto-OLED Screen Blackout:** Automatically transitions to full-screen pitch black (`#000000`) after inactivity (configurable: 30s, 1m default, 2m, 5m, 10m, or off).
   - **Why OLED Blackout vs. OS Lock Screen:** Modern phones (including Xiaomi) have AMOLED displays where black pixels turn completely off (0 nits), reducing display draw by ~90%. Crucially, this keeps the browser in the foreground so camera capture, WebGL TensorFlow AI detection, and Telegram commands continue running 24/7 without being stopped by Android OS sleep.
