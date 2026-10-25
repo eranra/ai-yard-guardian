@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=5.3"></script>
+  <script src="telegram-bot.js?v=0.7.0"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.6.0 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.7.0 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -525,6 +525,28 @@
                 <span>⚡ Screen Strobe Alert</span>
               </label>
             </div>
+          </div>
+        </div>
+
+        <!-- 📸 Smart Delta Auto-Snapshots (Change-Driven) Section -->
+        <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 10px; background: #0f172a; padding: 10px; border-radius: 8px; border: 1px solid #1e293b; width: 100%;">
+          <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+            <label class="toggle" style="font-size: 0.8rem; font-weight: 700; color: #38bdf8;">
+              <input type="checkbox" id="autoSnapToggle" onchange="toggleAutoSnap(this.checked)"> 📸 Delta Auto-Snapshots to Telegram
+            </label>
+            <span id="autoSnapBadge" style="font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; background: #1e293b; color: #94a3b8;">Off</span>
+          </div>
+          <div style="font-size: 0.72rem; color: #94a3b8; line-height: 1.3;">
+            Automatically sends a snapshot to Telegram when an animal enters or leaves the scene (ignoring static scenes &amp; raw score fluctuations).
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 4px;">
+            <label for="autoSnapRateSelect" style="font-size: 0.74rem; color: #cbd5e1;">Max Rate Cap:</label>
+            <select id="autoSnapRateSelect" onchange="onAutoSnapRateChange(this.value)" style="background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem;">
+              <option value="2">Max 2 / min (Relaxed)</option>
+              <option value="3">Max 3 / min (Balanced)</option>
+              <option value="5" selected>Max 5 / min (Default)</option>
+              <option value="10">Max 10 / min (Aggressive)</option>
+            </select>
           </div>
         </div>
 
@@ -818,6 +840,15 @@
     let isTorchOn = false;
     let cameraCapabilities = {};
 
+    // 📸 Smart Delta Auto-Snapshot Engine (v0.7.0)
+    let autoSnapEnabled = false;
+    let autoSnapMaxPerMin = 5;
+    let lastDetectionSignature = '__init__';
+    let pendingSignature = '';
+    let pendingSignatureFrames = 0;
+    let autoSnapHistory = [];
+    let lastAutoSnapTime = 0;
+
     // 🔋 Battery Status & Auto Screen Saver Engine (v5.4)
     let batteryInfo = {
       supported: false,
@@ -1103,6 +1134,8 @@
         screenTimeout: screenSaverTimeoutMinutes,
         fpsMode: aiFpsMode,
         rotation: cameraRotation,
+        autoSnap: autoSnapEnabled,
+        autoSnapRate: autoSnapMaxPerMin,
         cameraId: cameraSelect ? cameraSelect.value : (localStorage.getItem('yard_guardian_camera_id') || ''),
         cameraLabel: localStorage.getItem('yard_guardian_camera_label') || '',
         screenshotVersion: 1
@@ -1110,6 +1143,8 @@
       localStorage.setItem('yard_guardian_settings', JSON.stringify(settings));
       localStorage.setItem('yard_guardian_boost_level', nightBoostLevel.toString());
       localStorage.setItem('yard_guardian_rotation', cameraRotation.toString());
+      localStorage.setItem('yard_guardian_autosnap', autoSnapEnabled ? '1' : '0');
+      localStorage.setItem('yard_guardian_autosnap_rate', autoSnapMaxPerMin.toString());
     }
 
     function loadSettings() {
@@ -1242,6 +1277,33 @@
         if (qBtn) qBtn.innerText = `🔄 ${cameraRotation}°`;
         updateViewportOrientation();
 
+        // Restore Delta Auto-Snapshot Settings (v0.7.0)
+        const savedAutoSnap = localStorage.getItem('yard_guardian_autosnap');
+        if (savedAutoSnap !== null) {
+          autoSnapEnabled = savedAutoSnap === '1';
+        } else if (s && s.autoSnap !== undefined) {
+          autoSnapEnabled = !!s.autoSnap;
+        }
+        const autoSnapToggleEl = document.getElementById('autoSnapToggle');
+        const autoSnapBadgeEl = document.getElementById('autoSnapBadge');
+        if (autoSnapToggleEl) autoSnapToggleEl.checked = autoSnapEnabled;
+        if (autoSnapBadgeEl) {
+          autoSnapBadgeEl.innerText = autoSnapEnabled ? 'Active' : 'Off';
+          autoSnapBadgeEl.style.color = autoSnapEnabled ? '#38bdf8' : '#94a3b8';
+          autoSnapBadgeEl.style.background = autoSnapEnabled ? '#0369a133' : '#1e293b';
+        }
+
+        const savedAutoSnapRate = localStorage.getItem('yard_guardian_autosnap_rate');
+        if (savedAutoSnapRate !== null) {
+          const r = parseInt(savedAutoSnapRate);
+          if (!isNaN(r) && r >= 1 && r <= 20) autoSnapMaxPerMin = r;
+        } else if (s && s.autoSnapRate !== undefined) {
+          const r = parseInt(s.autoSnapRate);
+          if (!isNaN(r) && r >= 1 && r <= 20) autoSnapMaxPerMin = r;
+        }
+        const autoSnapRateSel = document.getElementById('autoSnapRateSelect');
+        if (autoSnapRateSel) autoSnapRateSel.value = autoSnapMaxPerMin.toString();
+
         // Restore collapse/expand state (default to collapsed to save maximum screen space)
         const savedExpanded = localStorage.getItem('yard_guardian_settings_expanded');
         isSettingsExpanded = savedExpanded === '1';
@@ -1345,6 +1407,198 @@
       if (range && parseInt(range.value) !== nightSensitivity) range.value = nightSensitivity;
       updateSettingsSummary();
       saveSettings();
+    }
+
+    // ==========================================
+    // 📸 Smart Delta Auto-Snapshot Engine (v0.7.0)
+    // ==========================================
+
+    function toggleAutoSnap(enabled) {
+      autoSnapEnabled = !!enabled;
+      const toggle = document.getElementById('autoSnapToggle');
+      if (toggle && toggle.checked !== autoSnapEnabled) toggle.checked = autoSnapEnabled;
+
+      const badge = document.getElementById('autoSnapBadge');
+      if (badge) {
+        badge.innerText = autoSnapEnabled ? 'Active' : 'Off';
+        badge.style.color = autoSnapEnabled ? '#38bdf8' : '#94a3b8';
+        badge.style.background = autoSnapEnabled ? '#0369a133' : '#1e293b';
+      }
+
+      // Reset signature state on toggle to avoid spurious initial bursts
+      lastDetectionSignature = '__init__';
+      pendingSignature = '';
+      pendingSignatureFrames = 0;
+      saveSettings();
+      log(`📸 Delta Auto-Snapshots ${autoSnapEnabled ? `<b>ENABLED</b> (Max ${autoSnapMaxPerMin}/min)` : '<b>DISABLED</b>'}.`);
+    }
+
+    function onAutoSnapRateChange(val) {
+      const num = parseInt(val);
+      if (!isNaN(num) && num >= 1 && num <= 20) {
+        autoSnapMaxPerMin = num;
+        const sel = document.getElementById('autoSnapRateSelect');
+        if (sel && sel.value !== num.toString()) sel.value = num.toString();
+        saveSettings();
+        log(`📸 Auto-Snapshot rate cap set to: <b>${autoSnapMaxPerMin} / minute</b>.`);
+      }
+    }
+
+    /**
+     * Evaluates current scene detection signature against previous signature.
+     * Only dispatches an auto-snapshot to Telegram if:
+     * 1. AutoSnap is enabled and Telegram is connected.
+     * 2. The detection signature actually changed (new animal, animal departed, or count changed).
+     * 3. Change is stable for 2 consecutive frames (anti-flicker debounce).
+     * 4. Sliding rate limit (max N / min with spacing) is respected.
+     */
+    function checkAndTriggerDeltaAutoSnap(currentSignature, predictions, activeSensitivity, targetDetected, seenLabels) {
+      if (!autoSnapEnabled) return;
+      if (!window.TelegramBot || !TelegramBot.enabled || !TelegramBot.isConfigured()) return;
+
+      // Initial boot guard: if system just started and scene is clear, initialize quietly
+      if (lastDetectionSignature === '__init__') {
+        if (currentSignature === 'clear') {
+          lastDetectionSignature = 'clear';
+          pendingSignature = '';
+          pendingSignatureFrames = 0;
+          return;
+        }
+      }
+
+      // Detect signature change
+      if (currentSignature !== lastDetectionSignature) {
+        if (currentSignature === pendingSignature) {
+          pendingSignatureFrames++;
+        } else {
+          pendingSignature = currentSignature;
+          pendingSignatureFrames = 1;
+        }
+      } else {
+        // Returned to stable known signature
+        pendingSignature = '';
+        pendingSignatureFrames = 0;
+      }
+
+      // Once confirmed stable across at least 2 consecutive frames
+      if (pendingSignatureFrames >= 2) {
+        const now = Date.now();
+        // Purge entries older than 60 seconds
+        autoSnapHistory = autoSnapHistory.filter(t => now - t < 60000);
+        const minSpacingMs = Math.floor(60000 / autoSnapMaxPerMin);
+
+        const withinRateQuota = autoSnapHistory.length < autoSnapMaxPerMin;
+        const spacingElapsed = (now - lastAutoSnapTime) >= minSpacingMs;
+
+        if (withinRateQuota && spacingElapsed) {
+          const prevSig = lastDetectionSignature;
+          lastDetectionSignature = pendingSignature;
+          pendingSignature = '';
+          pendingSignatureFrames = 0;
+          lastAutoSnapTime = now;
+          autoSnapHistory.push(now);
+
+          sendDeltaAutoSnapshot(lastDetectionSignature, prevSig, predictions, activeSensitivity, targetDetected, seenLabels);
+        }
+      }
+    }
+
+    /**
+     * Renders snapshot canvas with bounding boxes and timestamp banner,
+     * then dispatches photo blob with HTML formatted caption to Telegram.
+     */
+    function sendDeltaAutoSnapshot(newSig, prevSig, predictions, activeSensitivity, targetDetected, seenLabels) {
+      if (!video || !video.videoWidth) return;
+
+      try {
+        const is90or270 = (cameraRotation === 90 || cameraRotation === 270);
+        const targetW = is90or270 ? video.videoHeight : video.videoWidth;
+        const targetH = is90or270 ? video.videoWidth : video.videoHeight;
+
+        const snapCanvas = document.createElement('canvas');
+        snapCanvas.width = targetW;
+        snapCanvas.height = targetH;
+        const sCtx = snapCanvas.getContext('2d');
+        const frame = getAiInputFrame();
+        sCtx.drawImage(frame, 0, 0, targetW, targetH);
+
+        const minScore = activeSensitivity / 100;
+        let detectedTargets = [];
+
+        // Draw bounding boxes for any objects present
+        if (predictions && predictions.length > 0) {
+          for (let i = 0; i < predictions.length; i++) {
+            const p = predictions[i];
+            const scorePercent = Math.round(p.score * 100);
+            const [x, y, w, h] = p.bbox;
+
+            if (p.class === safetyClass) {
+              drawBox(x, y, w, h, `Human (${scorePercent}%)`, '#f59e0b', sCtx);
+            } else if (activeTargets.includes(p.class) && p.score >= minScore) {
+              detectedTargets.push(`${p.class.toUpperCase()} (${scorePercent}%)`);
+              drawBox(x, y, w, h, `🎯 ${p.class.toUpperCase()} (${scorePercent}%)`, '#ef4444', sCtx);
+            } else if (p.score >= minScore) {
+              drawBox(x, y, w, h, `${p.class} (${scorePercent}%)`, '#38bdf8', sCtx);
+            } else {
+              drawBox(x, y, w, h, `${p.class} (${scorePercent}%)`, '#64748b', sCtx);
+            }
+          }
+        }
+
+        const now = new Date();
+        const dateStr = now.toLocaleTimeString();
+
+        // Bottom status banner
+        const barHeight = Math.max(28, Math.round(snapCanvas.height * 0.055));
+        sCtx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        sCtx.fillRect(0, snapCanvas.height - barHeight, snapCanvas.width, barHeight);
+
+        const fontSize = Math.max(12, Math.round(barHeight * 0.5));
+        sCtx.fillStyle = '#38bdf8';
+        sCtx.font = `bold ${fontSize}px monospace, sans-serif`;
+        sCtx.textBaseline = 'middle';
+
+        let bannerText;
+        if (newSig === 'clear') {
+          bannerText = `🛡️ AutoSnap | 👁️ Scene Cleared (All Clear) | 🕒 ${dateStr}`;
+        } else if (detectedTargets.length > 0) {
+          bannerText = `🛡️ AutoSnap | 🎯 ${detectedTargets.join(', ')} | 🕒 ${dateStr}`;
+        } else {
+          bannerText = `🛡️ AutoSnap | 👁️ Detected: ${newSig} | 🕒 ${dateStr}`;
+        }
+        sCtx.fillText(bannerText, 10, snapCanvas.height - (barHeight / 2));
+
+        // Formulate descriptive caption
+        let changeDesc;
+        if (newSig === 'clear') {
+          changeDesc = '👁️ <b>Scene Cleared</b> (Animal/Object Departed)';
+        } else if (prevSig === 'clear' || prevSig === '__init__') {
+          changeDesc = detectedTargets.length > 0 
+            ? `🎯 <b>Target Intrusion Detected:</b> ${detectedTargets.join(', ')}` 
+            : `👁️ <b>New Object Entered Scene:</b> <code>${newSig}</code>`;
+        } else {
+          changeDesc = `🔄 <b>Detection State Changed:</b> <code>${prevSig}</code> ➔ <code>${newSig}</code>`;
+        }
+
+        const modeTag = isNightMode ? `🌙 Night Boost Lvl ${nightBoostLevel}` : `☀️ Day`;
+        const quotaInfo = `[${autoSnapHistory.length}/${autoSnapMaxPerMin} snaps/min]`;
+
+        const caption = `📸 <b>Delta Auto-Snapshot</b> ${quotaInfo}\n` +
+                        `${changeDesc}\n` +
+                        (seenLabels && seenLabels.length > 0 ? `• <b>Detections:</b> ${seenLabels.join(', ')}\n` : '') +
+                        `• <b>Lighting:</b> ${modeTag} (Sens: ${activeSensitivity}%) | 🔄 ${cameraRotation}°\n` +
+                        `• <b>Time:</b> ${dateStr}`;
+
+        snapCanvas.toBlob(blob => {
+          if (blob && window.TelegramBot) {
+            TelegramBot.sendPhotoBlob(blob, caption);
+            log(`📸 <b>Delta Auto-Snapshot sent to Telegram:</b> ${newSig} ${quotaInfo}`);
+          }
+        }, 'image/jpeg', 0.85);
+
+      } catch (err) {
+        console.warn("Delta Auto-Snapshot generation error:", err);
+      }
     }
 
     // ==========================================
@@ -2020,6 +2274,11 @@
           TelegramBot.startPolling();
         }
 
+        lastDetectionSignature = '__init__';
+        pendingSignature = '';
+        pendingSignatureFrames = 0;
+        autoSnapHistory = [];
+
         detectFrame();
       } else {
         isRunning = false;
@@ -2029,6 +2288,9 @@
         }
         stopLumaMonitor();
         setTorch(false);
+        lastDetectionSignature = '__init__';
+        pendingSignature = '';
+        pendingSignatureFrames = 0;
         localStorage.setItem('yard_guardian_armed', 'false');
         localStorage.setItem('yard_guardian_stealth', 'false');
         if (wakeLock) wakeLock.release().then(() => wakeLock = null);
@@ -2127,6 +2389,23 @@
         } else {
           statusBadge.innerText = "Armed";
           statusBadge.className = "badge armed";
+        }
+
+        // 📸 Smart Delta Auto-Snapshot Check
+        if (autoSnapEnabled) {
+          const counts = {};
+          for (let i = 0; i < predictions.length; i++) {
+            const p = predictions[i];
+            if (p.score >= minScore) {
+              counts[p.class] = (counts[p.class] || 0) + 1;
+            }
+          }
+          if (targetDetected && targetDetected.label === 'porcupine' && !counts['porcupine']) {
+            counts['porcupine'] = 1;
+          }
+          const keys = Object.keys(counts).sort();
+          const currentSignature = keys.length === 0 ? 'clear' : keys.map(k => `${k}:${counts[k]}`).join(',');
+          checkAndTriggerDeltaAutoSnap(currentSignature, predictions, activeSensitivity, targetDetected, seenLabels);
         }
       } catch (err) {}
 
@@ -2298,6 +2577,13 @@
             snapCanvas.toBlob((blob) => {
               if (blob) {
                 TelegramBot.sendPhotoBlob(blob, `🎯 Intruder Alert: ${label.toUpperCase()} (${pct}% confidence)\n🕒 ${dateStr}`);
+                if (autoSnapEnabled) {
+                  lastAutoSnapTime = Date.now();
+                  autoSnapHistory.push(lastAutoSnapTime);
+                  lastDetectionSignature = `${label}:1`;
+                  pendingSignature = '';
+                  pendingSignatureFrames = 0;
+                }
               }
             }, 'image/jpeg', 0.85);
           } catch (tgErr) {
@@ -2395,7 +2681,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.6.0';
+    const APP_VERSION = 'v0.7.0';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -2424,6 +2710,7 @@
             const torchStr = cameraCapabilities.torch ? (isTorchOn ? "🔦 ON" : "⚪ OFF") : "N/A";
             const targetsStr = (activeTargets && activeTargets.length) ? activeTargets.join(', ') : 'None';
             const activationsStr = (activeActivations && activeActivations.length) ? activeActivations.join(', ') : 'None';
+            const autoSnapStr = autoSnapEnabled ? `📸 Active (Max ${autoSnapMaxPerMin}/min)` : "⚪ Off";
             reply(
               `🏡 <b>Yard Guardian Status</b>\n\n` +
               `• <b>Version:</b> ${APP_VERSION}\n` +
@@ -2432,6 +2719,7 @@
               `• <b>Battery:</b> ${batteryStr}\n` +
               `• <b>AI Speed:</b> ${fpsStr}\n` +
               `• <b>Rotation:</b> ${cameraRotation}°\n` +
+              `• <b>Auto-Snapshots:</b> ${autoSnapStr}\n` +
               `• <b>Lighting:</b> ${lightStr}\n` +
               `• <b>Torch:</b> ${torchStr}\n` +
               `• <b>Targets:</b> ${targetsStr}\n` +
@@ -2455,6 +2743,9 @@
               `• AI Processing Speed: <b>${formatFpsModeDisplay()}</b> (<code>/set speed eco|balanced|turbo</code>)\n` +
               `• Auto Screen Saver: <b>${formatTimeoutDisplay(screenSaverTimeoutMinutes)}</b> (<code>/set screen 1|2|5|off</code>)\n` +
               `• Current Screen: <b>${isStealth ? '🌙 OLED Blackout' : '☀️ Awake'}</b> (<code>/screen [on|off]</code>)\n\n` +
+              `📸 <b>Smart Delta Auto-Snapshots:</b>\n` +
+              `• State: <b>${autoSnapEnabled ? `ON (Max ${autoSnapMaxPerMin}/min)` : 'OFF'}</b> (<code>/set autosnap on|off|5</code>)\n` +
+              `• Mode: Change-driven snapshots only (animals arriving/leaving)\n\n` +
               `🎯 <b>Target Animals:</b> ${targetsStr}\n` +
               `<i>Edit: <code>/set targets cat,dog,bird</code></i>\n\n` +
               `⚡ <b>Deterrent Actions:</b> ${activationsStr}\n` +
@@ -2476,6 +2767,7 @@
             if (!args || args.length < 2) {
               reply(
                 `ℹ️ <b>Usage: /set &lt;option&gt; &lt;value&gt;</b>\n\n` +
+                `• <code>/set autosnap on|off|5</code> — Delta auto-snapshots (1-10/min)\n` +
                 `• <code>/set rotate 270</code> — Camera rotation (0|90|180|270)\n` +
                 `• <code>/set speed eco</code> — AI speed (eco|balanced|turbo)\n` +
                 `• <code>/set screen 1</code> — Auto screen timeout (mins|off)\n` +
@@ -2644,6 +2936,24 @@
               saveSettings();
               const actNames = activeActivations.map(a => ACTIVATION_DISPLAY[a] || a).join(', ') || 'None (Monitor Only)';
               reply(`⚡ <b>Deterrent Actions updated:</b> ${actNames}`);
+            } else if (key === 'autosnap' || key === 'autosnapshot' || key === 'snap_auto') {
+              const lowVal = val.toLowerCase();
+              if (['off', '0', 'false', 'disable', 'disabled'].includes(lowVal)) {
+                toggleAutoSnap(false);
+                reply(`📸 <b>Delta Auto-Snapshots:</b> <b>DISABLED</b>`);
+              } else if (['on', '1', 'true', 'enable', 'enabled'].includes(lowVal)) {
+                toggleAutoSnap(true);
+                reply(`📸 <b>Delta Auto-Snapshots:</b> <b>ENABLED</b> (Max ${autoSnapMaxPerMin} per minute)\n<i>Sends snapshots only when scene detection changes (arrivals/departures).</i>`);
+              } else {
+                const num = parseInt(val);
+                if (!isNaN(num) && num >= 1 && num <= 20) {
+                  onAutoSnapRateChange(num);
+                  toggleAutoSnap(true);
+                  reply(`📸 <b>Delta Auto-Snapshots:</b> <b>ENABLED</b> at <b>Max ${num} per minute</b>.`);
+                } else {
+                  reply(`⚠️ Usage: <code>/set autosnap on</code>, <code>/set autosnap off</code>, or <code>/set autosnap &lt;rate&gt;</code> (e.g. <code>/set autosnap 5</code>).`);
+                }
+              }
             } else if (key === 'webhook') {
               const wInput = document.getElementById('webhookInput');
               if (wInput) wInput.value = val;
