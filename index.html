@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.7.9"></script>
+  <script src="telegram-bot.js?v=0.8.0"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.7.9 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.8.0 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -469,9 +469,9 @@
         <div class="setting-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
           <label for="scannerModeSelect" style="font-size: 0.76rem; color: #cbd5e1;">🔍 Deep Yard Scanner:</label>
           <select id="scannerModeSelect" onchange="setScannerMode(this.value); saveSettings();" style="background: #0f172a; border: 1px solid #475569; color: #38bdf8; padding: 3px 8px; border-radius: 6px; font-size: 0.74rem; font-weight: bold;">
-            <option value="horizon" selected>🔭 Horizon (Far Lawn / Fence)</option>
-            <option value="2zone">⚖️ 2-Zone (Left &amp; Right Yard)</option>
-            <option value="off">Off (Full Frame Only)</option>
+            <option value="off" selected>Off (Full View - Recommended)</option>
+            <option value="2zone">⚖️ 2-Zone (Left &amp; Right Yard - Natural Aspect)</option>
+            <option value="horizon">🔭 Horizon (Far Lawn / Fence)</option>
           </select>
         </div>
 
@@ -1111,15 +1111,15 @@
       return (CAMERA_FPS_OPTIONS[cameraFps] && CAMERA_FPS_OPTIONS[cameraFps].label) || `${cameraFps} FPS`;
     }
 
-    // 🔍 Deep Yard Scanner & Multi-Zone Scanning Engine (v0.7.7)
-    let scannerMode = 'horizon'; // 'horizon' (default), '2zone', 'off'
-    let scannerSnap = 'both';    // 'both' (default), 'full', 'crop'
+    // 🔍 Deep Yard Scanner & Multi-Zone Scanning Engine (v0.7.7 / v0.8.0)
+    let scannerMode = 'off';  // Default 'off' to preserve natural camera aspect ratio and eliminate false positives
+    let scannerSnap = 'both'; // 'both' (default), 'full', 'crop'
 
     const scannerCanvas = document.createElement('canvas');
     let scannerCtx = null;
 
     function setScannerMode(mode) {
-      if (!['horizon', '2zone', 'off'].includes(mode)) mode = 'horizon';
+      if (!['horizon', '2zone', 'off'].includes(mode)) mode = 'off';
       scannerMode = mode;
       localStorage.setItem('yard_guardian_scanner_mode', scannerMode);
       const sel = document.getElementById('scannerModeSelect');
@@ -1141,7 +1141,7 @@
     function formatScannerModeDisplay() {
       if (scannerMode === 'horizon') return '🔭 Horizon (Far Lawn / Fence)';
       if (scannerMode === '2zone') return '⚖️ 2-Zone (Left & Right Yard)';
-      return '⚪ Off (Full Frame Only)';
+      return '⚪ Off (Full View - Recommended)';
     }
 
     function formatScannerSnapDisplay() {
@@ -1551,12 +1551,13 @@
         const fpsSel = document.getElementById('cameraFpsSelect');
         if (fpsSel) fpsSel.value = cameraFps.toString();
 
-        // Restore Deep Yard Scanner Settings (v0.7.7)
+        // Restore Deep Yard Scanner Settings (Default 'off' for clean 16:9 natural view)
         const savedScannerMode = localStorage.getItem('yard_guardian_scanner_mode');
-        if (savedScannerMode && ['horizon', '2zone', 'off'].includes(savedScannerMode)) {
+        if (savedScannerMode && ['2zone', 'off'].includes(savedScannerMode)) {
           scannerMode = savedScannerMode;
-        } else if (s && s.scannerMode && ['horizon', '2zone', 'off'].includes(s.scannerMode)) {
-          scannerMode = s.scannerMode;
+        } else {
+          scannerMode = 'off';
+          localStorage.setItem('yard_guardian_scanner_mode', 'off');
         }
         const smSel = document.getElementById('scannerModeSelect');
         if (smSel) smSel.value = scannerMode;
@@ -2847,19 +2848,30 @@
           // Pass 1: Full Frame
           const fullPreds = await model.detect(aiInput, 20, detectThreshold);
 
-          // Pass 2: Horizon Sub-Frame (top 65% of frame where distant perimeter is)
+          // Pass 2 & 3: Left-Horizon & Right-Horizon (~1.35:1 natural aspect ratio, avoiding 2.7:1 squashing)
           const hzH = Math.round(targetH * 0.65);
-          if (scannerCanvas.width !== targetW || scannerCanvas.height !== hzH) {
-            scannerCanvas.width = targetW;
+          const zW = Math.round(targetW * 0.60);
+          const rightX = Math.round(targetW * 0.40);
+
+          if (scannerCanvas.width !== zW || scannerCanvas.height !== hzH) {
+            scannerCanvas.width = zW;
             scannerCanvas.height = hzH;
             scannerCtx = scannerCanvas.getContext('2d', { willReadFrequently: true });
           }
-          scannerCtx.drawImage(aiInput, 0, 0, targetW, hzH, 0, 0, targetW, hzH);
-          const horizonPreds = await model.detect(scannerCanvas, 20, detectThreshold);
-          for (let i = 0; i < horizonPreds.length; i++) {
-            horizonPreds[i].zone = 'horizon';
+
+          // Left Horizon
+          scannerCtx.drawImage(aiInput, 0, 0, zW, hzH, 0, 0, zW, hzH);
+          const leftHzPreds = await model.detect(scannerCanvas, 20, detectThreshold);
+
+          // Right Horizon
+          scannerCtx.drawImage(aiInput, rightX, 0, zW, hzH, 0, 0, zW, hzH);
+          const rightHzPreds = await model.detect(scannerCanvas, 20, detectThreshold);
+          for (let i = 0; i < rightHzPreds.length; i++) {
+            rightHzPreds[i].bbox[0] += rightX;
           }
-          predictions = mergePredictions(fullPreds, horizonPreds);
+
+          const hzMerged = mergePredictions(leftHzPreds, rightHzPreds);
+          predictions = mergePredictions(fullPreds, hzMerged);
         } else if (scannerMode === '2zone') {
           // Pass 1 & 2: Left 60% and Right 60% with 20% central overlap
           const zW = Math.round(targetW * 0.60);
@@ -3270,7 +3282,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.7.9';
+    const APP_VERSION = 'v0.8.0';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -3865,15 +3877,20 @@
                   } else if (scannerMode === 'horizon') {
                     const fullPreds = await model.detect(frame, 20, detectThreshold);
                     const hzH = Math.round(targetH * 0.65);
-                    if (scannerCanvas.width !== targetW || scannerCanvas.height !== hzH) {
-                      scannerCanvas.width = targetW;
+                    const zW = Math.round(targetW * 0.60);
+                    const rightX = Math.round(targetW * 0.40);
+                    if (scannerCanvas.width !== zW || scannerCanvas.height !== hzH) {
+                      scannerCanvas.width = zW;
                       scannerCanvas.height = hzH;
                       scannerCtx = scannerCanvas.getContext('2d', { willReadFrequently: true });
                     }
-                    scannerCtx.drawImage(frame, 0, 0, targetW, hzH, 0, 0, targetW, hzH);
-                    const horizonPreds = await model.detect(scannerCanvas, 20, detectThreshold);
-                    for (let i = 0; i < horizonPreds.length; i++) horizonPreds[i].zone = 'horizon';
-                    predictions = mergePredictions(fullPreds, horizonPreds);
+                    scannerCtx.drawImage(frame, 0, 0, zW, hzH, 0, 0, zW, hzH);
+                    const leftHzPreds = await model.detect(scannerCanvas, 20, detectThreshold);
+                    scannerCtx.drawImage(frame, rightX, 0, zW, hzH, 0, 0, zW, hzH);
+                    const rightHzPreds = await model.detect(scannerCanvas, 20, detectThreshold);
+                    for (let i = 0; i < rightHzPreds.length; i++) rightHzPreds[i].bbox[0] += rightX;
+                    const hzMerged = mergePredictions(leftHzPreds, rightHzPreds);
+                    predictions = mergePredictions(fullPreds, hzMerged);
                   } else if (scannerMode === '2zone') {
                     const zW = Math.round(targetW * 0.60);
                     const rightX = Math.round(targetW * 0.40);
