@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.7.8"></script>
+  <script src="telegram-bot.js?v=0.7.9"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.7.8 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.7.9 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -451,6 +451,17 @@
             <option value="720p">HD 720p (1280×720 - Crisp)</option>
             <option value="1080p" selected>Full HD 1080p (1920×1080 - Default)</option>
             <option value="max">Max (4K / Sensor Max)</option>
+          </select>
+        </div>
+
+        <!-- Camera Hardware Frame Rate Control (v0.7.9) -->
+        <div class="setting-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <label for="cameraFpsSelect" style="font-size: 0.76rem; color: #cbd5e1;">⚡ Sensor Stream FPS:</label>
+          <select id="cameraFpsSelect" onchange="setCameraFps(this.value); saveSettings();" style="background: #0f172a; border: 1px solid #475569; color: #38bdf8; padding: 3px 8px; border-radius: 6px; font-size: 0.74rem; font-weight: bold;">
+            <option value="5">5 FPS (Ultra-Cold / Max Battery)</option>
+            <option value="10" selected>10 FPS (Recommended - Fluid &amp; Cool)</option>
+            <option value="15">15 FPS (Smooth)</option>
+            <option value="30">30 FPS (Standard - Higher Heat)</option>
           </select>
         </div>
 
@@ -1065,6 +1076,41 @@
       return `${(CAMERA_RESOLUTIONS[cameraResolution] && CAMERA_RESOLUTIONS[cameraResolution].label) || cameraResolution}${actual}`;
     }
 
+    // ⚡ Camera Hardware Sensor Frame Rate Engine (v0.7.9)
+    let cameraFps = 10; // 5, 10, 15, 30 (default 10 FPS)
+
+    const CAMERA_FPS_OPTIONS = {
+      5: { label: '5 FPS (Ultra-Cold)', fps: 5 },
+      10: { label: '10 FPS (Fluid & Cool)', fps: 10 },
+      15: { label: '15 FPS (Smooth)', fps: 15 },
+      30: { label: '30 FPS (Standard / High Heat)', fps: 30 }
+    };
+
+    async function setCameraFps(fps) {
+      const parsed = parseInt(fps);
+      if (![5, 10, 15, 30].includes(parsed)) return;
+      cameraFps = parsed;
+      localStorage.setItem('yard_guardian_camera_fps', cameraFps.toString());
+      const sel = document.getElementById('cameraFpsSelect');
+      if (sel) sel.value = cameraFps.toString();
+      saveSettings();
+      log(`⚡ Camera Sensor Frame Rate set to: <b>${formatCameraFpsDisplay()}</b>`);
+
+      if (isRunning || currentStream) {
+        try {
+          const savedCameraId = localStorage.getItem('yard_guardian_camera_id') || undefined;
+          await setupCamera(savedCameraId);
+          log(`✅ Camera stream reloaded at ~${cameraFps} FPS`);
+        } catch (err) {
+          log(`⚠️ Error applying camera sensor FPS: ${err.message}`);
+        }
+      }
+    }
+
+    function formatCameraFpsDisplay() {
+      return (CAMERA_FPS_OPTIONS[cameraFps] && CAMERA_FPS_OPTIONS[cameraFps].label) || `${cameraFps} FPS`;
+    }
+
     // 🔍 Deep Yard Scanner & Multi-Zone Scanning Engine (v0.7.7)
     let scannerMode = 'horizon'; // 'horizon' (default), '2zone', 'off'
     let scannerSnap = 'both';    // 'both' (default), 'full', 'crop'
@@ -1328,6 +1374,7 @@
         screenTimeout: screenSaverTimeoutMinutes,
         fpsMode: aiFpsMode,
         cameraRes: cameraResolution,
+        cameraFps: cameraFps,
         scannerMode: scannerMode,
         scannerSnap: scannerSnap,
         rotation: cameraRotation,
@@ -1342,6 +1389,7 @@
       localStorage.setItem('yard_guardian_settings', JSON.stringify(settings));
       localStorage.setItem('yard_guardian_boost_level', nightBoostLevel.toString());
       localStorage.setItem('yard_guardian_camera_res', cameraResolution);
+      localStorage.setItem('yard_guardian_camera_fps', cameraFps.toString());
       localStorage.setItem('yard_guardian_scanner_mode', scannerMode);
       localStorage.setItem('yard_guardian_scanner_snap', scannerSnap);
       localStorage.setItem('yard_guardian_rotation', cameraRotation.toString());
@@ -1490,6 +1538,18 @@
         }
         const resSel = document.getElementById('cameraResSelect');
         if (resSel) resSel.value = cameraResolution;
+
+        // Restore Camera Sensor FPS (v0.7.9)
+        const savedFps = localStorage.getItem('yard_guardian_camera_fps');
+        if (savedFps !== null) {
+          const parsed = parseInt(savedFps);
+          if ([5, 10, 15, 30].includes(parsed)) cameraFps = parsed;
+        } else if (s && s.cameraFps) {
+          const parsed = parseInt(s.cameraFps);
+          if ([5, 10, 15, 30].includes(parsed)) cameraFps = parsed;
+        }
+        const fpsSel = document.getElementById('cameraFpsSelect');
+        if (fpsSel) fpsSel.value = cameraFps.toString();
 
         // Restore Deep Yard Scanner Settings (v0.7.7)
         const savedScannerMode = localStorage.getItem('yard_guardian_scanner_mode');
@@ -2514,7 +2574,8 @@
       const resConfig = CAMERA_RESOLUTIONS[cameraResolution] || CAMERA_RESOLUTIONS['1080p'];
       let videoConstraints = {
         width: resConfig.width,
-        height: resConfig.height
+        height: resConfig.height,
+        frameRate: { ideal: cameraFps, max: cameraFps }
       };
 
       if (savedCameraId) {
@@ -2531,13 +2592,23 @@
       } catch (err) {
         try {
           currentStream = await navigator.mediaDevices.getUserMedia({
-            video: { deviceId: savedCameraId ? { ideal: savedCameraId } : undefined, facingMode: 'environment', width: resConfig.width, height: resConfig.height },
+            video: {
+              deviceId: savedCameraId ? { ideal: savedCameraId } : undefined,
+              facingMode: 'environment',
+              width: resConfig.width,
+              height: resConfig.height,
+              frameRate: { ideal: cameraFps, max: cameraFps }
+            },
             audio: false
           });
         } catch (err2) {
           try {
             currentStream = await navigator.mediaDevices.getUserMedia({
-              video: { deviceId: savedCameraId ? { ideal: savedCameraId } : undefined, facingMode: 'environment' },
+              video: {
+                deviceId: savedCameraId ? { ideal: savedCameraId } : undefined,
+                facingMode: 'environment',
+                frameRate: { ideal: cameraFps }
+              },
               audio: false
             });
           } catch (err3) {
@@ -3199,7 +3270,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.7.8';
+    const APP_VERSION = 'v0.7.9';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -3237,7 +3308,7 @@
               `• <b>Screen:</b> ${screenStr}\n` +
               `• <b>Battery:</b> ${batteryStr}\n` +
               `• <b>AI Speed:</b> ${fpsStr}\n` +
-              `• <b>Resolution:</b> ${formatResolutionDisplay()}\n` +
+              `• <b>Resolution:</b> ${formatResolutionDisplay()} @ ~${cameraFps} FPS\n` +
               `• <b>Scanner:</b> ${formatScannerModeDisplay()} [${scannerSnap.toUpperCase()}]\n` +
               `• <b>Rotation:</b> ${cameraRotation}°\n` +
               `• <b>Auto-Snapshots:</b> ${autoSnapStr}\n` +
@@ -3282,7 +3353,7 @@
               `• Hardware Exposure: <b>${hardwareExposureBoost ? 'ON' : 'OFF'}</b> (<code>/set exposure on|off</code>)\n` +
               `• Torch Assist on Alert: <b>${torchAssistEnabled ? 'ON' : 'OFF'}</b> (<code>/set torch_assist on|off</code>)\n\n` +
               `🔄 <b>Camera Orientation:</b> <b>${cameraRotation}°</b> (<code>/rotate</code> or <code>/set rotate 0|90|180|270</code>)\n` +
-              `📷 <b>Camera Resolution:</b> <b>${formatResolutionDisplay()}</b> (<code>/set res vga|720p|1080p|max</code>)\n` +
+              `📷 <b>Camera Resolution:</b> <b>${formatResolutionDisplay()}</b> @ <b>${formatCameraFpsDisplay()}</b> (<code>/set res vga|720p|1080p|max</code>, <code>/set camfps 5|10|15|30</code>)\n` +
               `🔍 <b>Deep Yard Scanner:</b> <b>${formatScannerModeDisplay()}</b> (Snaps: <b>${formatScannerSnapDisplay()}</b>) (<code>/set scanner horizon|2zone|off</code>, <code>/set scanner snap both|full|crop</code>)\n` +
               `🔒 <b>Human Safety Pause:</b> <b>${safetyOn ? 'ON' : 'OFF'}</b> (<code>/set safety on|off</code>)\n` +
               `📷 <b>Active Lens:</b> ${camName} (<code>/camera list</code>)\n` +
@@ -3293,6 +3364,7 @@
               reply(
                 `ℹ️ <b>Usage: /set &lt;option&gt; &lt;value&gt;</b>\n\n` +
                 `• <code>/set res 1080p</code> — Stream resolution (vga|720p|1080p|max)\n` +
+                `• <code>/set camfps 10</code> — Sensor FPS (5|10|15|30)\n` +
                 `• <code>/set scanner horizon</code> — Deep scanner (horizon|2zone|off)\n` +
                 `• <code>/set scanner snap both</code> — Snapshot detail (both|full|crop)\n` +
                 `• <code>/set speed eco-fast</code> — AI speed (eco|eco-fast|balanced|turbo)\n` +
@@ -3352,6 +3424,14 @@
               }
               await setCameraResolution(targetRes);
               reply(`📷 <b>Camera Resolution set to:</b> <b>${formatResolutionDisplay()}</b>\n${targetRes === 'max' ? '✨ Maximized camera sensor resolution for sharpest detail.' : ''}`);
+            } else if (key === 'camfps' || key === 'sensorfps' || key === 'cam_fps') {
+              const num = parseInt(val);
+              if (![5, 10, 15, 30].includes(num)) {
+                reply("⚠️ Please enter a valid camera sensor FPS: <code>5</code> (Ultra-Cold), <code>10</code> (Recommended default), <code>15</code> (Smooth), or <code>30</code> (Standard).");
+                return;
+              }
+              await setCameraFps(num);
+              reply(`⚡ <b>Camera Sensor FPS set to:</b> <b>${formatCameraFpsDisplay()}</b>\n${num <= 10 ? '❄️ Hardware ISP throttled down to cut camera sensor heat by ~70–85%!' : ''}`);
             } else if (key === 'scanner' || key === 'scan' || key === 'tiles' || key === 'tiling') {
               const subKey = args[1] ? args[1].toLowerCase() : '';
               const subVal = args.slice(2).join(' ').trim().toLowerCase();
