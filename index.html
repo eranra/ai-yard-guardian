@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.8.4"></script>
+  <script src="telegram-bot.js?v=0.8.5"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.8.4 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.8.5 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -656,7 +656,7 @@
               <span style="font-size: 0.68rem; color: #94a3b8; line-height: 1.2;">Decoupled from animal sensitivity. Prevents night lights and reflections from triggering false Human pauses.</span>
             </div>
 
-            <!-- ✨ Autonomous Night Vision Auto-Tuner (v0.8.4) -->
+            <!-- ✨ Autonomous Night Vision Auto-Tuner (v0.8.5 - Fixed-Yard Optimized) -->
             <div style="background: #0f172a; padding: 8px 10px; border-radius: 6px; border: 1px solid #0284c7; margin-top: 6px;">
               <label class="toggle" style="font-size: 0.78rem; font-weight: 700; color: #38bdf8;">
                 <input type="checkbox" id="autoNightTunerToggle" checked onchange="toggleAutoNightTuner(this.checked)"> ✨ Auto Night Vision Tuner
@@ -691,15 +691,14 @@
                   <input type="checkbox" id="hwExposureToggle" checked onchange="saveSettings(); applyHardwareCameraConstraints();"> 📷 Hardware EV Boost
                 </label>
 
-                <!-- Night Long Exposure / Slow Shutter Granularity -->
+                <!-- Manual Night Exposure / Shutter Overrides -->
                 <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem;">
-                  <span style="color: #cbd5e1;">🌙 Shutter Mode:</span>
+                  <span style="color: #cbd5e1;">🌙 Manual Shutter Mode:</span>
                   <select id="nightLongExpSelect" onchange="setNightLongExpMode(this.value)" style="background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; font-weight: bold;">
-                    <option value="auto" selected>✨ Auto</option>
                     <option value="low">🌱 Low (+0.4 EV)</option>
-                    <option value="medium">⚖️ Medium (+1.0 EV)</option>
+                    <option value="medium" selected>⚖️ Medium (+1.0 EV)</option>
                     <option value="high">🌕 High (+1.6 EV)</option>
-                    <option value="off">⚪ Off</option>
+                    <option value="off">⚪ Off (0.0 EV)</option>
                   </select>
                 </div>
               </div>
@@ -934,10 +933,12 @@
       6: { filter: 'brightness(6.8) contrast(0.68) saturate(1.1)', label: 'Moonlight Ultra' }
     };
     let hardwareExposureBoost = true;
-    let nightLongExpMode = 'auto'; // 'auto', 'low', 'medium', 'high', 'off'
+    let nightLongExpMode = 'medium'; // Manual fallback: 'low', 'medium', 'high', 'off'
     let autoNightTuner = true; // Autonomous closed-loop night optimizer (default true)
     let tunedEv = 0.7; // Dynamically tuned hardware EV
     let tunedBoostLevel = 2; // Dynamically tuned software boost level (1 to 4)
+    let currentMedianLuma = 75; // 50th percentile (yard median brightness)
+    let tunerState = 'locked'; // 'tuning', 'locked'
     let lastTuneTime = 0;
     let torchAssistEnabled = false;
     let isTorchOn = false;
@@ -1535,10 +1536,10 @@
 
         const savedLongExpMode = localStorage.getItem('yard_guardian_night_longexp_mode');
         if (savedLongExpMode) {
-          if (['auto', 'low', 'medium', 'high', 'off'].includes(savedLongExpMode)) {
+          if (['low', 'medium', 'high', 'off'].includes(savedLongExpMode)) {
             nightLongExpMode = savedLongExpMode;
           } else {
-            nightLongExpMode = (savedLongExpMode === '0' || savedLongExpMode === 'off') ? 'off' : 'auto';
+            nightLongExpMode = (savedLongExpMode === '0' || savedLongExpMode === 'off') ? 'off' : 'medium';
           }
         }
         const longExpSel = document.getElementById('nightLongExpSelect');
@@ -1828,24 +1829,23 @@
     }
 
     function setNightLongExpMode(mode) {
-      if (!['auto', 'low', 'medium', 'high', 'off'].includes(mode)) mode = 'auto';
+      if (!['low', 'medium', 'high', 'off'].includes(mode)) mode = 'medium';
       nightLongExpMode = mode;
       const sel = document.getElementById('nightLongExpSelect');
       if (sel) sel.value = mode;
       localStorage.setItem('yard_guardian_night_longexp_mode', mode);
       saveSettings();
       applyHardwareCameraConstraints();
-      log(`🌙 Night Exposure set to: <b>${formatLongExpModeDisplay()}</b>`);
+      log(`🌙 Manual Night Exposure set to: <b>${formatLongExpModeDisplay()}</b>`);
     }
 
     function formatLongExpModeDisplay() {
       switch (nightLongExpMode) {
-        case 'auto': return 'Auto (Anti-Blowout)';
         case 'low': return 'Low (+0.4 EV)';
         case 'medium': return 'Medium (+1.0 EV)';
         case 'high': return 'High (+1.6 EV)';
-        case 'off': return 'Off';
-        default: return 'Auto';
+        case 'off': return 'Off (0.0 EV)';
+        default: return 'Medium (+1.0 EV)';
       }
     }
 
@@ -1864,40 +1864,70 @@
       log(`✨ <b>Autonomous Night Auto-Tuner:</b> <b>${autoNightTuner ? 'ENABLED (Auto-Balancing)' : 'DISABLED (Manual)'}</b>`);
     }
 
-    function tuneNightExposure(clipRatio, darkRatio, luma) {
+    function tuneNightExposure(stats) {
       const now = Date.now();
-      if (now - lastTuneTime < 2200) return; // Allow camera ISP settling
+      if (now - lastTuneTime < 2400) return; // 2.4s camera ISP settling interval
+
+      const p10 = stats.p10;
+      const p25 = stats.p25;
+      const p50 = stats.p50;
+      const p75 = stats.p75;
+      const clipRatio = stats.clipRatio;
+      const luma = stats.avgLuma;
 
       const maxEv = cameraCapabilities.exposureCompensation ? cameraCapabilities.exposureCompensation.max : 2.0;
+      const minEv = cameraCapabilities.exposureCompensation ? cameraCapabilities.exposureCompensation.min : 0.0;
       let evChanged = false;
       let boostChanged = false;
 
-      // Case A: OVEREXPOSED / WHITEOUT (Clipping > 1.2% or average luma > 115)
-      if (clipRatio > 0.012 || luma > 115) {
+      // Fixed Yard Camera Advantage:
+      // In a stationary yard camera, point light fixtures (e.g. garden lantern, fence light) occupy fixed pixels (0.5% - 2%).
+      // We do NOT let a tiny stationary light fixture trick the system into plunging the whole yard into pitch darkness!
+      // Real broad whiteout occurs only if:
+      //  1. Large surface clipping (clipRatio > 3.5%)
+      //  2. Median yard is washed out (p50 > 110)
+      //  3. 75th percentile is blown out (p75 > 165)
+      //  4. Clipping occurring while median yard is already bright (clipRatio > 1.5% && p50 > 92)
+      const isBroadWhiteout = (clipRatio > 0.035) || (p50 > 110) || (p75 > 165) || (clipRatio > 0.015 && p50 > 92);
+
+      // Yard underexposure (ground is too dark to resolve animal textures):
+      // Median ground is dark (p50 < 55) or deep shadows dominate (p50 < 65 && p25 < 30), with no broad whiteout
+      const isYardDark = !isBroadWhiteout && (p50 < 55 || (p50 < 65 && p25 < 30)) && (clipRatio < 0.02);
+
+      if (isBroadWhiteout) {
+        tunerState = 'tuning';
+        // Priority 1: Step down software gamma boost first to preserve natural highlight roll-off
         if (tunedBoostLevel > 1) {
           tunedBoostLevel--;
           boostChanged = true;
-        } else if (tunedEv > 0.0) {
-          tunedEv = Math.max(0.0, Math.round((tunedEv - 0.33) * 100) / 100);
+        } 
+        // Priority 2: Dial down hardware EV towards baseline
+        else if (tunedEv > minEv) {
+          tunedEv = Math.max(minEv, Math.round((tunedEv - 0.33) * 100) / 100);
           evChanged = true;
         }
-      }
-      // Case B: UNDEREXPOSED / PITCH BLACK (Luma < 55 with practically zero clipping)
-      else if (luma < 55 && clipRatio < 0.005) {
+      } else if (isYardDark) {
+        tunerState = 'tuning';
+        // Priority 1: Increase hardware sensor EV first (cleanest optical photons without noise amplification)
         if (tunedEv < Math.min(maxEv, 1.4)) {
           tunedEv = Math.min(maxEv, Math.round((tunedEv + 0.33) * 100) / 100);
           evChanged = true;
-        } else if (tunedBoostLevel < 4) {
+        } 
+        // Priority 2: If sensor EV is capped or at +1.4 EV and yard is still dark, lift shadows via software
+        else if (tunedBoostLevel < 4) {
           tunedBoostLevel++;
           boostChanged = true;
         }
+      } else {
+        // Optimal Sweet Spot for Fixed Yard: 60 <= p50 <= 90 with clean highlights
+        tunerState = 'locked';
       }
 
       if (evChanged || boostChanged) {
         lastTuneTime = now;
         if (evChanged) applyHardwareCameraConstraints();
         const evDisplay = `+${tunedEv.toFixed(1)} EV`;
-        log(`✨ <b>Auto-Tuner:</b> Set ${evDisplay}, Boost Lvl ${tunedBoostLevel} (Luma: ${Math.round(luma)}, Clip: ${(clipRatio * 100).toFixed(1)}%)`);
+        log(`✨ <b>Auto-Tuner:</b> Adjusted to ${evDisplay}, Boost Lvl ${tunedBoostLevel} (Yard Median: ${p50}, Clip: ${(clipRatio * 100).toFixed(1)}%)`);
       }
     }
 
@@ -2308,22 +2338,33 @@
         let totalLuma = 0;
         const totalPixels = 32 * 24;
 
+        const yValues = new Uint8Array(totalPixels);
         let clipCount = 0;
         let darkCount = 0;
+        let pIdx = 0;
         for (let i = 0; i < d.length; i += 4) {
-          const y = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+          const y = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
+          yValues[pIdx++] = y;
           totalLuma += y;
           if (y > 230) clipCount++;
           if (y < 25) darkCount++;
         }
 
+        yValues.sort();
+        const p10 = yValues[76];
+        const p25 = yValues[192];
+        const p50 = yValues[384];
+        const p75 = yValues[576];
+        const p95 = yValues[729];
+
         currentLuma = totalLuma / totalPixels;
+        currentMedianLuma = p50;
         const clipRatio = clipCount / totalPixels;
         const darkRatio = darkCount / totalPixels;
         updateLumaUI();
 
         if (isNightMode && autoNightTuner) {
-          tuneNightExposure(clipRatio, darkRatio, currentLuma);
+          tuneNightExposure({ p10, p25, p50, p75, p95, avgLuma: currentLuma, clipRatio, darkRatio });
         }
 
         if (nightModeSetting === 'auto') {
@@ -2454,22 +2495,14 @@
 
         if (autoNightTuner) {
           targetEv = tunedEv;
-        } else if (nightLongExpMode === 'auto') {
-          if (currentLuma < 35) {
-            targetEv = Math.min(maxEv, 1.2);
-          } else if (currentLuma < 75) {
-            targetEv = Math.min(maxEv, 0.7);
-          } else if (currentLuma < 110) {
-            targetEv = Math.min(maxEv, 0.3);
-          } else {
-            targetEv = 0.0;
-          }
         } else if (nightLongExpMode === 'low') {
           targetEv = Math.min(maxEv, 0.4);
         } else if (nightLongExpMode === 'medium') {
           targetEv = Math.min(maxEv, 1.0);
         } else if (nightLongExpMode === 'high') {
           targetEv = Math.min(maxEv, 1.6);
+        } else {
+          targetEv = 0.0;
         }
 
         if (cameraCapabilities.exposureCompensation) {
@@ -3531,7 +3564,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.8.4';
+    const APP_VERSION = 'v0.8.5';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -3615,11 +3648,11 @@
               `• 🌙 Night Sensitivity: <b>${nightSensitivity}%</b> (<code>/set night 25</code>)\n` +
               `• 👤 Human Safety Cutoff Threshold: <b>${humanSensitivity}%</b> (<code>/set human 50</code>)\n\n` +
               `🌙 <b>Night Vision Settings:</b>\n` +
-              `• Auto Tuner: <b>${autoNightTuner ? '✨ ENABLED (Autonomous closed-loop)' : 'OFF'}</b> (<code>/autotune on|off</code>)\n` +
+              `• Auto Tuner: <b>${autoNightTuner ? '✨ ENABLED (Fixed-yard closed-loop)' : 'OFF'}</b> (<code>/autotune on|off</code>)\n` +
               `• Mode: <b>${nightModeSetting.toUpperCase()}</b> (<code>/set mode auto|day|night</code>)\n` +
-              `• AI Night Shadow Boost: <b>Level ${nightBoostLevel} (${NIGHT_BOOST_PRESETS[nightBoostLevel].label})</b> [${nightBoostEnabled ? 'ON' : 'OFF'}] (<code>/set boost 1-6|off</code>)\n` +
+              `• Manual Boost: <b>Level ${nightBoostLevel} (${NIGHT_BOOST_PRESETS[nightBoostLevel].label})</b> [${nightBoostEnabled ? 'ON' : 'OFF'}] (<code>/set boost 1-6|off</code>)\n` +
               `• Hardware Exposure: <b>${hardwareExposureBoost ? 'ON' : 'OFF'}</b> (<code>/set exposure on|off</code>)\n` +
-              `• 🌙 Night Exposure: <b>${formatLongExpModeDisplay()}</b> (<code>/set longexp auto|low|medium|high|off</code>)\n` +
+              `• Manual Night Exposure: <b>${formatLongExpModeDisplay()}</b> (<code>/set longexp low|medium|high|off</code>)\n` +
               `• Torch Assist on Alert: <b>${torchAssistEnabled ? 'ON' : 'OFF'}</b> (<code>/set torch_assist on|off</code>)\n\n` +
               `🔄 <b>Camera Orientation:</b> <b>${cameraRotation}°</b> (<code>/rotate</code> or <code>/set rotate 0|90|180|270</code>)\n` +
               `📷 <b>Camera Resolution:</b> <b>${formatResolutionDisplay()}</b> @ <b>${formatCameraFpsDisplay()}</b> (<code>/set res vga|720p|1080p|max</code>, <code>/set camfps 5|10|15|30</code>)\n` +
@@ -3651,7 +3684,7 @@
                 `• <code>/set boost 5</code> — AI night shadow boost (1-6|off)\n` +
                 `• <code>/set autotune on|off</code> — Auto night vision tuner\n` +
                 `• <code>/set exposure on|off</code> — Camera hardware EV boost\n` +
-                `• <code>/set longexp auto</code> — Night exposure mode (auto|low|medium|high|off)\n` +
+                `• <code>/set longexp medium</code> — Manual night exposure mode (low|medium|high|off)\n` +
                 `• <code>/set torch_assist on|off</code> — Flashlight on alert\n` +
                 `• <code>/set safety on|off</code> — Human safety pause\n` +
                 `• <code>/set webhook https://...</code> — Webhook URL`
@@ -3837,20 +3870,18 @@
               reply(`📷 <b>Camera Hardware Exposure Boost:</b> <b>${enable ? 'ENABLED' : 'DISABLED'}</b>`);
             } else if (key === 'longexp' || key === 'longexposure' || key === 'shutter' || key === 'nightexp') {
               const lowVal = val.toLowerCase().trim();
-              let targetMode = 'auto';
+              let targetMode = 'medium';
               if (['off', '0', 'false', 'disable', 'none'].includes(lowVal)) {
                 targetMode = 'off';
               } else if (['low', '1', 'fast', 'min'].includes(lowVal)) {
                 targetMode = 'low';
-              } else if (['med', 'medium', '2', 'mid', 'bal', 'balanced'].includes(lowVal)) {
-                targetMode = 'medium';
               } else if (['high', '3', 'max', 'bright'].includes(lowVal)) {
                 targetMode = 'high';
               } else {
-                targetMode = 'auto';
+                targetMode = 'medium';
               }
               setNightLongExpMode(targetMode);
-              reply(`🌙 <b>Night Exposure Mode updated:</b> <b>${formatLongExpModeDisplay()}</b>\n<i>${targetMode === 'auto' ? 'Intelligent auto-regulation continuously balances exposure compensation to prevent whiteout while gathering optimal night light.' : `Set to ${targetMode} exposure mode.`}</i>`);
+              reply(`🌙 <b>Manual Night Exposure Mode updated:</b> <b>${formatLongExpModeDisplay()}</b>\n<i>Manual setting for when Auto-Tuner is OFF. Use <code>/autotune on</code> for automatic closed-loop balancing.</i>`);
             } else if (key === 'autotune' || key === 'autonight' || key === 'tuner') {
               const enable = !(['off', '0', 'false', 'disable', 'disabled'].includes(val.toLowerCase()));
               toggleAutoNightTuner(enable);
