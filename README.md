@@ -30,8 +30,9 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/set scanner snap <both|full|crop>` — configure snapshot detail mode (Dual Full + Magnified Zoom Crop default, Full only, or Zoom only).
     - `/speed <eco|eco-fast|balanced|turbo>` or `/set speed <eco|eco-fast|balanced|turbo>` — set AI detection rate (Eco 1 FPS Ultra Low Power, Eco-Fast 3 FPS Smooth, Balanced 5 FPS, Turbo Uncapped).
     - `/set screen <1|2|5|10|30s|off>` — set auto-blackout inactivity timeout (default `1` minute).
-    - `/set day <1-99>` — set daytime sensitivity threshold (e.g. `/set day 15`).
-    - `/set night <1-99>` — set nighttime sensitivity threshold (e.g. `/set night 5` or `1` for maximum detection).
+    - `/set day <1-99>` — set daytime sensitivity threshold (e.g. `/set day 10`).
+    - `/set night <1-99>` — set nighttime sensitivity threshold (e.g. `/set night 10` for maximum animal detection).
+    - `/set human <1-99>` — set independent human safety cutoff threshold (default `50%`, prevents faint night lights and reflections from triggering false human pauses when animal sensitivity is set ultra-sensitive at 10%).
     - `/set mode <auto|day|night>` — set light detection mode.
     - `/set targets <cat,dog,bird...>` — set target animal list.
     - `/set actions <sprinklers,screenshot,siren,strobe>` — set active deterrent actions.
@@ -102,7 +103,7 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
   - 📸 **Save Screenshot (Incident Capture)** *(Default — captures & saves a single annotated timestamped photo per detection)*
   - 🔊 **Phone Siren / Audio Alarm**
   - ⚡ **Screen Strobe Alert**
-- **🔒 Humans are Cutoff Only:** People strictly trigger the safety disarm / pause and cannot be selected as targets.
+- **🔒 Humans are Cutoff Only with Independent Threshold (v0.8.1):** People strictly trigger the safety disarm / pause and cannot be selected as targets. Human detection has its own dedicated confidence threshold (`50%` default, configurable via `/set human <%>` or UI slider), completely decoupled from animal sensitivity. This allows keeping animal sensitivity ultra-sensitive (e.g. `10%`) for distant cats and wildlife without low-light garden lights or reflections triggering false Human alerts.
 - **24/7 Keep-Alive:**
   - **Screen Wake Lock API:** Prevents your phone screen from dimming, locking, or sleeping.
   - **🌙 Black Screen Stealth Mode:** Turns the screen completely pitch-black while keeping the camera and AI running at full speed to eliminate device heating and OLED burn-in.

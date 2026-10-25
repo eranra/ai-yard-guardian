@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.8.0"></script>
+  <script src="telegram-bot.js?v=0.8.1"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.8.0 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.8.1 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -646,6 +646,16 @@
               <input type="range" id="nightConfRange" min="1" max="99" value="25" oninput="updateNightSensitivity(this.value)">
             </div>
 
+            <!-- Human Safety Cutoff Threshold -->
+            <div style="display: flex; flex-direction: column; gap: 2px; margin-top: 4px;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.74rem;">
+                <span style="color: #cbd5e1;">👤 Human Safety Threshold:</span>
+                <b id="humanConfVal" style="color: #f59e0b;">50%</b>
+              </div>
+              <input type="range" id="humanConfRange" min="15" max="99" value="50" oninput="updateHumanSensitivity(this.value)">
+              <span style="font-size: 0.68rem; color: #94a3b8; line-height: 1.2;">Decoupled from animal sensitivity. Prevents night lights and reflections from triggering false Human pauses.</span>
+            </div>
+
             <!-- Software AI Vision Boost Toggle & Level -->
             <label class="toggle" style="font-size: 0.76rem; margin-top: 4px;">
               <input type="checkbox" id="nightBoostToggle" checked onchange="saveSettings()"> 🚀 AI Night Shadow-Lift &amp; Gamma Expansion
@@ -883,6 +893,7 @@
     let consecutiveHighLumaCount = 0;
     let daySensitivity = 40;
     let nightSensitivity = 25;
+    let humanSensitivity = 50; // Dedicated Human Safety cutoff threshold (independent of animal day/night sens)
     let cameraRotation = 0; // 0, 90, 180, 270 (degrees clockwise)
     let nightBoostEnabled = true;
     let nightBoostLevel = 3; // 1 to 6 (default 3: Ultra Shadow-Lift)
@@ -1363,6 +1374,7 @@
         conf: daySensitivity,
         dayConf: daySensitivity,
         nightConf: nightSensitivity,
+        humanConf: humanSensitivity,
         nightMode: nightModeSetting,
         nightBoost: document.getElementById('nightBoostToggle')?.checked !== false,
         nightBoostLevel: nightBoostLevel,
@@ -1387,6 +1399,7 @@
         screenshotVersion: 1
       };
       localStorage.setItem('yard_guardian_settings', JSON.stringify(settings));
+      localStorage.setItem('yard_guardian_human_conf', humanSensitivity.toString());
       localStorage.setItem('yard_guardian_boost_level', nightBoostLevel.toString());
       localStorage.setItem('yard_guardian_camera_res', cameraResolution);
       localStorage.setItem('yard_guardian_camera_fps', cameraFps.toString());
@@ -1427,6 +1440,10 @@
               const p = parseInt(s.nightConf);
               if (!isNaN(p) && p >= 1 && p <= 99) nightSensitivity = p;
             }
+            if (s.humanConf !== undefined) {
+              const p = parseInt(s.humanConf);
+              if (!isNaN(p) && p >= 1 && p <= 99) humanSensitivity = p;
+            }
             if (s.nightMode !== undefined) nightModeSetting = s.nightMode;
             if (s.nightBoost !== undefined) nightBoostEnabled = !!s.nightBoost;
             if (s.hwExposure !== undefined) hardwareExposureBoost = !!s.hwExposure;
@@ -1453,6 +1470,16 @@
         const nVal = document.getElementById('nightConfVal');
         if (nRange) nRange.value = nightSensitivity;
         if (nVal) nVal.innerText = nightSensitivity + '%';
+
+        const savedHuman = localStorage.getItem('yard_guardian_human_conf');
+        if (savedHuman) {
+          const p = parseInt(savedHuman);
+          if (!isNaN(p) && p >= 1 && p <= 99) humanSensitivity = p;
+        }
+        const hRange = document.getElementById('humanConfRange');
+        const hVal = document.getElementById('humanConfVal');
+        if (hRange) hRange.value = humanSensitivity;
+        if (hVal) hVal.innerText = humanSensitivity + '%';
 
         const nSel = document.getElementById('nightModeSelect');
         if (nSel) nSel.value = nightModeSetting;
@@ -1726,6 +1753,17 @@
       saveSettings();
     }
 
+    function updateHumanSensitivity(val) {
+      const p = parseInt(val);
+      if (!isNaN(p) && p >= 1 && p <= 99) humanSensitivity = p;
+      const el = document.getElementById('humanConfVal');
+      if (el) el.innerText = humanSensitivity + '%';
+      const range = document.getElementById('humanConfRange');
+      if (range && parseInt(range.value) !== humanSensitivity) range.value = humanSensitivity;
+      updateSettingsSummary();
+      saveSettings();
+    }
+
     // ==========================================
     // 📸 Smart Delta Auto-Snapshot Engine (v0.7.0)
     // ==========================================
@@ -1859,7 +1897,7 @@
      * 4. Sliding rate limit (max N / min with spacing) is respected.
      * 5. The change is NOT purely from learned non-target noise objects.
      */
-    function checkAndTriggerDeltaAutoSnap(currentSignature, predictions, activeSensitivity, targetDetected, seenLabels) {
+    function checkAndTriggerDeltaAutoSnap(currentSignature, predictions, activeSensitivity, targetDetected, seenLabels, humanDetected = false) {
       if (!autoSnapEnabled) return;
       if (!window.TelegramBot || !TelegramBot.enabled || !TelegramBot.isConfigured()) return;
 
@@ -1872,9 +1910,11 @@
         // Continuously refresh TTL for currently visible non-target noise objects so they never expire while in the yard
         if (predictions && predictions.length > 0 && autoSnapLearnedNoise.size > 0) {
           const autoSnapMinScore = autoSnapThreshold / 100;
+          const humanMinScore = humanSensitivity / 100;
           for (let i = 0; i < predictions.length; i++) {
             const p = predictions[i];
-            if (p.score >= autoSnapMinScore && autoSnapLearnedNoise.has(p.class)) {
+            const isConfirmedHuman = (p.class === safetyClass && p.score >= humanMinScore);
+            if (p.score >= autoSnapMinScore && !isConfirmedHuman && autoSnapLearnedNoise.has(p.class)) {
               autoSnapLearnedNoise.set(p.class, now);
             }
           }
@@ -1896,10 +1936,11 @@
         // If noise learning is active, check if the change is SOLELY known noise objects
         if (autoSnapLearnNoise && autoSnapLearnedNoise.size > 0 && lastDetectionSignature !== '__init__') {
           const changedClasses = getSignatureChangedClasses(lastDetectionSignature, currentSignature);
-          const hasTargetChange = changedClasses.some(c => activeTargets.includes(c) || c === safetyClass);
-          const hasUnlearnedNonTarget = changedClasses.some(c => !activeTargets.includes(c) && c !== safetyClass && !autoSnapLearnedNoise.has(c));
+          const hasTargetChange = changedClasses.some(c => activeTargets.includes(c));
+          const hasConfirmedHumanChange = changedClasses.some(c => c === safetyClass && humanDetected);
+          const hasUnlearnedNonTarget = changedClasses.some(c => !activeTargets.includes(c) && (c !== safetyClass || !humanDetected) && !autoSnapLearnedNoise.has(c));
 
-          if (!hasTargetChange && !hasUnlearnedNonTarget) {
+          if (!hasTargetChange && !hasConfirmedHumanChange && !hasUnlearnedNonTarget) {
             // All changed classes are known noise! Silently advance signature without triggering photo
             lastDetectionSignature = currentSignature;
             pendingSignature = '';
@@ -1963,19 +2004,23 @@
 
         const autoSnapMinScore = autoSnapThreshold / 100;
         const minScore = activeSensitivity / 100;
+        const humanMinScore = humanSensitivity / 100;
         let detectedTargets = [];
 
         // Draw bounding boxes for any objects present meeting autoSnapThreshold
         if (predictions && predictions.length > 0) {
           for (let i = 0; i < predictions.length; i++) {
             const p = predictions[i];
-            const reqScore = (p.class === safetyClass) ? minScore : autoSnapMinScore;
+            if (p.class === safetyClass && p.score < humanMinScore) continue;
+            const reqScore = (p.class === safetyClass) ? humanMinScore : (activeTargets.includes(p.class) ? minScore : autoSnapMinScore);
             if (p.score < reqScore) continue;
             const scorePercent = Math.round(p.score * 100);
             const [x, y, w, h] = p.bbox;
 
             if (p.class === safetyClass) {
-              drawBox(x, y, w, h, `Human (${scorePercent}%)`, '#f59e0b', sCtx);
+              if (p.score >= humanMinScore) {
+                drawBox(x, y, w, h, `Human (${scorePercent}%)`, '#f59e0b', sCtx);
+              }
             } else if (activeTargets.includes(p.class)) {
               detectedTargets.push(`${p.class.toUpperCase()} (${scorePercent}%)`);
               drawBox(x, y, w, h, `🎯 ${p.class.toUpperCase()} (${scorePercent}%)`, '#ef4444', sCtx);
@@ -2036,7 +2081,8 @@
 
         const primaryPred = (predictions && predictions.length > 0)
           ? (predictions.find(p => activeTargets.includes(p.class) && p.score >= autoSnapMinScore) ||
-             predictions.find(p => p.score >= autoSnapMinScore))
+             predictions.find(p => p.class === safetyClass && p.score >= humanMinScore) ||
+             predictions.find(p => p.score >= autoSnapMinScore && p.class !== safetyClass))
           : null;
 
         let cropCanvas = null;
@@ -2081,7 +2127,8 @@
           for (let i = 0; i < predictions.length; i++) {
             const p = predictions[i];
             if (p.score >= autoSnapMinScore) {
-              if (!activeTargets.includes(p.class) && p.class !== safetyClass) {
+              const isConfirmedHuman = (p.class === safetyClass && p.score >= humanMinScore);
+              if (!activeTargets.includes(p.class) && !isConfirmedHuman) {
                 if (!autoSnapLearnedNoise.has(p.class)) {
                   newlyLearned.push(p.class);
                 }
@@ -2903,13 +2950,15 @@
         let humanDetected = false;
         let targetDetected = null;
         let seenLabels = [];
+        const humanMinScore = humanSensitivity / 100;
 
         for (let i = 0; i < predictions.length; i++) {
           const p = predictions[i];
           const scorePercent = Math.round(p.score * 100);
-          seenLabels.push(`${p.class} (${scorePercent}%)`);
-
+          if (p.class === safetyClass && p.score < humanMinScore) continue;
           if (p.score < minScore) continue;
+
+          seenLabels.push(`${p.class} (${scorePercent}%)`);
 
           const [x, y, w, h] = p.bbox;
           let label = p.class;
@@ -2925,9 +2974,15 @@
           }
 
           // Person is STRICTLY Safety Cutoff only
-          if (label === safetyClass && enableHumanSafety) {
-            humanDetected = true;
-            drawBox(x, y, w, h, `Human (${Math.round(score * 100)}%)`, '#f59e0b');
+          if (label === safetyClass) {
+            if (score >= humanMinScore) {
+              if (enableHumanSafety) {
+                humanDetected = true;
+                drawBox(x, y, w, h, `Human (${Math.round(score * 100)}%)`, '#f59e0b');
+              } else {
+                drawBox(x, y, w, h, `Human (${Math.round(score * 100)}%)`, '#64748b');
+              }
+            }
           } else if (activeTargets.includes(label)) {
             targetDetected = { label, score, bbox: [x, y, w, h] };
             drawBox(x, y, w, h, `🎯 ${label.toUpperCase()} (${Math.round(score * 100)}%)`, '#ef4444');
@@ -2974,7 +3029,10 @@
           const counts = {};
           for (let i = 0; i < predictions.length; i++) {
             const p = predictions[i];
-            const reqScore = (p.class === safetyClass) ? minScore : autoSnapMinScore;
+            if (p.class === safetyClass && p.score < humanMinScore) continue;
+            const reqScore = (p.class === safetyClass) 
+              ? humanMinScore 
+              : (activeTargets.includes(p.class) ? minScore : autoSnapMinScore);
             if (p.score >= reqScore) {
               counts[p.class] = (counts[p.class] || 0) + 1;
             }
@@ -2984,7 +3042,7 @@
           }
           const keys = Object.keys(counts).sort();
           const currentSignature = keys.length === 0 ? 'clear' : keys.map(k => `${k}:${counts[k]}`).join(',');
-          checkAndTriggerDeltaAutoSnap(currentSignature, predictions, activeSensitivity, targetDetected, seenLabels);
+          checkAndTriggerDeltaAutoSnap(currentSignature, predictions, activeSensitivity, targetDetected, seenLabels, humanDetected);
         }
       } catch (err) {}
 
@@ -3282,7 +3340,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.8.0';
+    const APP_VERSION = 'v0.8.1';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -3327,6 +3385,7 @@
               `• <b>Noise Filter:</b> ${noiseStr}\n` +
               `• <b>Lighting:</b> ${lightStr}\n` +
               `• <b>Torch:</b> ${torchStr}\n` +
+              `• <b>Sensitivities:</b> Day ${daySensitivity}%, Night ${nightSensitivity}%, Human ${humanSensitivity}%\n` +
               `• <b>Targets:</b> ${targetsStr}\n` +
               `• <b>Activations:</b> ${activationsStr}\n` +
               `• <b>Clock:</b> ${new Date().toLocaleTimeString()}`
@@ -3358,7 +3417,8 @@
               `<i>Edit: <code>/set actions sprinklers,screenshot</code></i>\n\n` +
               `🎚️ <b>Sensitivities:</b>\n` +
               `• ☀️ Day Sensitivity: <b>${daySensitivity}%</b> (<code>/set day 40</code>)\n` +
-              `• 🌙 Night Sensitivity: <b>${nightSensitivity}%</b> (<code>/set night 25</code>)\n\n` +
+              `• 🌙 Night Sensitivity: <b>${nightSensitivity}%</b> (<code>/set night 25</code>)\n` +
+              `• 👤 Human Safety Cutoff Threshold: <b>${humanSensitivity}%</b> (<code>/set human 50</code>)\n\n` +
               `🌙 <b>Night Vision Settings:</b>\n` +
               `• Mode: <b>${nightModeSetting.toUpperCase()}</b> (<code>/set mode auto|day|night</code>)\n` +
               `• AI Night Shadow Boost: <b>Level ${nightBoostLevel} (${NIGHT_BOOST_PRESETS[nightBoostLevel].label})</b> [${nightBoostEnabled ? 'ON' : 'OFF'}] (<code>/set boost 1-6|off</code>)\n` +
@@ -3387,6 +3447,7 @@
                 `• <code>/set screen 1</code> — Auto screen timeout (mins|off)\n` +
                 `• <code>/set day 40</code> — Daytime sensitivity (1-99%)\n` +
                 `• <code>/set night 25</code> — Nighttime sensitivity (1-99%)\n` +
+                `• <code>/set human 50</code> — Human safety threshold (1-99%)\n` +
                 `• <code>/set mode auto|day|night</code> — Lighting mode\n` +
                 `• <code>/set targets cat,dog,bird</code> — Target animals\n` +
                 `• <code>/set actions sprinklers,screenshot</code> — Actions\n` +
@@ -3511,6 +3572,14 @@
               }
               updateNightSensitivity(num);
               reply(`🌙 <b>Nighttime Sensitivity updated:</b> <b>${num}%</b>`);
+            } else if (key === 'human' || key === 'humansens' || key === 'human_conf' || key === 'safety_sens') {
+              const num = parseInt(val);
+              if (isNaN(num) || num < 1 || num > 99) {
+                reply("⚠️ Please enter a human safety threshold between 1 and 99% (e.g. <code>/set human 50</code>).");
+                return;
+              }
+              updateHumanSensitivity(num);
+              reply(`👤 <b>Human Safety Threshold updated:</b> <b>${num}%</b>\n<i>Faint night lights and reflections below this confidence score will never trigger Human alerts or pauses.</i>`);
             } else if (key === 'mode') {
               const lowerVal = val.toLowerCase();
               if (!['auto', 'day', 'night'].includes(lowerVal)) {
@@ -3906,21 +3975,24 @@
                     for (let i = 0; i < rightPreds.length; i++) rightPreds[i].bbox[0] += rightX;
                     predictions = mergePredictions(leftPreds, rightPreds);
                   }
+                  const humanMinScore = humanSensitivity / 100;
                   for (let i = 0; i < predictions.length; i++) {
                     const p = predictions[i];
+                    if (p.class === safetyClass && p.score < humanMinScore) continue;
+                    if (p.score < minScore) continue;
                     const scorePercent = Math.round(p.score * 100);
                     seenLabels.push(`${p.class} (${scorePercent}%)`);
                     const [x, y, w, h] = p.bbox;
 
                     if (p.class === safetyClass) {
-                      drawBox(x, y, w, h, `Human (${scorePercent}%)`, '#f59e0b', sCtx);
-                    } else if (activeTargets.includes(p.class) && p.score >= minScore) {
+                      if (p.score >= humanMinScore) {
+                        drawBox(x, y, w, h, `Human (${scorePercent}%)`, '#f59e0b', sCtx);
+                      }
+                    } else if (activeTargets.includes(p.class)) {
                       detectedTargets.push(`${p.class.toUpperCase()} (${scorePercent}%)`);
                       drawBox(x, y, w, h, `🎯 ${p.class.toUpperCase()} (${scorePercent}%)`, '#ef4444', sCtx);
-                    } else if (p.score >= minScore) {
-                      drawBox(x, y, w, h, `${p.class} (${scorePercent}%)`, '#38bdf8', sCtx);
                     } else {
-                      drawBox(x, y, w, h, `${p.class} (${scorePercent}%)`, '#64748b', sCtx);
+                      drawBox(x, y, w, h, `${p.class} (${scorePercent}%)`, '#38bdf8', sCtx);
                     }
                   }
 
@@ -3932,7 +4004,8 @@
                     for (let j = 0; j < predictions.length; j++) {
                       const pj = predictions[j];
                       if (pj.score >= autoSnapMinScore) {
-                        if (!activeTargets.includes(pj.class) && pj.class !== safetyClass) {
+                        const isConfirmedHuman = (pj.class === safetyClass && pj.score >= humanMinScore);
+                        if (!activeTargets.includes(pj.class) && !isConfirmedHuman) {
                           if (!autoSnapLearnedNoise.has(pj.class)) {
                             newlyLearned.push(pj.class);
                           }
@@ -3994,9 +4067,11 @@
                           `🕒 <b>Time:</b> ${dateStr}`;
               }
 
+              const humanMinScore = humanSensitivity / 100;
               const primaryPred = (predictions && predictions.length > 0)
                 ? (predictions.find(p => activeTargets.includes(p.class) && p.score >= minScore) ||
-                   predictions.find(p => p.score >= minScore))
+                   predictions.find(p => p.class === safetyClass && p.score >= humanMinScore) ||
+                   predictions.find(p => p.score >= minScore && p.class !== safetyClass))
                 : null;
 
               let cropCanvas = null;

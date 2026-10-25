@@ -314,6 +314,7 @@
             '🔋 <code>/set screen &lt;1|2|5|off&gt;</code> — Screen timeout (mins)\n' +
             '🎚️ <code>/set day &lt;%&gt;</code> — Day sensitivity (e.g. <code>/set day 40</code>)\n' +
             '🌙 <code>/set night &lt;%&gt;</code> — Night sensitivity (e.g. <code>/set night 25</code>)\n' +
+            '👤 <code>/set human &lt;%&gt;</code> — Human cutoff threshold (e.g. <code>/set human 50</code>)\n' +
             '🌓 <code>/set mode &lt;auto|day|night&gt;</code> — Light mode\n' +
             '🎯 <code>/set targets &lt;cat,dog,bird...&gt;</code> — Targets\n' +
             '⚡ <code>/set actions &lt;sprinklers,screenshot...&gt;</code> — Actions\n' +
