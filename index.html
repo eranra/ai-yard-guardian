@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.5.8 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.5.9 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -554,7 +554,7 @@
                 <span style="color: #cbd5e1;">☀️ Daytime Sensitivity:</span>
                 <b id="dayConfVal" style="color: #38bdf8;">40%</b>
               </div>
-              <input type="range" id="dayConfRange" min="15" max="85" value="40" oninput="updateDaySensitivity(this.value)">
+              <input type="range" id="dayConfRange" min="1" max="99" value="40" oninput="updateDaySensitivity(this.value)">
             </div>
 
             <!-- Nighttime Sensitivity -->
@@ -563,7 +563,7 @@
                 <span style="color: #cbd5e1;">🌙 Nighttime Sensitivity:</span>
                 <b id="nightConfVal" style="color: #a5b4fc;">25%</b>
               </div>
-              <input type="range" id="nightConfRange" min="10" max="70" value="25" oninput="updateNightSensitivity(this.value)">
+              <input type="range" id="nightConfRange" min="1" max="99" value="25" oninput="updateNightSensitivity(this.value)">
             </div>
 
             <!-- Software AI Vision Boost Toggle & Level -->
@@ -1128,9 +1128,18 @@
           }
           if (s) {
             if (s.webhook !== undefined) document.getElementById('webhookInput').value = s.webhook;
-            if (s.conf !== undefined) daySensitivity = parseInt(s.conf) || 40;
-            if (s.dayConf !== undefined) daySensitivity = parseInt(s.dayConf) || daySensitivity;
-            if (s.nightConf !== undefined) nightSensitivity = parseInt(s.nightConf) || 25;
+            if (s.conf !== undefined) {
+              const p = parseInt(s.conf);
+              if (!isNaN(p) && p >= 1 && p <= 99) daySensitivity = p;
+            }
+            if (s.dayConf !== undefined) {
+              const p = parseInt(s.dayConf);
+              if (!isNaN(p) && p >= 1 && p <= 99) daySensitivity = p;
+            }
+            if (s.nightConf !== undefined) {
+              const p = parseInt(s.nightConf);
+              if (!isNaN(p) && p >= 1 && p <= 99) nightSensitivity = p;
+            }
             if (s.nightMode !== undefined) nightModeSetting = s.nightMode;
             if (s.nightBoost !== undefined) nightBoostEnabled = !!s.nightBoost;
             if (s.hwExposure !== undefined) hardwareExposureBoost = !!s.hwExposure;
@@ -1317,17 +1326,23 @@
     }
 
     function updateDaySensitivity(val) {
-      daySensitivity = parseInt(val) || 40;
+      const p = parseInt(val);
+      if (!isNaN(p) && p >= 1 && p <= 99) daySensitivity = p;
       const el = document.getElementById('dayConfVal');
       if (el) el.innerText = daySensitivity + '%';
+      const range = document.getElementById('dayConfRange');
+      if (range && parseInt(range.value) !== daySensitivity) range.value = daySensitivity;
       updateSettingsSummary();
       saveSettings();
     }
 
     function updateNightSensitivity(val) {
-      nightSensitivity = parseInt(val) || 25;
+      const p = parseInt(val);
+      if (!isNaN(p) && p >= 1 && p <= 99) nightSensitivity = p;
       const el = document.getElementById('nightConfVal');
       if (el) el.innerText = nightSensitivity + '%';
+      const range = document.getElementById('nightConfRange');
+      if (range && parseInt(range.value) !== nightSensitivity) range.value = nightSensitivity;
       updateSettingsSummary();
       saveSettings();
     }
@@ -2040,7 +2055,8 @@
         const minScore = activeSensitivity / 100;
         const enableHumanSafety = document.getElementById('humanSafetyToggle').checked;
         const aiInput = getAiInputFrame();
-        const predictions = await model.detect(aiInput, 20, Math.min(0.12, minScore));
+        const detectThreshold = Math.max(0.01, Math.min(0.05, minScore));
+        const predictions = await model.detect(aiInput, 20, detectThreshold);
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -2379,7 +2395,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.5.8';
+    const APP_VERSION = 'v0.5.9';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -2463,8 +2479,8 @@
                 `• <code>/set rotate 270</code> — Camera rotation (0|90|180|270)\n` +
                 `• <code>/set speed eco</code> — AI speed (eco|balanced|turbo)\n` +
                 `• <code>/set screen 1</code> — Auto screen timeout (mins|off)\n` +
-                `• <code>/set day 40</code> — Daytime sensitivity (15-85)\n` +
-                `• <code>/set night 25</code> — Nighttime sensitivity (10-70)\n` +
+                `• <code>/set day 40</code> — Daytime sensitivity (1-99%)\n` +
+                `• <code>/set night 25</code> — Nighttime sensitivity (1-99%)\n` +
                 `• <code>/set mode auto|day|night</code> — Lighting mode\n` +
                 `• <code>/set targets cat,dog,bird</code> — Target animals\n` +
                 `• <code>/set actions sprinklers,screenshot</code> — Actions\n` +
@@ -2516,23 +2532,19 @@
               reply(`🔋 <b>Auto Screen Saver timeout set to:</b> <b>${formatTimeoutDisplay(num)}</b>`);
             } else if (key === 'day' || key === 'day_sens') {
               const num = parseInt(val);
-              if (isNaN(num) || num < 10 || num > 90) {
-                reply("⚠️ Please enter a day sensitivity between 10 and 90 (e.g. <code>/set day 40</code>).");
+              if (isNaN(num) || num < 1 || num > 99) {
+                reply("⚠️ Please enter a day sensitivity between 1 and 99% (e.g. <code>/set day 15</code> or <code>/set day 5</code>).");
                 return;
               }
               updateDaySensitivity(num);
-              const slider = document.getElementById('dayConfRange');
-              if (slider) slider.value = num;
               reply(`☀️ <b>Daytime Sensitivity updated:</b> <b>${num}%</b>`);
             } else if (key === 'night' || key === 'night_sens') {
               const num = parseInt(val);
-              if (isNaN(num) || num < 10 || num > 80) {
-                reply("⚠️ Please enter a night sensitivity between 10 and 80 (e.g. <code>/set night 25</code>).");
+              if (isNaN(num) || num < 1 || num > 99) {
+                reply("⚠️ Please enter a night sensitivity between 1 and 99% (e.g. <code>/set night 10</code> or <code>/set night 1</code>).");
                 return;
               }
               updateNightSensitivity(num);
-              const slider = document.getElementById('nightConfRange');
-              if (slider) slider.value = num;
               reply(`🌙 <b>Nighttime Sensitivity updated:</b> <b>${num}%</b>`);
             } else if (key === 'mode') {
               const lowerVal = val.toLowerCase();

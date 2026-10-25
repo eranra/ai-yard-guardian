@@ -22,8 +22,8 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/set rotate <0|90|180|270>` — set exact camera rotation angle directly (e.g. `/set rotate 270` for sideways phones).
     - `/set speed <eco|balanced|turbo>` — set AI detection rate (Eco 3 FPS default, Balanced 5 FPS, Turbo Uncapped).
     - `/set screen <1|2|5|10|30s|off>` — set auto-blackout inactivity timeout (default `1` minute).
-    - `/set day <10-90>` — set daytime sensitivity threshold (e.g. `/set day 40`).
-    - `/set night <10-80>` — set nighttime sensitivity threshold (e.g. `/set night 25`).
+    - `/set day <1-99>` — set daytime sensitivity threshold (e.g. `/set day 15`).
+    - `/set night <1-99>` — set nighttime sensitivity threshold (e.g. `/set night 5` or `1` for maximum detection).
     - `/set mode <auto|day|night>` — set light detection mode.
     - `/set targets <cat,dog,bird...>` — set target animal list.
     - `/set actions <sprinklers,screenshot,siren,strobe>` — set active deterrent actions.
@@ -44,7 +44,7 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/torch [on|off]` — remotely toggle phone flashlight/torch.
     - `/status` — check battery level (%, charging/discharging), screen state, AI speed, rotation, armed status, and ambient lighting.
     - `/refresh` — remotely clear browser cache and reload the application from GitHub Pages.
-- **🔄 Complete 360° Camera Stream Rotation & Orientation Engine (v0.5.8):**
+- **🔄 Complete 360° Camera Stream Rotation & Orientation Engine (v0.5.9):**
   - **The Problem Solved:** When phones are mounted horizontally on a window sill or stand, Android's hardware camera sensor outputs portrait pixels sideways relative to the horizon.
   - **The Solution:** Full hardware rotation transform (`0°`, `90°`, `180°`, `270°`) applied across the entire processing pipeline:
     - Rotates the live `<video>` viewport and aspect ratio seamlessly.
