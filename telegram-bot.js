@@ -322,6 +322,8 @@
             '🔒 <code>/set safety &lt;on|off&gt;</code> — Human pause cutoff\n' +
             '🚀 <code>/set boost &lt;1-6|off&gt;</code> — AI Night shadow boost (1-6)\n' +
             '📷 <code>/set exposure &lt;on|off&gt;</code> — Camera exposure boost\n' +
+            '🌙 <code>/set longexp &lt;on|off&gt;</code> — Night long exposure &amp; slow shutter\n' +
+            '🔬 <code>/exposure</code> or <code>/camera exp</code> — Camera hardware exposure info\n' +
             '🔦 <code>/set torch_assist &lt;on|off&gt;</code> — Torch on alert\n' +
             '💧 <code>/set webhook &lt;url&gt;</code> — Update webhook URL\n\n' +
             '<i>Tip: Tap the buttons below your keyboard anytime!</i>'
@@ -345,6 +347,7 @@
         case '/target':
         case '/action':
         case '/camera':
+        case '/exposure':
         case '/refresh':
         case '/reload':
         case '/update':

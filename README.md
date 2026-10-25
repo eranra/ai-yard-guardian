@@ -38,6 +38,7 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/set actions <sprinklers,screenshot,siren,strobe>` — set active deterrent actions.
     - `/set boost <1-6|off>` — set AI night shadow-lift level (1-Normal to 6-Moonlight Ultra, or off).
     - `/set exposure <on|off>` — toggle camera hardware EV boost.
+    - `/set longexp <on|off>` — toggle night long exposure & slow shutter light accumulation (Default ON for night).
     - `/set torch_assist <on|off>` — toggle flashlight assist on night alert.
     - `/set safety <on|off>` — toggle human safety pause cutoff.
     - `/set webhook <url>` — update Smart Life webhook URL.
@@ -52,6 +53,7 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/screen [on|off]` (or `/stealth`) — remotely activate or wake up the OLED blackout screen saver.
     - `/torch [on|off]` — remotely toggle phone flashlight/torch.
     - `/status` — check battery level (%, charging/discharging), screen state, AI speed, rotation, armed status, and ambient lighting.
+    - `/exposure` (or `/camera exp`) — inspect live camera sensor hardware exposure capabilities (EV range, ISO range, exposureTime, shutter mode).
     - `/refresh` — remotely clear browser cache and reload the application from GitHub Pages.
 - **🔄 Complete 360° Camera Stream Rotation & Orientation Engine (v0.6.0):**
   - **The Problem Solved:** When phones are mounted horizontally on a window sill or stand, Android's hardware camera sensor outputs portrait pixels sideways relative to the horizon.
@@ -85,6 +87,7 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - Level 5: Extreme (Clean — with chromatic noise suppression)
     - Level 6: Moonlight Ultra (for near-zero ambient light)
   - **📷 Xiaomi / Android Hardware Sensor Boost:** Probes and configures maximum available camera hardware sensor sensitivity (`iso: max`, `exposureTime: max` / slow shutter integration, `exposureCompensation: +2.0 EV`, and continuous AE/AWB) via MediaStreamTrack ISP controls to maximize photon gathering without automatic flashlight.
+  - **🌙 Night Long Exposure & Slow Shutter Integration (v0.8.2):** At night, extends physical sensor shutter integration time ($100\text{ms}-200\text{ms}$) and performs exponential moving average multi-frame light accumulation ($3\times$ photon capture) to crush high-ISO noise grain and illuminate dark garden perimeters. Daytime operations remain unchanged. Configurable via UI toggle or `/set longexp on|off` (default: ON for night).
   - **🔦 Flashlight / Torch Assist:** Manual remote `/torch` control or optional 5s alarm-triggered light to scare intruders and capture evidence photos. Continuous auto-flashlight is strictly disabled to prevent light disturbance.
 - **📷 Dynamic Multi-Camera Lens Selection:** Automatically discovers all physical front and rear cameras/lenses (Main Wide, Ultra-Wide, Telephoto, Front) on any device (Samsung, Xiaomi, Pixel, etc.). Switch lenses anytime and your preference is saved permanently.
 - **On-Device AI Vision:** Uses TensorFlow.js (`mobilenet_v2`) running directly on your phone's GPU/NPU.

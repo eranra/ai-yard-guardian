@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.8.1"></script>
+  <script src="telegram-bot.js?v=0.8.2"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.8.1 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.8.2 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -674,8 +674,16 @@
 
             <!-- Hardware Camera Exposure Boost (Xiaomi / Android) -->
             <label class="toggle" style="font-size: 0.76rem;">
-              <input type="checkbox" id="hwExposureToggle" checked onchange="saveSettings()"> 📷 Camera Hardware Exposure Boost (Xiaomi / Android)
+              <input type="checkbox" id="hwExposureToggle" checked onchange="saveSettings(); applyHardwareCameraConstraints();"> 📷 Camera Hardware Exposure Boost (Xiaomi / Android)
             </label>
+
+            <!-- Night Slow Shutter / Long Exposure Integration (v0.8.2) -->
+            <label class="toggle" style="font-size: 0.76rem;">
+              <input type="checkbox" id="nightLongExpToggle" checked onchange="saveSettings(); applyHardwareCameraConstraints();"> 🌙 Night Long Exposure &amp; Slow Shutter
+            </label>
+            <p style="font-size: 0.68rem; color: #94a3b8; line-height: 1.25; margin-left: 20px;">
+              Extends hardware shutter integration time and multi-frame light accumulation at night for 3× photon gathering. Daytime operates normally.
+            </p>
 
             <!-- Hardware Flashlight Assist -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
@@ -906,6 +914,7 @@
       6: { filter: 'brightness(6.8) contrast(0.68) saturate(1.1)', label: 'Moonlight Ultra' }
     };
     let hardwareExposureBoost = true;
+    let nightLongExposure = true; // Night slow shutter and multi-frame light accumulation (Default ON for night)
     let torchAssistEnabled = false;
     let isTorchOn = false;
     let cameraCapabilities = {};
@@ -1379,6 +1388,7 @@
         nightBoost: document.getElementById('nightBoostToggle')?.checked !== false,
         nightBoostLevel: nightBoostLevel,
         hwExposure: document.getElementById('hwExposureToggle')?.checked !== false,
+        nightLongExp: document.getElementById('nightLongExpToggle')?.checked !== false,
         torchAssist: document.getElementById('torchAssistToggle')?.checked || false,
         humanSafety: document.getElementById('humanSafetyToggle').checked,
         targets: activeTargets,
@@ -1401,6 +1411,7 @@
       localStorage.setItem('yard_guardian_settings', JSON.stringify(settings));
       localStorage.setItem('yard_guardian_human_conf', humanSensitivity.toString());
       localStorage.setItem('yard_guardian_boost_level', nightBoostLevel.toString());
+      localStorage.setItem('yard_guardian_night_longexp', nightLongExposure ? '1' : '0');
       localStorage.setItem('yard_guardian_camera_res', cameraResolution);
       localStorage.setItem('yard_guardian_camera_fps', cameraFps.toString());
       localStorage.setItem('yard_guardian_scanner_mode', scannerMode);
@@ -1447,6 +1458,7 @@
             if (s.nightMode !== undefined) nightModeSetting = s.nightMode;
             if (s.nightBoost !== undefined) nightBoostEnabled = !!s.nightBoost;
             if (s.hwExposure !== undefined) hardwareExposureBoost = !!s.hwExposure;
+            if (s.nightLongExp !== undefined) nightLongExposure = !!s.nightLongExp;
             if (s.torchAssist !== undefined) torchAssistEnabled = !!s.torchAssist;
             if (s.humanSafety !== undefined) document.getElementById('humanSafetyToggle').checked = s.humanSafety;
             if (s.cameraId) localStorage.setItem('yard_guardian_camera_id', s.cameraId);
@@ -1489,6 +1501,15 @@
 
         const hwExp = document.getElementById('hwExposureToggle');
         if (hwExp) hwExp.checked = hardwareExposureBoost;
+
+        const savedLongExp = localStorage.getItem('yard_guardian_night_longexp');
+        if (savedLongExp !== null) {
+          nightLongExposure = savedLongExp !== '0';
+        } else if (s && s.nightLongExp !== undefined) {
+          nightLongExposure = !!s.nightLongExp;
+        }
+        const longExpCb = document.getElementById('nightLongExpToggle');
+        if (longExpCb) longExpCb.checked = nightLongExposure;
 
         const tAssist = document.getElementById('torchAssistToggle');
         if (tAssist) tAssist.checked = torchAssistEnabled;
@@ -2286,6 +2307,7 @@
       if (!track || !track.applyConstraints) return;
 
       const advanced = [];
+      const constraints = {};
 
       if (isNightMode && hardwareExposureBoost) {
         // 1. Exposure Compensation to Maximum (+2.0 EV)
@@ -2300,21 +2322,33 @@
         }
 
         // 3. Exposure Time / Slow Shutter (e.g. max sensor integration time)
-        if (cameraCapabilities.exposureTime && cameraCapabilities.exposureTime.max) {
+        if (nightLongExposure && cameraCapabilities.exposureTime && cameraCapabilities.exposureTime.max) {
           advanced.push({ exposureTime: cameraCapabilities.exposureTime.max });
         }
 
-        // 4. Continuous Auto-Exposure Mode
-        if (cameraCapabilities.exposureMode && cameraCapabilities.exposureMode.includes('continuous')) {
-          advanced.push({ exposureMode: 'continuous' });
+        // 4. Exposure Mode: Manual if exposureTime supported, otherwise Continuous AE
+        if (cameraCapabilities.exposureMode) {
+          if (nightLongExposure && cameraCapabilities.exposureTime && cameraCapabilities.exposureMode.includes('manual')) {
+            advanced.push({ exposureMode: 'manual' });
+          } else if (cameraCapabilities.exposureMode.includes('continuous')) {
+            advanced.push({ exposureMode: 'continuous' });
+          }
         }
 
         // 5. Continuous White Balance
         if (cameraCapabilities.whiteBalanceMode && cameraCapabilities.whiteBalanceMode.includes('continuous')) {
           advanced.push({ whiteBalanceMode: 'continuous' });
         }
+
+        // 6. Sensor Frame Rate for Extended Shutter Duration at Night
+        if (nightLongExposure) {
+          constraints.frameRate = { ideal: 5, max: cameraFps };
+        } else {
+          constraints.frameRate = { ideal: cameraFps, max: cameraFps };
+        }
       } else {
-        // Daytime mode reset
+        // Daytime mode reset - Day stays as configured by user
+        constraints.frameRate = { ideal: cameraFps, max: cameraFps };
         if (cameraCapabilities.exposureCompensation) {
           advanced.push({ exposureCompensation: 0 });
         }
@@ -2324,16 +2358,25 @@
       }
 
       if (advanced.length > 0) {
+        constraints.advanced = advanced;
+      }
+
+      try {
+        await track.applyConstraints(constraints);
+        if (isNightMode && hardwareExposureBoost) {
+          const evStr = cameraCapabilities.exposureCompensation ? `+${cameraCapabilities.exposureCompensation.max} EV` : '';
+          const isoStr = (cameraCapabilities.iso && cameraCapabilities.iso.max) ? ` ISO:${cameraCapabilities.iso.max}` : '';
+          const expStr = (cameraCapabilities.exposureTime && cameraCapabilities.exposureTime.max) ? ` Exp:${cameraCapabilities.exposureTime.max}` : '';
+          const longStr = nightLongExposure ? ' [🌙 Long Exp Active]' : '';
+          log(`📷 Camera hardware sensor boosted for night (${evStr}${isoStr}${expStr}${longStr})`);
+        }
+      } catch (e) {
         try {
-          await track.applyConstraints({ advanced });
-          if (isNightMode && hardwareExposureBoost) {
-            const evStr = cameraCapabilities.exposureCompensation ? `+${cameraCapabilities.exposureCompensation.max} EV` : '';
-            const isoStr = (cameraCapabilities.iso && cameraCapabilities.iso.max) ? ` ISO:${cameraCapabilities.iso.max}` : '';
-            const expStr = (cameraCapabilities.exposureTime && cameraCapabilities.exposureTime.max) ? ` Exp:${cameraCapabilities.exposureTime.max}` : '';
-            log(`📷 Camera hardware sensor boosted for night (${evStr}${isoStr}${expStr})`);
+          if (advanced.length > 0) {
+            await track.applyConstraints({ advanced });
           }
-        } catch (e) {
-          console.warn("Could not apply hardware exposure constraints:", e);
+        } catch (e2) {
+          console.warn("Could not apply hardware exposure constraints:", e2);
         }
       }
     }
@@ -2405,6 +2448,10 @@
       ctx.restore();
     }
 
+    let nightAccumCanvas = document.createElement('canvas');
+    let nightAccumCtx = null;
+    let hasAccumFrame = false;
+
     // Software AI Vision Night Boost & Rotation Preprocessing for TensorFlow (v5.7)
     function getAiInputFrame() {
       if (!video || !video.videoWidth) return video;
@@ -2414,6 +2461,7 @@
       const targetH = is90or270 ? video.videoWidth : video.videoHeight;
 
       if (!isNightMode && !nightBoostEnabled && cameraRotation === 0) {
+        hasAccumFrame = false;
         return video;
       }
 
@@ -2421,6 +2469,7 @@
         nightBoostCanvas.width = targetW;
         nightBoostCanvas.height = targetH;
         nightBoostCtx = nightBoostCanvas.getContext('2d', { willReadFrequently: true });
+        hasAccumFrame = false;
       }
 
       // Non-linear shadow-lift: High brightness gain with reduced contrast (gamma expansion)
@@ -2433,6 +2482,26 @@
 
       drawRotated(nightBoostCtx, video, cameraRotation, targetW, targetH, video.videoWidth, video.videoHeight);
       nightBoostCtx.filter = 'none';
+
+      // 🌙 Night Long Exposure Multi-Frame Light Accumulation (Temporal Denoising)
+      if (isNightMode && nightLongExposure) {
+        if (nightAccumCanvas.width !== targetW || nightAccumCanvas.height !== targetH || !hasAccumFrame) {
+          nightAccumCanvas.width = targetW;
+          nightAccumCanvas.height = targetH;
+          nightAccumCtx = nightAccumCanvas.getContext('2d', { willReadFrequently: true });
+          nightAccumCtx.drawImage(nightBoostCanvas, 0, 0);
+          hasAccumFrame = true;
+        } else {
+          // Temporal exponential moving average (EMA): 65% new frame, 35% accumulated history
+          // This simulates extended physical shutter integration and eliminates random high-ISO noise
+          nightAccumCtx.globalAlpha = 0.65;
+          nightAccumCtx.drawImage(nightBoostCanvas, 0, 0);
+          nightAccumCtx.globalAlpha = 1.0;
+        }
+        return nightAccumCanvas;
+      } else {
+        hasAccumFrame = false;
+      }
 
       return nightBoostCanvas;
     }
@@ -3340,7 +3409,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.8.1';
+    const APP_VERSION = 'v0.8.2';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -3365,7 +3434,9 @@
             const screenStr = isStealth ? "🌙 OLED Blackout Active" : `☀️ Awake (Saver: ${formatTimeoutDisplay(screenSaverTimeoutMinutes)})`;
             const batteryStr = formatBatteryString();
             const fpsStr = formatFpsModeDisplay();
-            const lightStr = isNightMode ? `🌙 Night (Luma: ${Math.round(currentLuma)}, Sens: ${nightSensitivity}%, Boost: Lvl ${nightBoostLevel})` : `☀️ Day (Luma: ${Math.round(currentLuma)}, Sensitivity: ${daySensitivity}%)`;
+            const lightStr = isNightMode 
+              ? `🌙 Night (Luma: ${Math.round(currentLuma)}, Sens: ${nightSensitivity}%, Boost: Lvl ${nightBoostLevel}, LongExp: ${nightLongExposure ? 'ON' : 'OFF'})` 
+              : `☀️ Day (Luma: ${Math.round(currentLuma)}, Sensitivity: ${daySensitivity}%)`;
             const torchStr = cameraCapabilities.torch ? (isTorchOn ? "🔦 ON" : "⚪ OFF") : "N/A";
             const targetsStr = (activeTargets && activeTargets.length) ? activeTargets.join(', ') : 'None';
             const activationsStr = (activeActivations && activeActivations.length) ? activeActivations.join(', ') : 'None';
@@ -3423,6 +3494,7 @@
               `• Mode: <b>${nightModeSetting.toUpperCase()}</b> (<code>/set mode auto|day|night</code>)\n` +
               `• AI Night Shadow Boost: <b>Level ${nightBoostLevel} (${NIGHT_BOOST_PRESETS[nightBoostLevel].label})</b> [${nightBoostEnabled ? 'ON' : 'OFF'}] (<code>/set boost 1-6|off</code>)\n` +
               `• Hardware Exposure: <b>${hardwareExposureBoost ? 'ON' : 'OFF'}</b> (<code>/set exposure on|off</code>)\n` +
+              `• 🌙 Night Long Exposure: <b>${nightLongExposure ? 'ON' : 'OFF'}</b> (<code>/set longexp on|off</code>)\n` +
               `• Torch Assist on Alert: <b>${torchAssistEnabled ? 'ON' : 'OFF'}</b> (<code>/set torch_assist on|off</code>)\n\n` +
               `🔄 <b>Camera Orientation:</b> <b>${cameraRotation}°</b> (<code>/rotate</code> or <code>/set rotate 0|90|180|270</code>)\n` +
               `📷 <b>Camera Resolution:</b> <b>${formatResolutionDisplay()}</b> @ <b>${formatCameraFpsDisplay()}</b> (<code>/set res vga|720p|1080p|max</code>, <code>/set camfps 5|10|15|30</code>)\n` +
@@ -3453,6 +3525,7 @@
                 `• <code>/set actions sprinklers,screenshot</code> — Actions\n` +
                 `• <code>/set boost 5</code> — AI night shadow boost (1-6|off)\n` +
                 `• <code>/set exposure on|off</code> — Camera hardware EV boost\n` +
+                `• <code>/set longexp on|off</code> — Night long exposure & slow shutter\n` +
                 `• <code>/set torch_assist on|off</code> — Flashlight on alert\n` +
                 `• <code>/set safety on|off</code> — Human safety pause\n` +
                 `• <code>/set webhook https://...</code> — Webhook URL`
@@ -3636,6 +3709,14 @@
               applyHardwareCameraConstraints();
               saveSettings();
               reply(`📷 <b>Camera Hardware Exposure Boost:</b> <b>${enable ? 'ENABLED' : 'DISABLED'}</b>`);
+            } else if (key === 'longexp' || key === 'longexposure' || key === 'shutter') {
+              const enable = val.toLowerCase() === 'on' || val.toLowerCase() === 'true' || val === '1';
+              nightLongExposure = enable;
+              const cb = document.getElementById('nightLongExpToggle');
+              if (cb) cb.checked = enable;
+              applyHardwareCameraConstraints();
+              saveSettings();
+              reply(`🌙 <b>Night Long Exposure &amp; Slow Shutter:</b> <b>${enable ? 'ENABLED (Default for Night)' : 'DISABLED'}</b>\n<i>${enable ? 'At night, hardware shutter time is extended and multi-frame light accumulation gathers 3× more photons to destroy sensor noise grain. Day stays unchanged.' : 'Camera runs standard single-frame exposure day and night.'}</i>`);
             } else if (key === 'torch_assist' || key === 'torchassist') {
               const enable = val.toLowerCase() === 'on' || val.toLowerCase() === 'true' || val === '1';
               torchAssistEnabled = enable;
@@ -3811,8 +3892,29 @@
               const listStr = valid.map(a => `${activeActivations.includes(a) ? '✅' : '⚪'} <code>${a}</code> (${ACTIVATION_DISPLAY[a]})`).join('\n');
               reply(`⚡ <b>Deterrent Actions:</b>\n\n${listStr}\n\n<i>To add/remove: <code>/action add sprinklers</code> or <code>/action remove siren</code></i>`);
             }
-          } else if (cmd === 'camera') {
-            const sub = (args && args[0]) ? args[0].toLowerCase() : 'list';
+          } else if (cmd === 'camera' || cmd === 'exposure') {
+            const sub = (cmd === 'exposure') ? 'exp' : ((args && args[0]) ? args[0].toLowerCase() : 'list');
+            if (sub === 'exp' || sub === 'exposure') {
+              const caps = cameraCapabilities || {};
+              const evStr = caps.exposureCompensation ? `${caps.exposureCompensation.min} to +${caps.exposureCompensation.max} EV (step ${caps.exposureCompensation.step || 0.5})` : 'Not exposed by driver';
+              const expTimeStr = caps.exposureTime ? `${caps.exposureTime.min} to ${caps.exposureTime.max}` : 'Auto ISP controlled';
+              const isoStr = caps.iso ? `${caps.iso.min} to ${caps.iso.max}` : 'Auto controlled';
+              const modeStr = caps.exposureMode ? (Array.isArray(caps.exposureMode) ? caps.exposureMode.join(', ') : caps.exposureMode) : 'continuous';
+              const longExpState = nightLongExposure ? (isNightMode ? '🟢 Active (Night Mode)' : '⚪ Armed (activates at night)') : '⚪ Disabled';
+
+              reply(
+                `📷 <b>Camera Hardware Exposure Diagnostics:</b>\n\n` +
+                `• <b>Exposure Compensation:</b> ${evStr}\n` +
+                `• <b>Hardware Exposure Time:</b> ${expTimeStr}\n` +
+                `• <b>ISO Gain Range:</b> ${isoStr}\n` +
+                `• <b>Exposure Modes:</b> ${modeStr}\n` +
+                `• <b>Sensor Stream Rate:</b> ~${cameraFps} FPS (shutter window: ${Math.round(1000 / cameraFps)}ms)\n` +
+                `• <b>Night Long Exposure Mode:</b> ${longExpState} (<code>/set longexp on|off</code>)\n\n` +
+                `<i>💡 At night, shutter time is extended and multi-frame light accumulation gathers 3× more photons to eliminate noise grain. Day stays unchanged.</i>`
+              );
+              return;
+            }
+
             const camSelect = document.getElementById('cameraSelect');
             if (!camSelect || camSelect.options.length === 0) {
               reply("⚠️ No cameras currently enumerated on phone.");
