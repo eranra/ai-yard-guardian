@@ -38,7 +38,7 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/set actions <sprinklers,screenshot,siren,strobe>` — set active deterrent actions.
     - `/set boost <1-6|off>` — set AI night shadow-lift level (1-Normal to 6-Moonlight Ultra, or off).
     - `/set exposure <on|off>` — toggle camera hardware EV boost.
-    - `/set longexp <on|off>` — toggle night long exposure & slow shutter light accumulation (Default ON for night).
+    - `/set longexp <auto|low|medium|high|off>` — set night long exposure mode (default `auto` closed-loop light regulation to prevent whiteout).
     - `/set torch_assist <on|off>` — toggle flashlight assist on night alert.
     - `/set safety <on|off>` — toggle human safety pause cutoff.
     - `/set webhook <url>` — update Smart Life webhook URL.
@@ -87,7 +87,7 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - Level 5: Extreme (Clean — with chromatic noise suppression)
     - Level 6: Moonlight Ultra (for near-zero ambient light)
   - **📷 Xiaomi / Android Hardware Sensor Boost:** Probes and configures maximum available camera hardware sensor sensitivity (`iso: max`, `exposureTime: max` / slow shutter integration, `exposureCompensation: +2.0 EV`, and continuous AE/AWB) via MediaStreamTrack ISP controls to maximize photon gathering without automatic flashlight.
-  - **🌙 Night Long Exposure & Slow Shutter Integration (v0.8.2):** At night, extends physical sensor shutter integration time ($100\text{ms}-200\text{ms}$) and performs exponential moving average multi-frame light accumulation ($3\times$ photon capture) to crush high-ISO noise grain and illuminate dark garden perimeters. Daytime operations remain unchanged. Configurable via UI toggle or `/set longexp on|off` (default: ON for night).
+  - **🌙 Granular Night Exposure & Auto-Regulated Shutter (v0.8.3):** Eliminates whiteout/over-exposure while maintaining dark scene clarity. Features closed-loop Auto-Regulation (`auto` default) that dynamically monitors scene luminance and modulates exposure compensation between $0.0$ and $+1.3$ EV with continuous auto-exposure (AE). User configurable in high granularity (`auto`, `low` +0.4 EV, `medium` +1.0 EV, `high` +1.6 EV, or `off`). Day mode remains unchanged. Configurable via UI dropdown or `/set longexp <auto|low|medium|high|off>`.
   - **🔦 Flashlight / Torch Assist:** Manual remote `/torch` control or optional 5s alarm-triggered light to scare intruders and capture evidence photos. Continuous auto-flashlight is strictly disabled to prevent light disturbance.
 - **📷 Dynamic Multi-Camera Lens Selection:** Automatically discovers all physical front and rear cameras/lenses (Main Wide, Ultra-Wide, Telephoto, Front) on any device (Samsung, Xiaomi, Pixel, etc.). Switch lenses anytime and your preference is saved permanently.
 - **On-Device AI Vision:** Uses TensorFlow.js (`mobilenet_v2`) running directly on your phone's GPU/NPU.
