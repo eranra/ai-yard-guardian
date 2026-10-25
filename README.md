@@ -15,12 +15,12 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `[ 🛡️ Arm ]` `[ ⏸️ Disarm ]` `[ 🔦 Torch ]`
     - `[ 🌙 Screen ]` `[ 📊 Status ]` `[ ⚙️ Config ]` `[ 🔄 Refresh ]`
   - 🚨 **Instant Intruder Alerts:** Immediate push notifications whenever a target animal is detected.
-  - 📸 **Smart Delta-Change Auto-Snapshots (v0.7.3):** Automatically transmits annotated photos to Telegram whenever detection state changes (new animal arrives, animal departs, count changes) with an independent detection threshold (default **5%**), sliding rate limiting (default max 5/min, 12s spacing), continuous **Per-Object 60m Sliding TTL Noise Learning** (learns static non-targets like chairs, benches, or plants and continuously refreshes their TTL while present so they never expire or cause hourly snapshot bursts; automatically prunes objects absent for >60 minutes), and zero spam during static scenes.
+  - 📸 **Smart Delta-Change Auto-Snapshots (v0.7.4):** Automatically transmits annotated photos to Telegram whenever detection state changes (new animal arrives, animal departs, count changes) with an independent detection threshold (default **5%**), sliding rate limiting (default max 5/min, 12s spacing), continuous **Per-Object 60m Sliding TTL Noise Learning** (learns static non-targets like chairs, benches, or plants and continuously refreshes their TTL while present so they never expire or cause hourly snapshot bursts; automatically prunes objects absent for >60 minutes), snapshot noise absorption, and zero spam during static scenes.
   - 📸 **Detection Snapshots:** Automatically delivers an upright photo of the intruder directly to your chat.
   - ⚙️ **Full Remote Configuration Management:**
     - `/config` — view full configuration readout including battery level, AI speed, screen saver timeout, rotation angle, auto-snapshot status, threshold & noise filter state, and lenses.
-    - `/set autosnap <on|off|rate>` — enable, disable, or adjust rate cap for Delta Auto-Snapshots (e.g. `/set autosnap 5` or `/set autosnap off`).
-    - `/set autosnap thresh <1-99>` — set independent detection threshold for auto-snapshots (default `5%`).
+    - `/autosnap <on|off|rate>` or `/set autosnap <on|off|rate>` — enable, disable, or adjust rate cap for Delta Auto-Snapshots (e.g. `/autosnap 5` or `/autosnap off`).
+    - `/autosnap thresh <1-99>` or `/set autosnap thresh <1-99>` — set independent detection threshold for auto-snapshots (e.g. `/autosnap thresh 1`).
     - `/set autosnap noise <on|off|clear>` — toggle automatic noise object learning (60m sliding TTL) or clear current learned noise objects.
     - `/rotate [angle]` — rotate camera 90° clockwise (or set direct angle e.g. `/rotate 270`) and immediately send back a test snapshot.
     - `/set rotate <0|90|180|270>` — set exact camera rotation angle directly (e.g. `/set rotate 270` for sideways phones).

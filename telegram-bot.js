@@ -348,6 +348,13 @@
           }
           break;
 
+        case '/autosnap':
+        case '/autosnapshot':
+          if (this.callbacks.onCommand) {
+            this.callbacks.onCommand('set', reply, replyPhoto, ['autosnap', ...args]);
+          }
+          break;
+
         default:
           reply(`❓ Unknown command: <code>${cleanCmd}</code>\nType <code>/help</code> or tap <b>📊 Status</b> below.`);
       }
