@@ -321,6 +321,7 @@
             '📷 <code>/camera list</code> or <code>/camera &lt;num&gt;</code> — Switch lens\n' +
             '🔒 <code>/set safety &lt;on|off&gt;</code> — Human pause cutoff\n' +
             '🚀 <code>/set boost &lt;1-6|off&gt;</code> — AI Night shadow boost (1-6)\n' +
+            '✨ <code>/autotune [on|off]</code> — Auto night vision tuner (prevents whiteout & dark scenes automatically)\n' +
             '📷 <code>/set exposure &lt;on|off&gt;</code> — Camera exposure boost\n' +
             '🌙 <code>/set longexp &lt;auto|low|medium|high|off&gt;</code> — Night exposure mode\n' +
             '🔬 <code>/exposure</code> or <code>/camera exp</code> — Camera hardware exposure info\n' +
@@ -344,6 +345,7 @@
         case '/config':
         case '/settings':
         case '/set':
+        case '/autotune':
         case '/target':
         case '/action':
         case '/camera':

@@ -37,6 +37,7 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/set targets <cat,dog,bird...>` — set target animal list.
     - `/set actions <sprinklers,screenshot,siren,strobe>` — set active deterrent actions.
     - `/set boost <1-6|off>` — set AI night shadow-lift level (1-Normal to 6-Moonlight Ultra, or off).
+    - `/autotune [on|off]` or `/set autotune <on|off>` — Autonomous Night Vision Auto-Tuner (dynamically auto-balances EV and shadow-lift to prevent whiteout and darkness).
     - `/set exposure <on|off>` — toggle camera hardware EV boost.
     - `/set longexp <auto|low|medium|high|off>` — set night long exposure mode (default `auto` closed-loop light regulation to prevent whiteout).
     - `/set torch_assist <on|off>` — toggle flashlight assist on night alert.
@@ -76,7 +77,8 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
   - **Auto-OLED Screen Blackout:** Automatically transitions to full-screen pitch black (`#000000`) after inactivity (configurable: 30s, 1m default, 2m, 5m, 10m, or off).
   - **Why OLED Blackout vs. OS Lock Screen:** Modern phones (including Xiaomi) have AMOLED displays where black pixels turn completely off (0 nits), reducing display draw by ~90%. Crucially, this keeps the browser in the foreground so camera capture, WebGL TensorFlow AI detection, and Telegram commands continue running 24/7 without being stopped by Android OS sleep.
   - **One-Tap Wake:** Tap anywhere on the glass to instantly wake the control dashboard.
-- **🌙 Auto Night Vision & Extreme Low-Light Enhancement Engine (v5.7):**
+- **🌙 Auto Night Vision & Autonomous Auto-Tuner Engine (v0.8.4):**
+  - **✨ Autonomous Night Vision Auto-Tuner (Default):** Continuously monitors both average scene luma and pixel highlight clipping ($Y > 230$) in closed-loop feedback. It dynamically tunes hardware EV between $0.0$ and $+1.4$ EV and AI shadow-lift presets in real-time, eliminating the need to manually juggle between `longexp`, `exposure`, and `boost` knobs. Guarantees maximum detail visibility without blowing out into solid white snapshots or falling into pitch darkness. Configurable via UI toggle or `/autotune [on|off]`.
   - **Smart Ambient Luma Sensor:** Real-time luminance monitoring ($Y = 0.299R + 0.587G + 0.114B$) automatically switches between Day and Night modes with hysteresis.
   - **Dual Adaptive Sensitivity:** Separate customizable thresholds for Daytime (default `40%`) and Nighttime (default `25%`) to capture dark animal silhouettes without false daytime positives.
   - **🚀 Non-Linear Gamma Shadow-Lift Engine (6 Selectable Levels):** Mathematically expands deep shadows ($RGB < 35$) up into high-visibility range ($RGB\ 80-130$) without crushing dark tones to pure zero black:
