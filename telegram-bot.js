@@ -304,7 +304,7 @@
             '🔄 <code>/refresh</code> — Reload app from GitHub\n\n' +
             '<b>Remote Configuration:</b>\n' +
             '⚙️ <code>/config</code> — View full configuration\n' +
-            '📸 <code>/set autosnap &lt;on|off|5&gt;</code> — Delta auto-snapshots (1-10/min)\n' +
+            '📸 <code>/set autosnap &lt;on|off|5&gt;</code> (or <code>thresh 5</code>) — Auto-snapshots\n' +
             '🔄 <code>/set rotate &lt;0|90|180|270&gt;</code> — Set camera angle\n' +
             '🌱 <code>/set speed &lt;eco|balanced|turbo&gt;</code> — CPU & battery mode\n' +
             '🔋 <code>/set screen &lt;1|2|5|off&gt;</code> — Screen timeout (mins)\n' +

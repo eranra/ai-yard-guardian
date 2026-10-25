@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.7.0"></script>
+  <script src="telegram-bot.js?v=0.7.1"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.7.0 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.7.1 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -547,6 +547,10 @@
               <option value="5" selected>Max 5 / min (Default)</option>
               <option value="10">Max 10 / min (Aggressive)</option>
             </select>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 4px;">
+            <label for="autoSnapThreshRange" style="font-size: 0.74rem; color: #cbd5e1;">Detection Threshold: <b id="autoSnapThreshVal" style="color:#38bdf8;">5%</b></label>
+            <input type="range" id="autoSnapThreshRange" min="1" max="99" value="5" oninput="updateAutoSnapThreshold(this.value)" style="width: 130px; accent-color: #38bdf8;">
           </div>
         </div>
 
@@ -840,9 +844,10 @@
     let isTorchOn = false;
     let cameraCapabilities = {};
 
-    // 📸 Smart Delta Auto-Snapshot Engine (v0.7.0)
+    // 📸 Smart Delta Auto-Snapshot Engine (v0.7.1)
     let autoSnapEnabled = false;
     let autoSnapMaxPerMin = 5;
+    let autoSnapThreshold = 5; // Independent threshold (default 5%)
     let lastDetectionSignature = '__init__';
     let pendingSignature = '';
     let pendingSignatureFrames = 0;
@@ -1136,6 +1141,7 @@
         rotation: cameraRotation,
         autoSnap: autoSnapEnabled,
         autoSnapRate: autoSnapMaxPerMin,
+        autoSnapThreshold: autoSnapThreshold,
         cameraId: cameraSelect ? cameraSelect.value : (localStorage.getItem('yard_guardian_camera_id') || ''),
         cameraLabel: localStorage.getItem('yard_guardian_camera_label') || '',
         screenshotVersion: 1
@@ -1145,6 +1151,7 @@
       localStorage.setItem('yard_guardian_rotation', cameraRotation.toString());
       localStorage.setItem('yard_guardian_autosnap', autoSnapEnabled ? '1' : '0');
       localStorage.setItem('yard_guardian_autosnap_rate', autoSnapMaxPerMin.toString());
+      localStorage.setItem('yard_guardian_autosnap_thresh', autoSnapThreshold.toString());
     }
 
     function loadSettings() {
@@ -1304,6 +1311,19 @@
         const autoSnapRateSel = document.getElementById('autoSnapRateSelect');
         if (autoSnapRateSel) autoSnapRateSel.value = autoSnapMaxPerMin.toString();
 
+        const savedAutoSnapThresh = localStorage.getItem('yard_guardian_autosnap_thresh');
+        if (savedAutoSnapThresh !== null) {
+          const t = parseInt(savedAutoSnapThresh);
+          if (!isNaN(t) && t >= 1 && t <= 99) autoSnapThreshold = t;
+        } else if (s && s.autoSnapThreshold !== undefined) {
+          const t = parseInt(s.autoSnapThreshold);
+          if (!isNaN(t) && t >= 1 && t <= 99) autoSnapThreshold = t;
+        }
+        const autoSnapThreshRangeEl = document.getElementById('autoSnapThreshRange');
+        const autoSnapThreshValEl = document.getElementById('autoSnapThreshVal');
+        if (autoSnapThreshRangeEl) autoSnapThreshRangeEl.value = autoSnapThreshold;
+        if (autoSnapThreshValEl) autoSnapThreshValEl.innerText = autoSnapThreshold + '%';
+
         // Restore collapse/expand state (default to collapsed to save maximum screen space)
         const savedExpanded = localStorage.getItem('yard_guardian_settings_expanded');
         isSettingsExpanded = savedExpanded === '1';
@@ -1444,6 +1464,17 @@
       }
     }
 
+    function updateAutoSnapThreshold(val) {
+      const p = parseInt(val);
+      if (!isNaN(p) && p >= 1 && p <= 99) autoSnapThreshold = p;
+      const el = document.getElementById('autoSnapThreshVal');
+      if (el) el.innerText = autoSnapThreshold + '%';
+      const range = document.getElementById('autoSnapThreshRange');
+      if (range && parseInt(range.value) !== autoSnapThreshold) range.value = autoSnapThreshold;
+      saveSettings();
+      log(`📸 Auto-Snapshot threshold set to: <b>${autoSnapThreshold}%</b> (Independent).`);
+    }
+
     /**
      * Evaluates current scene detection signature against previous signature.
      * Only dispatches an auto-snapshot to Telegram if:
@@ -1522,25 +1553,25 @@
         const frame = getAiInputFrame();
         sCtx.drawImage(frame, 0, 0, targetW, targetH);
 
+        const autoSnapMinScore = autoSnapThreshold / 100;
         const minScore = activeSensitivity / 100;
         let detectedTargets = [];
 
-        // Draw bounding boxes for any objects present
+        // Draw bounding boxes for any objects present meeting autoSnapThreshold
         if (predictions && predictions.length > 0) {
           for (let i = 0; i < predictions.length; i++) {
             const p = predictions[i];
+            if (p.score < autoSnapMinScore) continue;
             const scorePercent = Math.round(p.score * 100);
             const [x, y, w, h] = p.bbox;
 
             if (p.class === safetyClass) {
               drawBox(x, y, w, h, `Human (${scorePercent}%)`, '#f59e0b', sCtx);
-            } else if (activeTargets.includes(p.class) && p.score >= minScore) {
+            } else if (activeTargets.includes(p.class)) {
               detectedTargets.push(`${p.class.toUpperCase()} (${scorePercent}%)`);
               drawBox(x, y, w, h, `🎯 ${p.class.toUpperCase()} (${scorePercent}%)`, '#ef4444', sCtx);
-            } else if (p.score >= minScore) {
-              drawBox(x, y, w, h, `${p.class} (${scorePercent}%)`, '#38bdf8', sCtx);
             } else {
-              drawBox(x, y, w, h, `${p.class} (${scorePercent}%)`, '#64748b', sCtx);
+              drawBox(x, y, w, h, `${p.class} (${scorePercent}%)`, '#38bdf8', sCtx);
             }
           }
         }
@@ -1560,11 +1591,11 @@
 
         let bannerText;
         if (newSig === 'clear') {
-          bannerText = `🛡️ AutoSnap | 👁️ Scene Cleared (All Clear) | 🕒 ${dateStr}`;
+          bannerText = `🛡️ AutoSnap (${autoSnapThreshold}%) | 👁️ Scene Cleared | 🕒 ${dateStr}`;
         } else if (detectedTargets.length > 0) {
-          bannerText = `🛡️ AutoSnap | 🎯 ${detectedTargets.join(', ')} | 🕒 ${dateStr}`;
+          bannerText = `🛡️ AutoSnap (${autoSnapThreshold}%) | 🎯 ${detectedTargets.join(', ')} | 🕒 ${dateStr}`;
         } else {
-          bannerText = `🛡️ AutoSnap | 👁️ Detected: ${newSig} | 🕒 ${dateStr}`;
+          bannerText = `🛡️ AutoSnap (${autoSnapThreshold}%) | 👁️ Detected: ${newSig} | 🕒 ${dateStr}`;
         }
         sCtx.fillText(bannerText, 10, snapCanvas.height - (barHeight / 2));
 
@@ -1586,7 +1617,8 @@
         const caption = `📸 <b>Delta Auto-Snapshot</b> ${quotaInfo}\n` +
                         `${changeDesc}\n` +
                         (seenLabels && seenLabels.length > 0 ? `• <b>Detections:</b> ${seenLabels.join(', ')}\n` : '') +
-                        `• <b>Lighting:</b> ${modeTag} (Sens: ${activeSensitivity}%) | 🔄 ${cameraRotation}°\n` +
+                        `• <b>Threshold:</b> <b>${autoSnapThreshold}%</b> (Independent) | 🔄 ${cameraRotation}°\n` +
+                        `• <b>Lighting:</b> ${modeTag} (Sens: ${activeSensitivity}%)\n` +
                         `• <b>Time:</b> ${dateStr}`;
 
         snapCanvas.toBlob(blob => {
@@ -2317,7 +2349,8 @@
         const minScore = activeSensitivity / 100;
         const enableHumanSafety = document.getElementById('humanSafetyToggle').checked;
         const aiInput = getAiInputFrame();
-        const detectThreshold = Math.max(0.01, Math.min(0.05, minScore));
+        const autoSnapMinScore = autoSnapThreshold / 100;
+        const detectThreshold = Math.max(0.01, Math.min(0.05, autoSnapEnabled ? Math.min(minScore, autoSnapMinScore) : minScore));
         const predictions = await model.detect(aiInput, 20, detectThreshold);
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -2391,12 +2424,12 @@
           statusBadge.className = "badge armed";
         }
 
-        // 📸 Smart Delta Auto-Snapshot Check
+        // 📸 Smart Delta Auto-Snapshot Check (Independent Threshold)
         if (autoSnapEnabled) {
           const counts = {};
           for (let i = 0; i < predictions.length; i++) {
             const p = predictions[i];
-            if (p.score >= minScore) {
+            if (p.score >= autoSnapMinScore) {
               counts[p.class] = (counts[p.class] || 0) + 1;
             }
           }
@@ -2681,7 +2714,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.7.0';
+    const APP_VERSION = 'v0.7.1';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -2710,7 +2743,7 @@
             const torchStr = cameraCapabilities.torch ? (isTorchOn ? "🔦 ON" : "⚪ OFF") : "N/A";
             const targetsStr = (activeTargets && activeTargets.length) ? activeTargets.join(', ') : 'None';
             const activationsStr = (activeActivations && activeActivations.length) ? activeActivations.join(', ') : 'None';
-            const autoSnapStr = autoSnapEnabled ? `📸 Active (Max ${autoSnapMaxPerMin}/min)` : "⚪ Off";
+            const autoSnapStr = autoSnapEnabled ? `📸 Active (Max ${autoSnapMaxPerMin}/min, Thresh: ${autoSnapThreshold}%)` : "⚪ Off";
             reply(
               `🏡 <b>Yard Guardian Status</b>\n\n` +
               `• <b>Version:</b> ${APP_VERSION}\n` +
@@ -2744,7 +2777,7 @@
               `• Auto Screen Saver: <b>${formatTimeoutDisplay(screenSaverTimeoutMinutes)}</b> (<code>/set screen 1|2|5|off</code>)\n` +
               `• Current Screen: <b>${isStealth ? '🌙 OLED Blackout' : '☀️ Awake'}</b> (<code>/screen [on|off]</code>)\n\n` +
               `📸 <b>Smart Delta Auto-Snapshots:</b>\n` +
-              `• State: <b>${autoSnapEnabled ? `ON (Max ${autoSnapMaxPerMin}/min)` : 'OFF'}</b> (<code>/set autosnap on|off|5</code>)\n` +
+              `• State: <b>${autoSnapEnabled ? `ON (Max ${autoSnapMaxPerMin}/min, Thresh: ${autoSnapThreshold}%)` : 'OFF'}</b> (<code>/set autosnap on|off|5</code>, <code>/set autosnap thresh 5</code>)\n` +
               `• Mode: Change-driven snapshots only (animals arriving/leaving)\n\n` +
               `🎯 <b>Target Animals:</b> ${targetsStr}\n` +
               `<i>Edit: <code>/set targets cat,dog,bird</code></i>\n\n` +
@@ -2767,7 +2800,8 @@
             if (!args || args.length < 2) {
               reply(
                 `ℹ️ <b>Usage: /set &lt;option&gt; &lt;value&gt;</b>\n\n` +
-                `• <code>/set autosnap on|off|5</code> — Delta auto-snapshots (1-10/min)\n` +
+                `• <code>/set autosnap on|off|5</code> — Delta auto-snapshots\n` +
+                `• <code>/set autosnap thresh 5</code> — Auto-snapshot threshold (1-99%)\n` +
                 `• <code>/set rotate 270</code> — Camera rotation (0|90|180|270)\n` +
                 `• <code>/set speed eco</code> — AI speed (eco|balanced|turbo)\n` +
                 `• <code>/set screen 1</code> — Auto screen timeout (mins|off)\n` +
@@ -2943,16 +2977,33 @@
                 reply(`📸 <b>Delta Auto-Snapshots:</b> <b>DISABLED</b>`);
               } else if (['on', '1', 'true', 'enable', 'enabled'].includes(lowVal)) {
                 toggleAutoSnap(true);
-                reply(`📸 <b>Delta Auto-Snapshots:</b> <b>ENABLED</b> (Max ${autoSnapMaxPerMin} per minute)\n<i>Sends snapshots only when scene detection changes (arrivals/departures).</i>`);
+                reply(`📸 <b>Delta Auto-Snapshots:</b> <b>ENABLED</b> (Max ${autoSnapMaxPerMin}/min, Thresh: ${autoSnapThreshold}%)\n<i>Sends snapshots only when scene detection changes (arrivals/departures).</i>`);
+              } else if (lowVal.startsWith('thresh') || lowVal.startsWith('sens') || lowVal.startsWith('conf')) {
+                const parts = val.split(/[\s=:]+/);
+                const num = parseInt(parts[1] || parts[0].replace(/\D/g, ''));
+                if (!isNaN(num) && num >= 1 && num <= 99) {
+                  updateAutoSnapThreshold(num);
+                  reply(`📸 <b>Auto-Snapshot Threshold set to:</b> <b>${num}%</b> (Independent of day/night sensitivity).`);
+                } else {
+                  reply("⚠️ Please enter a threshold between 1 and 99% (e.g. <code>/set autosnap thresh 5</code>).");
+                }
               } else {
                 const num = parseInt(val);
                 if (!isNaN(num) && num >= 1 && num <= 20) {
                   onAutoSnapRateChange(num);
                   toggleAutoSnap(true);
-                  reply(`📸 <b>Delta Auto-Snapshots:</b> <b>ENABLED</b> at <b>Max ${num} per minute</b>.`);
+                  reply(`📸 <b>Delta Auto-Snapshots:</b> <b>ENABLED</b> at <b>Max ${num} per minute</b> (Thresh: ${autoSnapThreshold}%).`);
                 } else {
-                  reply(`⚠️ Usage: <code>/set autosnap on</code>, <code>/set autosnap off</code>, or <code>/set autosnap &lt;rate&gt;</code> (e.g. <code>/set autosnap 5</code>).`);
+                  reply(`⚠️ Usage:\n• <code>/set autosnap on|off</code>\n• <code>/set autosnap &lt;rate&gt;</code> (e.g. <code>/set autosnap 5</code>)\n• <code>/set autosnap thresh &lt;%&gt;</code> (e.g. <code>/set autosnap thresh 5</code>)`);
                 }
+              }
+            } else if (key === 'autosnap_thresh' || key === 'autosnap_threshold' || key === 'snap_thresh') {
+              const num = parseInt(val);
+              if (!isNaN(num) && num >= 1 && num <= 99) {
+                updateAutoSnapThreshold(num);
+                reply(`📸 <b>Auto-Snapshot Threshold set to:</b> <b>${num}%</b> (Independent of day/night sensitivity).`);
+              } else {
+                reply("⚠️ Please enter a threshold between 1 and 99% (e.g. <code>/set autosnap_thresh 5</code>).");
               }
             } else if (key === 'webhook') {
               const wInput = document.getElementById('webhookInput');
