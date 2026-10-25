@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.7.5"></script>
+  <script src="telegram-bot.js?v=0.7.6"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.7.5 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.7.6 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -440,6 +440,17 @@
             <option value="90">90° (Clockwise)</option>
             <option value="180">180° (Inverted)</option>
             <option value="270">270° (Counter-Clockwise - Sideways Phone)</option>
+          </select>
+        </div>
+
+        <!-- Camera Resolution Control -->
+        <div class="setting-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <label for="cameraResSelect" style="font-size: 0.76rem; color: #cbd5e1;">📷 Stream Resolution:</label>
+          <select id="cameraResSelect" onchange="setCameraResolution(this.value)" style="background: #0f172a; border: 1px solid #475569; color: #38bdf8; padding: 3px 8px; border-radius: 6px; font-size: 0.74rem; font-weight: bold;">
+            <option value="vga">VGA (640×480 - Cool)</option>
+            <option value="720p">HD 720p (1280×720 - Crisp)</option>
+            <option value="1080p" selected>Full HD 1080p (1920×1080 - Default)</option>
+            <option value="max">Max (4K / Sensor Max)</option>
           </select>
         </div>
 
@@ -657,14 +668,15 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
               <label for="aiFpsSelect" style="font-size: 0.76rem; color: #cbd5e1;">AI Processing Speed:</label>
               <select id="aiFpsSelect" onchange="setAiFpsMode(this.value); saveSettings();" style="background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 3px 8px; border-radius: 4px; font-size: 0.74rem;">
-                <option value="eco" selected>🌱 Eco Mode (3 FPS - Cool &amp; Fast Charge)</option>
+                <option value="eco">🌱 Eco Mode (1 FPS - Ultra Low Power)</option>
+                <option value="eco-fast" selected>⚡ Eco-Fast (3 FPS - Smooth &amp; Fast Charge)</option>
                 <option value="balanced">⚖️ Balanced (5 FPS)</option>
-                <option value="turbo">⚡ Turbo (Uncapped - High CPU)</option>
+                <option value="turbo">🚀 Turbo (Uncapped - High CPU)</option>
               </select>
             </div>
 
             <p style="font-size: 0.72rem; color: #94a3b8; line-height: 1.35; margin: 2px 0 0 0;">
-              💡 <b>Eco Mode:</b> Caps inference to ~3 FPS, dropping CPU/GPU usage by ~75% so the phone runs cool and charges up quickly without thermal throttling.
+              💡 <b>Eco Mode (1 FPS):</b> 1 detection/sec drops heat &amp; power to near zero for maximum battery charging. <b>Eco-Fast (3 FPS):</b> 3 detections/sec maintains smooth animal tracking with ~75% energy savings.
             </p>
             <p style="font-size: 0.72rem; color: #94a3b8; line-height: 1.35; margin: 2px 0 0 0;">
               💡 <b>OLED Screen Blackout:</b> On Xiaomi and AMOLED phones, pure black pixels turn completely off (0 nits), slashing display power by ~90% while camera, AI detection, and Telegram stay running 24/7. Tap anywhere to wake.
@@ -970,18 +982,19 @@
       }, { passive: true });
     });
 
-    // 🌱 AI Processing Speed & Eco Mode Engine (v5.5)
-    let aiFpsMode = 'eco'; // 'eco' (3 FPS), 'balanced' (5 FPS), 'turbo' (Max)
-    let detectionIntervalMs = 330; // ~3 FPS default (reduces CPU/GPU heat by ~75%)
+    // 🌱 AI Processing Speed & Eco Mode Engine (v5.5 / v0.7.6)
+    let aiFpsMode = 'eco-fast'; // 'eco' (1 FPS), 'eco-fast' (3 FPS), 'balanced' (5 FPS), 'turbo' (Max)
+    let detectionIntervalMs = 330; // ~3 FPS default
 
     const FPS_MODES = {
-      'eco': { label: '🌱 Eco (3 FPS)', interval: 330, fps: 3 },
+      'eco': { label: '🌱 Eco (1 FPS)', interval: 1000, fps: 1 },
+      'eco-fast': { label: '⚡ Eco-Fast (3 FPS)', interval: 330, fps: 3 },
       'balanced': { label: '⚖️ Balanced (5 FPS)', interval: 200, fps: 5 },
-      'turbo': { label: '⚡ Turbo (Max)', interval: 0, fps: 'Max' }
+      'turbo': { label: '🚀 Turbo (Max)', interval: 0, fps: 'Max' }
     };
 
     function setAiFpsMode(mode) {
-      if (!FPS_MODES[mode]) mode = 'eco';
+      if (!FPS_MODES[mode]) mode = 'eco-fast';
       aiFpsMode = mode;
       detectionIntervalMs = FPS_MODES[mode].interval;
       localStorage.setItem('yard_guardian_fps_mode', aiFpsMode);
@@ -991,7 +1004,42 @@
     }
 
     function formatFpsModeDisplay() {
-      return (FPS_MODES[aiFpsMode] && FPS_MODES[aiFpsMode].label) || '🌱 Eco (3 FPS)';
+      return (FPS_MODES[aiFpsMode] && FPS_MODES[aiFpsMode].label) || '⚡ Eco-Fast (3 FPS)';
+    }
+
+    // 📷 Camera Stream Resolution Setting (v0.7.6)
+    let cameraResolution = '1080p'; // 'vga', '720p', '1080p', 'max'
+
+    const CAMERA_RESOLUTIONS = {
+      'vga': { label: 'VGA (640×480)', width: { ideal: 640 }, height: { ideal: 480 } },
+      '720p': { label: 'HD 720p (1280×720)', width: { ideal: 1280 }, height: { ideal: 720 } },
+      '1080p': { label: 'Full HD 1080p (1920×1080)', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      'max': { label: 'Max (4K / Sensor Max)', width: { ideal: 3840, max: 4096 }, height: { ideal: 2160, max: 3112 } }
+    };
+
+    async function setCameraResolution(res) {
+      if (!CAMERA_RESOLUTIONS[res]) res = '1080p';
+      cameraResolution = res;
+      localStorage.setItem('yard_guardian_camera_res', cameraResolution);
+      const sel = document.getElementById('cameraResSelect');
+      if (sel) sel.value = cameraResolution;
+      saveSettings();
+      log(`📷 Camera Resolution set to: <b>${CAMERA_RESOLUTIONS[cameraResolution].label}</b>`);
+
+      if (isRunning || currentStream) {
+        try {
+          const savedCameraId = localStorage.getItem('yard_guardian_camera_id') || undefined;
+          await setupCamera(savedCameraId);
+          log(`✅ Camera stream active at: ${video.videoWidth}×${video.videoHeight} (${CAMERA_RESOLUTIONS[cameraResolution].label})`);
+        } catch (err) {
+          log(`⚠️ Error applying camera resolution: ${err.message}`);
+        }
+      }
+    }
+
+    function formatResolutionDisplay() {
+      const actual = (video && video.videoWidth && video.videoHeight) ? ` (${video.videoWidth}×${video.videoHeight})` : '';
+      return `${(CAMERA_RESOLUTIONS[cameraResolution] && CAMERA_RESOLUTIONS[cameraResolution].label) || cameraResolution}${actual}`;
     }
 
     // Offscreen canvas for fast ambient luma calculation
@@ -1150,6 +1198,7 @@
         activations: activeActivations,
         screenTimeout: screenSaverTimeoutMinutes,
         fpsMode: aiFpsMode,
+        cameraRes: cameraResolution,
         rotation: cameraRotation,
         autoSnap: autoSnapEnabled,
         autoSnapRate: autoSnapMaxPerMin,
@@ -1161,6 +1210,7 @@
       };
       localStorage.setItem('yard_guardian_settings', JSON.stringify(settings));
       localStorage.setItem('yard_guardian_boost_level', nightBoostLevel.toString());
+      localStorage.setItem('yard_guardian_camera_res', cameraResolution);
       localStorage.setItem('yard_guardian_rotation', cameraRotation.toString());
       localStorage.setItem('yard_guardian_autosnap', autoSnapEnabled ? '1' : '0');
       localStorage.setItem('yard_guardian_autosnap_rate', autoSnapMaxPerMin.toString());
@@ -1297,6 +1347,16 @@
         const qBtn = document.getElementById('quickRotateBtn');
         if (qBtn) qBtn.innerText = `🔄 ${cameraRotation}°`;
         updateViewportOrientation();
+
+        // Restore Camera Resolution (v0.7.6)
+        const savedRes = localStorage.getItem('yard_guardian_camera_res');
+        if (savedRes && CAMERA_RESOLUTIONS[savedRes]) {
+          cameraResolution = savedRes;
+        } else if (s && s.cameraRes && CAMERA_RESOLUTIONS[s.cameraRes]) {
+          cameraResolution = s.cameraRes;
+        }
+        const resSel = document.getElementById('cameraResSelect');
+        if (resSel) resSel.value = cameraResolution;
 
         // Restore Delta Auto-Snapshot Settings (v0.7.0)
         const savedAutoSnap = localStorage.getItem('yard_guardian_autosnap');
@@ -2267,9 +2327,10 @@
       }
 
       const savedCameraId = preferredDeviceId || localStorage.getItem('yard_guardian_camera_id');
+      const resConfig = CAMERA_RESOLUTIONS[cameraResolution] || CAMERA_RESOLUTIONS['1080p'];
       let videoConstraints = {
-        width: { ideal: 640 },
-        height: { ideal: 480 }
+        width: resConfig.width,
+        height: resConfig.height
       };
 
       if (savedCameraId) {
@@ -2286,14 +2347,21 @@
       } catch (err) {
         try {
           currentStream = await navigator.mediaDevices.getUserMedia({
-            video: { deviceId: savedCameraId ? { ideal: savedCameraId } : undefined, facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+            video: { deviceId: savedCameraId ? { ideal: savedCameraId } : undefined, facingMode: 'environment', width: resConfig.width, height: resConfig.height },
             audio: false
           });
         } catch (err2) {
-          currentStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: false
-          });
+          try {
+            currentStream = await navigator.mediaDevices.getUserMedia({
+              video: { deviceId: savedCameraId ? { ideal: savedCameraId } : undefined, facingMode: 'environment' },
+              audio: false
+            });
+          } catch (err3) {
+            currentStream = await navigator.mediaDevices.getUserMedia({
+              video: true,
+              audio: false
+            });
+          }
         }
       }
 
@@ -2877,7 +2945,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.7.5';
+    const APP_VERSION = 'v0.7.6';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -2915,6 +2983,7 @@
               `• <b>Screen:</b> ${screenStr}\n` +
               `• <b>Battery:</b> ${batteryStr}\n` +
               `• <b>AI Speed:</b> ${fpsStr}\n` +
+              `• <b>Resolution:</b> ${formatResolutionDisplay()}\n` +
               `• <b>Rotation:</b> ${cameraRotation}°\n` +
               `• <b>Auto-Snapshots:</b> ${autoSnapStr}\n` +
               `• <b>Noise Filter:</b> ${noiseStr}\n` +
@@ -2938,7 +3007,7 @@
               `⚙️ <b>AI Yard Guardian Full Configuration</b>\n\n` +
               `🔋 <b>Battery &amp; Power Optimization:</b>\n` +
               `• Battery: <b>${formatBatteryString()}</b>\n` +
-              `• AI Processing Speed: <b>${formatFpsModeDisplay()}</b> (<code>/set speed eco|balanced|turbo</code>)\n` +
+              `• AI Processing Speed: <b>${formatFpsModeDisplay()}</b> (<code>/set speed eco|eco-fast|balanced|turbo</code>)\n` +
               `• Auto Screen Saver: <b>${formatTimeoutDisplay(screenSaverTimeoutMinutes)}</b> (<code>/set screen 1|2|5|off</code>)\n` +
               `• Current Screen: <b>${isStealth ? '🌙 OLED Blackout' : '☀️ Awake'}</b> (<code>/screen [on|off]</code>)\n\n` +
               `📸 <b>Smart Delta Auto-Snapshots:</b>\n` +
@@ -2958,6 +3027,7 @@
               `• Hardware Exposure: <b>${hardwareExposureBoost ? 'ON' : 'OFF'}</b> (<code>/set exposure on|off</code>)\n` +
               `• Torch Assist on Alert: <b>${torchAssistEnabled ? 'ON' : 'OFF'}</b> (<code>/set torch_assist on|off</code>)\n\n` +
               `🔄 <b>Camera Orientation:</b> <b>${cameraRotation}°</b> (<code>/rotate</code> or <code>/set rotate 0|90|180|270</code>)\n` +
+              `📷 <b>Camera Resolution:</b> <b>${formatResolutionDisplay()}</b> (<code>/set res vga|720p|1080p|max</code>)\n` +
               `🔒 <b>Human Safety Pause:</b> <b>${safetyOn ? 'ON' : 'OFF'}</b> (<code>/set safety on|off</code>)\n` +
               `📷 <b>Active Lens:</b> ${camName} (<code>/camera list</code>)\n` +
               `💧 <b>Smart Life Webhook:</b> ${webhookDisplay} (<code>/set webhook &lt;url&gt;</code>)`
@@ -2966,11 +3036,12 @@
             if (!args || args.length < 2) {
               reply(
                 `ℹ️ <b>Usage: /set &lt;option&gt; &lt;value&gt;</b>\n\n` +
+                `• <code>/set res 1080p</code> — Stream resolution (vga|720p|1080p|max)\n` +
+                `• <code>/set speed eco-fast</code> — AI speed (eco|eco-fast|balanced|turbo)\n` +
                 `• <code>/set autosnap on|off|5</code> — Delta auto-snapshots\n` +
                 `• <code>/set autosnap thresh 5</code> — Auto-snapshot threshold (1-99%)\n` +
                 `• <code>/set autosnap noise on|off|clear</code> — Noise learning filter\n` +
                 `• <code>/set rotate 270</code> — Camera rotation (0|90|180|270)\n` +
-                `• <code>/set speed eco</code> — AI speed (eco|balanced|turbo)\n` +
                 `• <code>/set screen 1</code> — Auto screen timeout (mins|off)\n` +
                 `• <code>/set day 40</code> — Daytime sensitivity (1-99%)\n` +
                 `• <code>/set night 25</code> — Nighttime sensitivity (1-99%)\n` +
@@ -2988,22 +3059,41 @@
             const key = args[0].toLowerCase().replace(/^\//, '');
             const val = args.slice(1).join(' ').trim();
 
-            if (key === 'speed' || key === 'fps' || key === 'rate' || key === 'eco') {
+            if (key === 'speed' || key === 'fps' || key === 'rate') {
               const lowVal = val.toLowerCase();
-              let targetMode = 'eco';
+              let targetMode = 'eco-fast';
               if (lowVal.includes('turbo') || lowVal.includes('max') || lowVal === '0') {
                 targetMode = 'turbo';
               } else if (lowVal.includes('bal') || lowVal === '5') {
                 targetMode = 'balanced';
-              } else if (lowVal.includes('eco') || lowVal === '3' || lowVal === 'slow') {
+              } else if (lowVal.includes('fast') || lowVal === '3' || lowVal === 'eco-fast' || lowVal === 'ecofast') {
+                targetMode = 'eco-fast';
+              } else if (lowVal.includes('eco') || lowVal === '1' || lowVal === 'slow') {
                 targetMode = 'eco';
               } else {
-                reply("⚠️ Please enter a valid AI speed: <code>eco</code> (3 FPS), <code>balanced</code> (5 FPS), or <code>turbo</code> (Uncapped).");
+                reply("⚠️ Please enter a valid AI speed: <code>eco</code> (1 FPS), <code>eco-fast</code> (3 FPS), <code>balanced</code> (5 FPS), or <code>turbo</code> (Uncapped).");
                 return;
               }
               setAiFpsMode(targetMode);
               saveSettings();
-              reply(`⚡ <b>AI Processing Speed set to:</b> <b>${formatFpsModeDisplay()}</b>\n${targetMode === 'eco' ? '🌱 Phone CPU/GPU usage cut by ~75% — phone runs cool and charges up quickly.' : ''}`);
+              reply(`⚡ <b>AI Processing Speed set to:</b> <b>${formatFpsModeDisplay()}</b>\n${targetMode === 'eco' ? '🌱 1 detection/sec — phone stays ice-cold and charges up quickly.' : (targetMode === 'eco-fast' ? '⚡ 3 detections/sec — smooth tracking with ~75% energy savings.' : '')}`);
+            } else if (key === 'res' || key === 'resolution') {
+              const lowVal = val.toLowerCase();
+              let targetRes = '1080p';
+              if (lowVal.includes('max') || lowVal.includes('4k') || lowVal.includes('uhd')) {
+                targetRes = 'max';
+              } else if (lowVal.includes('1080') || lowVal.includes('fhd')) {
+                targetRes = '1080p';
+              } else if (lowVal.includes('720') || lowVal.includes('hd')) {
+                targetRes = '720p';
+              } else if (lowVal.includes('vga') || lowVal.includes('480') || lowVal.includes('low') || lowVal.includes('cold')) {
+                targetRes = 'vga';
+              } else {
+                reply("⚠️ Please enter a valid resolution: <code>vga</code> (640×480), <code>720p</code> (1280×720), <code>1080p</code> (1920×1080), or <code>max</code> (4K / Sensor Max).");
+                return;
+              }
+              await setCameraResolution(targetRes);
+              reply(`📷 <b>Camera Resolution set to:</b> <b>${formatResolutionDisplay()}</b>\n${targetRes === 'max' ? '✨ Maximized camera sensor resolution for sharpest detail.' : ''}`);
             } else if (key === 'screen' || key === 'timeout' || key === 'screensaver' || key === 'screen_timeout') {
               let num = 1;
               const lowVal = val.toLowerCase();

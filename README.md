@@ -24,7 +24,8 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/set autosnap noise <on|off|clear>` — toggle automatic noise object learning (60m sliding TTL) or clear current learned noise objects.
     - `/rotate [angle]` — rotate camera 90° clockwise (or set direct angle e.g. `/rotate 270`) and immediately send back a test snapshot.
     - `/set rotate <0|90|180|270>` — set exact camera rotation angle directly (e.g. `/set rotate 270` for sideways phones).
-    - `/set speed <eco|balanced|turbo>` — set AI detection rate (Eco 3 FPS default, Balanced 5 FPS, Turbo Uncapped).
+    - `/res <vga|720p|1080p|max>` or `/set res <vga|720p|1080p|max>` — set camera stream resolution (VGA 640×480, 720p HD, 1080p Full HD default, or Max 4K/sensor hardware maximum).
+    - `/speed <eco|eco-fast|balanced|turbo>` or `/set speed <eco|eco-fast|balanced|turbo>` — set AI detection rate (Eco 1 FPS Ultra Low Power, Eco-Fast 3 FPS Smooth, Balanced 5 FPS, Turbo Uncapped).
     - `/set screen <1|2|5|10|30s|off>` — set auto-blackout inactivity timeout (default `1` minute).
     - `/set day <1-99>` — set daytime sensitivity threshold (e.g. `/set day 15`).
     - `/set night <1-99>` — set nighttime sensitivity threshold (e.g. `/set night 5` or `1` for maximum detection).
@@ -58,7 +59,8 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - Controllable via quick UI button `[ 🔄 Rotate ]`, Settings dropdown, or Telegram `/rotate [angle]` and `/set rotate <angle>` commands.
     - Full persistence across reloads/refresh for both camera rotation and shadow boost level.
 - **🔋 Battery Life Reporting & Power Optimization:**
-  - **🌱 AI Eco Processing Rate (CPU & Heat Reduction):** Caps deep neural net inference to ~3 FPS (~330ms intervals) by default (options: Eco 3 FPS, Balanced 5 FPS, Turbo Uncapped). Slashes continuous CPU/GPU load from 100% down to ~20%, keeping the phone cool and preventing Android/Xiaomi thermal charge throttling so your phone charges quickly to 100% while still catching every intruder.
+  - **🌱 AI Eco Processing Rate (CPU & Heat Reduction):** Configurable inference speeds: **Eco Mode (1 FPS / 1000ms)** drops CPU/GPU usage to near zero so the phone stays cold and charges at maximum wattage; **Eco-Fast (3 FPS / 330ms)** maintains smooth animal tracking with ~75% energy savings; **Balanced (5 FPS)**; and **Turbo (Uncapped)**.
+  - **📷 Camera Stream Resolution Setting (v0.7.6):** Select stream resolution between `vga` (640×480 - Cold), `720p` (1280×720 - HD), `1080p` (1920×1080 - Full HD Default), and `max` (3840×2160 / 4K / Sensor Max) via UI dropdown or `/set res <vga|720p|1080p|max>`. Higher resolutions produce ultra-sharp Telegram auto-snapshots while MobileNet efficiently downscales for fast inference.
   - **Live Battery Telemetry:** Real-time battery percentage and charging status tracked via the Battery Status API, reported on the top header badge, in `/status`, and in `/config`.
   - **Auto-OLED Screen Blackout:** Automatically transitions to full-screen pitch black (`#000000`) after inactivity (configurable: 30s, 1m default, 2m, 5m, 10m, or off).
   - **Why OLED Blackout vs. OS Lock Screen:** Modern phones (including Xiaomi) have AMOLED displays where black pixels turn completely off (0 nits), reducing display draw by ~90%. Crucially, this keeps the browser in the foreground so camera capture, WebGL TensorFlow AI detection, and Telegram commands continue running 24/7 without being stopped by Android OS sleep.
