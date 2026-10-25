@@ -44,7 +44,7 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/torch [on|off]` — remotely toggle phone flashlight/torch.
     - `/status` — check battery level (%, charging/discharging), screen state, AI speed, rotation, armed status, and ambient lighting.
     - `/refresh` — remotely clear browser cache and reload the application from GitHub Pages.
-- **🔄 Complete 360° Camera Stream Rotation & Orientation Engine (v5.8):**
+- **🔄 Complete 360° Camera Stream Rotation & Orientation Engine (v0.5.8):**
   - **The Problem Solved:** When phones are mounted horizontally on a window sill or stand, Android's hardware camera sensor outputs portrait pixels sideways relative to the horizon.
   - **The Solution:** Full hardware rotation transform (`0°`, `90°`, `180°`, `270°`) applied across the entire processing pipeline:
     - Rotates the live `<video>` viewport and aspect ratio seamlessly.
