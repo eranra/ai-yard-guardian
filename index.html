@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.7.2"></script>
+  <script src="telegram-bot.js?v=0.7.3"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.7.2 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.7.3 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -554,12 +554,12 @@
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #334155;">
             <label class="toggle" style="font-size: 0.74rem; color: #cbd5e1;">
-              <input type="checkbox" id="autoSnapNoiseToggle" checked onchange="toggleAutoSnapNoiseLearning(this.checked)"> 🧠 Learn Noisy Objects (1h Reset)
+              <input type="checkbox" id="autoSnapNoiseToggle" checked onchange="toggleAutoSnapNoiseLearning(this.checked)"> 🧠 Learn Noisy Objects (60m Sliding TTL)
             </label>
             <button type="button" onclick="clearAutoSnapNoiseFilter()" style="background: #1e293b; color: #94a3b8; border: 1px solid #334155; padding: 2px 6px; border-radius: 4px; font-size: 0.68rem; cursor: pointer;" title="Reset learned noise objects immediately">🧹 Clear</button>
           </div>
           <div id="autoSnapNoiseStatus" style="font-size: 0.68rem; color: #64748b; line-height: 1.2; width: 100%; margin-top: 2px;">
-            Learned noise: <span id="autoSnapNoiseList" style="color: #94a3b8;">None</span> (resets hourly)
+            Learned noise: <span id="autoSnapNoiseList" style="color: #94a3b8;">None</span> (60m sliding TTL)
           </div>
         </div>
 
@@ -853,14 +853,13 @@
     let isTorchOn = false;
     let cameraCapabilities = {};
 
-    // 📸 Smart Delta Auto-Snapshot Engine (v0.7.2)
+    // 📸 Smart Delta Auto-Snapshot Engine (v0.7.3)
     let autoSnapEnabled = false;
     let autoSnapMaxPerMin = 5;
     let autoSnapThreshold = 5; // Independent threshold (default 5%)
     let autoSnapLearnNoise = true; // Auto-learn non-target noisy objects
-    let autoSnapLearnedNoise = new Set(); // Set of learned non-target class names
-    let lastNoiseResetTime = Date.now();
-    const NOISE_RESET_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+    let autoSnapLearnedNoise = new Map(); // className -> lastSeenTimestamp (60m sliding TTL)
+    const NOISE_TTL_MS = 60 * 60 * 1000; // 60 minutes continuous sliding window
     let lastDetectionSignature = '__init__';
     let pendingSignature = '';
     let pendingSignatureFrames = 0;
@@ -1524,6 +1523,17 @@
       return changed;
     }
 
+    function pruneExpiredNoise(now = Date.now()) {
+      let pruned = 0;
+      for (const [cls, lastSeen] of autoSnapLearnedNoise.entries()) {
+        if (now - lastSeen > NOISE_TTL_MS) {
+          autoSnapLearnedNoise.delete(cls);
+          pruned++;
+        }
+      }
+      return pruned;
+    }
+
     function toggleAutoSnapNoiseLearning(enabled) {
       autoSnapLearnNoise = !!enabled;
       const toggle = document.getElementById('autoSnapNoiseToggle');
@@ -1533,13 +1543,12 @@
       }
       updateAutoSnapNoiseUI();
       saveSettings();
-      log(`🧠 Auto-Snap noise learning ${autoSnapLearnNoise ? '<b>ENABLED</b> (Hourly refresh)' : '<b>DISABLED</b>'}.`);
+      log(`🧠 Auto-Snap noise learning ${autoSnapLearnNoise ? '<b>ENABLED</b> (60m sliding TTL)' : '<b>DISABLED</b>'}.`);
     }
 
     function clearAutoSnapNoiseFilter() {
       const count = autoSnapLearnedNoise.size;
       autoSnapLearnedNoise.clear();
-      lastNoiseResetTime = Date.now();
       updateAutoSnapNoiseUI();
       log(`🧹 Auto-Snap noise filter cleared (${count} objects removed).`);
     }
@@ -1552,13 +1561,18 @@
         listEl.style.color = "#64748b";
         return;
       }
+      const now = Date.now();
+      pruneExpiredNoise(now);
       if (autoSnapLearnedNoise.size === 0) {
         listEl.innerText = "None (listening)";
         listEl.style.color = "#94a3b8";
       } else {
-        const arr = Array.from(autoSnapLearnedNoise);
-        const minsRemaining = Math.max(0, Math.round((NOISE_RESET_INTERVAL_MS - (Date.now() - lastNoiseResetTime)) / 60000));
-        listEl.innerText = `${arr.join(', ')} (${minsRemaining}m left)`;
+        const items = [];
+        for (const [cls, lastSeen] of autoSnapLearnedNoise.entries()) {
+          const minsLeft = Math.max(1, Math.round((NOISE_TTL_MS - (now - lastSeen)) / 60000));
+          items.push(`${cls} (${minsLeft}m)`);
+        }
+        listEl.innerText = items.join(', ');
         listEl.style.color = "#38bdf8";
       }
     }
@@ -1578,14 +1592,20 @@
 
       const now = Date.now();
 
-      // Hourly reset of learned noise objects
-      if (now - lastNoiseResetTime >= NOISE_RESET_INTERVAL_MS) {
-        if (autoSnapLearnedNoise.size > 0) {
-          log(`🧹 Auto-Snap hourly noise filter refreshed (cleared ${autoSnapLearnedNoise.size} objects).`);
-          autoSnapLearnedNoise.clear();
-          updateAutoSnapNoiseUI();
+      // Prune and refresh continuous 60m sliding TTL for learned non-target noise objects
+      if (autoSnapLearnNoise) {
+        pruneExpiredNoise(now);
+
+        // Continuously refresh TTL for currently visible non-target noise objects so they never expire while in the yard
+        if (predictions && predictions.length > 0 && autoSnapLearnedNoise.size > 0) {
+          const autoSnapMinScore = autoSnapThreshold / 100;
+          for (let i = 0; i < predictions.length; i++) {
+            const p = predictions[i];
+            if (p.score >= autoSnapMinScore && autoSnapLearnedNoise.has(p.class)) {
+              autoSnapLearnedNoise.set(p.class, now);
+            }
+          }
         }
-        lastNoiseResetTime = now;
       }
 
       // Initial boot guard: if system just started and scene is clear, initialize quietly
@@ -1728,7 +1748,7 @@
 
         const modeTag = isNightMode ? `🌙 Night Boost Lvl ${nightBoostLevel}` : `☀️ Day`;
         const noiseTag = autoSnapLearnNoise && autoSnapLearnedNoise.size > 0 
-          ? `• <b>Noise Filter:</b> Active (${autoSnapLearnedNoise.size} objects silenced for 1h)\n`
+          ? `• <b>Noise Filter:</b> Active (${autoSnapLearnedNoise.size} objects silenced, 60m sliding TTL)\n`
           : '';
 
         const caption = `📸 <b>Delta Auto-Snapshot</b> ${quotaInfo}\n` +
@@ -1746,24 +1766,25 @@
           }
         }, 'image/jpeg', 0.85);
 
-        // Learn newly observed non-target objects into hourly noise filter
+        // Learn newly observed non-target objects into 60m sliding noise filter
         if (autoSnapLearnNoise && predictions && predictions.length > 0) {
           const autoSnapMinScore = autoSnapThreshold / 100;
           let newlyLearned = [];
+          const now = Date.now();
           for (let i = 0; i < predictions.length; i++) {
             const p = predictions[i];
             if (p.score >= autoSnapMinScore) {
               if (!activeTargets.includes(p.class) && p.class !== safetyClass) {
                 if (!autoSnapLearnedNoise.has(p.class)) {
-                  autoSnapLearnedNoise.add(p.class);
                   newlyLearned.push(p.class);
                 }
+                autoSnapLearnedNoise.set(p.class, now);
               }
             }
           }
           if (newlyLearned.length > 0) {
             updateAutoSnapNoiseUI();
-            log(`🧠 Learned noise objects added to hourly filter: <b>${newlyLearned.join(', ')}</b>.`);
+            log(`🧠 Learned noise objects added to 60m sliding filter: <b>${newlyLearned.join(', ')}</b>.`);
           }
         }
 
@@ -2853,7 +2874,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.7.1';
+    const APP_VERSION = 'v0.7.3';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -2883,7 +2904,7 @@
             const targetsStr = (activeTargets && activeTargets.length) ? activeTargets.join(', ') : 'None';
             const activationsStr = (activeActivations && activeActivations.length) ? activeActivations.join(', ') : 'None';
             const autoSnapStr = autoSnapEnabled ? `📸 Active (Max ${autoSnapMaxPerMin}/min, Thresh: ${autoSnapThreshold}%)` : "⚪ Off";
-            const noiseStr = autoSnapLearnNoise ? `🧠 Active (${autoSnapLearnedNoise.size > 0 ? Array.from(autoSnapLearnedNoise).join(', ') : 'Learning...'})` : "⚪ Off";
+            const noiseStr = autoSnapLearnNoise ? `🧠 Active (${autoSnapLearnedNoise.size > 0 ? Array.from(autoSnapLearnedNoise.keys()).join(', ') : 'Learning...'})` : "⚪ Off";
             reply(
               `🏡 <b>Yard Guardian Status</b>\n\n` +
               `• <b>Version:</b> ${APP_VERSION}\n` +
@@ -2919,7 +2940,7 @@
               `• Current Screen: <b>${isStealth ? '🌙 OLED Blackout' : '☀️ Awake'}</b> (<code>/screen [on|off]</code>)\n\n` +
               `📸 <b>Smart Delta Auto-Snapshots:</b>\n` +
               `• State: <b>${autoSnapEnabled ? `ON (Max ${autoSnapMaxPerMin}/min, Thresh: ${autoSnapThreshold}%)` : 'OFF'}</b> (<code>/set autosnap on|off|5</code>, <code>/set autosnap thresh 5</code>)\n` +
-              `• Noise Filter: <b>${autoSnapLearnNoise ? `Active (${autoSnapLearnedNoise.size > 0 ? Array.from(autoSnapLearnedNoise).join(', ') : 'Empty'})` : 'Disabled'}</b> (<code>/set autosnap noise on|off|clear</code>)\n` +
+              `• Noise Filter: <b>${autoSnapLearnNoise ? `Active (${autoSnapLearnedNoise.size > 0 ? Array.from(autoSnapLearnedNoise.keys()).join(', ') : 'Empty'})` : 'Disabled'}</b> (60m sliding TTL) (<code>/set autosnap noise on|off|clear</code>)\n` +
               `• Mode: Change-driven snapshots only (animals arriving/leaving)\n\n` +
               `🎯 <b>Target Animals:</b> ${targetsStr}\n` +
               `<i>Edit: <code>/set targets cat,dog,bird</code></i>\n\n` +
@@ -3125,7 +3146,7 @@
                   reply(`🧹 <b>Auto-Snap Noise Filter Cleared!</b> (All learned non-target objects reset)`);
                 } else {
                   toggleAutoSnapNoiseLearning(true);
-                  reply(`🧠 <b>Auto-Snap Noise Filter:</b> <b>ENABLED</b> (Hourly refresh cycle, currently ignoring: ${autoSnapLearnedNoise.size > 0 ? Array.from(autoSnapLearnedNoise).join(', ') : 'None yet'})`);
+                  reply(`🧠 <b>Auto-Snap Noise Filter:</b> <b>ENABLED</b> (60m sliding TTL, currently ignoring: ${autoSnapLearnedNoise.size > 0 ? Array.from(autoSnapLearnedNoise.keys()).join(', ') : 'None yet'})`);
                 }
               } else if (['off', '0', 'false', 'disable', 'disabled'].includes(lowVal)) {
                 toggleAutoSnap(false);
@@ -3170,7 +3191,7 @@
                 reply(`🧹 <b>Auto-Snap Noise Filter Cleared!</b> (All learned non-target objects reset)`);
               } else {
                 toggleAutoSnapNoiseLearning(true);
-                reply(`🧠 <b>Auto-Snap Noise Filter:</b> <b>ENABLED</b> (Hourly refresh cycle, currently ignoring: ${autoSnapLearnedNoise.size > 0 ? Array.from(autoSnapLearnedNoise).join(', ') : 'None yet'})`);
+                reply(`🧠 <b>Auto-Snap Noise Filter:</b> <b>ENABLED</b> (60m sliding TTL, currently ignoring: ${autoSnapLearnedNoise.size > 0 ? Array.from(autoSnapLearnedNoise.keys()).join(', ') : 'None yet'})`);
               }
             } else if (key === 'webhook') {
               const wInput = document.getElementById('webhookInput');
