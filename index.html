@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.7.1"></script>
+  <script src="telegram-bot.js?v=0.7.2"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.7.1 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.7.2 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -551,6 +551,15 @@
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 4px;">
             <label for="autoSnapThreshRange" style="font-size: 0.74rem; color: #cbd5e1;">Detection Threshold: <b id="autoSnapThreshVal" style="color:#38bdf8;">5%</b></label>
             <input type="range" id="autoSnapThreshRange" min="1" max="99" value="5" oninput="updateAutoSnapThreshold(this.value)" style="width: 130px; accent-color: #38bdf8;">
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #334155;">
+            <label class="toggle" style="font-size: 0.74rem; color: #cbd5e1;">
+              <input type="checkbox" id="autoSnapNoiseToggle" checked onchange="toggleAutoSnapNoiseLearning(this.checked)"> 🧠 Learn Noisy Objects (1h Reset)
+            </label>
+            <button type="button" onclick="clearAutoSnapNoiseFilter()" style="background: #1e293b; color: #94a3b8; border: 1px solid #334155; padding: 2px 6px; border-radius: 4px; font-size: 0.68rem; cursor: pointer;" title="Reset learned noise objects immediately">🧹 Clear</button>
+          </div>
+          <div id="autoSnapNoiseStatus" style="font-size: 0.68rem; color: #64748b; line-height: 1.2; width: 100%; margin-top: 2px;">
+            Learned noise: <span id="autoSnapNoiseList" style="color: #94a3b8;">None</span> (resets hourly)
           </div>
         </div>
 
@@ -844,10 +853,14 @@
     let isTorchOn = false;
     let cameraCapabilities = {};
 
-    // 📸 Smart Delta Auto-Snapshot Engine (v0.7.1)
+    // 📸 Smart Delta Auto-Snapshot Engine (v0.7.2)
     let autoSnapEnabled = false;
     let autoSnapMaxPerMin = 5;
     let autoSnapThreshold = 5; // Independent threshold (default 5%)
+    let autoSnapLearnNoise = true; // Auto-learn non-target noisy objects
+    let autoSnapLearnedNoise = new Set(); // Set of learned non-target class names
+    let lastNoiseResetTime = Date.now();
+    const NOISE_RESET_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
     let lastDetectionSignature = '__init__';
     let pendingSignature = '';
     let pendingSignatureFrames = 0;
@@ -1142,6 +1155,7 @@
         autoSnap: autoSnapEnabled,
         autoSnapRate: autoSnapMaxPerMin,
         autoSnapThreshold: autoSnapThreshold,
+        autoSnapLearnNoise: autoSnapLearnNoise,
         cameraId: cameraSelect ? cameraSelect.value : (localStorage.getItem('yard_guardian_camera_id') || ''),
         cameraLabel: localStorage.getItem('yard_guardian_camera_label') || '',
         screenshotVersion: 1
@@ -1152,6 +1166,7 @@
       localStorage.setItem('yard_guardian_autosnap', autoSnapEnabled ? '1' : '0');
       localStorage.setItem('yard_guardian_autosnap_rate', autoSnapMaxPerMin.toString());
       localStorage.setItem('yard_guardian_autosnap_thresh', autoSnapThreshold.toString());
+      localStorage.setItem('yard_guardian_autosnap_noise', autoSnapLearnNoise ? '1' : '0');
     }
 
     function loadSettings() {
@@ -1324,6 +1339,16 @@
         if (autoSnapThreshRangeEl) autoSnapThreshRangeEl.value = autoSnapThreshold;
         if (autoSnapThreshValEl) autoSnapThreshValEl.innerText = autoSnapThreshold + '%';
 
+        const savedAutoSnapNoise = localStorage.getItem('yard_guardian_autosnap_noise');
+        if (savedAutoSnapNoise !== null) {
+          autoSnapLearnNoise = savedAutoSnapNoise !== '0';
+        } else if (s && s.autoSnapLearnNoise !== undefined) {
+          autoSnapLearnNoise = !!s.autoSnapLearnNoise;
+        }
+        const autoSnapNoiseToggleEl = document.getElementById('autoSnapNoiseToggle');
+        if (autoSnapNoiseToggleEl) autoSnapNoiseToggleEl.checked = autoSnapLearnNoise;
+        updateAutoSnapNoiseUI();
+
         // Restore collapse/expand state (default to collapsed to save maximum screen space)
         const savedExpanded = localStorage.getItem('yard_guardian_settings_expanded');
         isSettingsExpanded = savedExpanded === '1';
@@ -1475,6 +1500,69 @@
       log(`📸 Auto-Snapshot threshold set to: <b>${autoSnapThreshold}%</b> (Independent).`);
     }
 
+    function parseDetectionSignature(sig) {
+      if (!sig || sig === 'clear' || sig === '__init__') return {};
+      const map = {};
+      const parts = sig.split(',');
+      for (let i = 0; i < parts.length; i++) {
+        const [cls, cnt] = parts[i].split(':');
+        if (cls) map[cls] = parseInt(cnt) || 1;
+      }
+      return map;
+    }
+
+    function getSignatureChangedClasses(sigA, sigB) {
+      const mapA = parseDetectionSignature(sigA);
+      const mapB = parseDetectionSignature(sigB);
+      const allKeys = new Set([...Object.keys(mapA), ...Object.keys(mapB)]);
+      const changed = [];
+      for (const k of allKeys) {
+        if ((mapA[k] || 0) !== (mapB[k] || 0)) {
+          changed.push(k);
+        }
+      }
+      return changed;
+    }
+
+    function toggleAutoSnapNoiseLearning(enabled) {
+      autoSnapLearnNoise = !!enabled;
+      const toggle = document.getElementById('autoSnapNoiseToggle');
+      if (toggle && toggle.checked !== autoSnapLearnNoise) toggle.checked = autoSnapLearnNoise;
+      if (!autoSnapLearnNoise) {
+        autoSnapLearnedNoise.clear();
+      }
+      updateAutoSnapNoiseUI();
+      saveSettings();
+      log(`🧠 Auto-Snap noise learning ${autoSnapLearnNoise ? '<b>ENABLED</b> (Hourly refresh)' : '<b>DISABLED</b>'}.`);
+    }
+
+    function clearAutoSnapNoiseFilter() {
+      const count = autoSnapLearnedNoise.size;
+      autoSnapLearnedNoise.clear();
+      lastNoiseResetTime = Date.now();
+      updateAutoSnapNoiseUI();
+      log(`🧹 Auto-Snap noise filter cleared (${count} objects removed).`);
+    }
+
+    function updateAutoSnapNoiseUI() {
+      const listEl = document.getElementById('autoSnapNoiseList');
+      if (!listEl) return;
+      if (!autoSnapLearnNoise) {
+        listEl.innerText = "Disabled";
+        listEl.style.color = "#64748b";
+        return;
+      }
+      if (autoSnapLearnedNoise.size === 0) {
+        listEl.innerText = "None (listening)";
+        listEl.style.color = "#94a3b8";
+      } else {
+        const arr = Array.from(autoSnapLearnedNoise);
+        const minsRemaining = Math.max(0, Math.round((NOISE_RESET_INTERVAL_MS - (Date.now() - lastNoiseResetTime)) / 60000));
+        listEl.innerText = `${arr.join(', ')} (${minsRemaining}m left)`;
+        listEl.style.color = "#38bdf8";
+      }
+    }
+
     /**
      * Evaluates current scene detection signature against previous signature.
      * Only dispatches an auto-snapshot to Telegram if:
@@ -1482,10 +1570,23 @@
      * 2. The detection signature actually changed (new animal, animal departed, or count changed).
      * 3. Change is stable for 2 consecutive frames (anti-flicker debounce).
      * 4. Sliding rate limit (max N / min with spacing) is respected.
+     * 5. The change is NOT purely from learned non-target noise objects.
      */
     function checkAndTriggerDeltaAutoSnap(currentSignature, predictions, activeSensitivity, targetDetected, seenLabels) {
       if (!autoSnapEnabled) return;
       if (!window.TelegramBot || !TelegramBot.enabled || !TelegramBot.isConfigured()) return;
+
+      const now = Date.now();
+
+      // Hourly reset of learned noise objects
+      if (now - lastNoiseResetTime >= NOISE_RESET_INTERVAL_MS) {
+        if (autoSnapLearnedNoise.size > 0) {
+          log(`🧹 Auto-Snap hourly noise filter refreshed (cleared ${autoSnapLearnedNoise.size} objects).`);
+          autoSnapLearnedNoise.clear();
+          updateAutoSnapNoiseUI();
+        }
+        lastNoiseResetTime = now;
+      }
 
       // Initial boot guard: if system just started and scene is clear, initialize quietly
       if (lastDetectionSignature === '__init__') {
@@ -1499,6 +1600,21 @@
 
       // Detect signature change
       if (currentSignature !== lastDetectionSignature) {
+        // If noise learning is active, check if the change is SOLELY known noise objects
+        if (autoSnapLearnNoise && autoSnapLearnedNoise.size > 0 && lastDetectionSignature !== '__init__') {
+          const changedClasses = getSignatureChangedClasses(lastDetectionSignature, currentSignature);
+          const hasTargetChange = changedClasses.some(c => activeTargets.includes(c) || c === safetyClass);
+          const hasUnlearnedNonTarget = changedClasses.some(c => !activeTargets.includes(c) && c !== safetyClass && !autoSnapLearnedNoise.has(c));
+
+          if (!hasTargetChange && !hasUnlearnedNonTarget) {
+            // All changed classes are known noise! Silently advance signature without triggering photo
+            lastDetectionSignature = currentSignature;
+            pendingSignature = '';
+            pendingSignatureFrames = 0;
+            return;
+          }
+        }
+
         if (currentSignature === pendingSignature) {
           pendingSignatureFrames++;
         } else {
@@ -1513,7 +1629,6 @@
 
       // Once confirmed stable across at least 2 consecutive frames
       if (pendingSignatureFrames >= 2) {
-        const now = Date.now();
         // Purge entries older than 60 seconds
         autoSnapHistory = autoSnapHistory.filter(t => now - t < 60000);
         const minSpacingMs = Math.floor(60000 / autoSnapMaxPerMin);
@@ -1612,12 +1727,15 @@
         }
 
         const modeTag = isNightMode ? `🌙 Night Boost Lvl ${nightBoostLevel}` : `☀️ Day`;
-        const quotaInfo = `[${autoSnapHistory.length}/${autoSnapMaxPerMin} snaps/min]`;
+        const noiseTag = autoSnapLearnNoise && autoSnapLearnedNoise.size > 0 
+          ? `• <b>Noise Filter:</b> Active (${autoSnapLearnedNoise.size} objects silenced for 1h)\n`
+          : '';
 
         const caption = `📸 <b>Delta Auto-Snapshot</b> ${quotaInfo}\n` +
                         `${changeDesc}\n` +
                         (seenLabels && seenLabels.length > 0 ? `• <b>Detections:</b> ${seenLabels.join(', ')}\n` : '') +
                         `• <b>Threshold:</b> <b>${autoSnapThreshold}%</b> (Independent) | 🔄 ${cameraRotation}°\n` +
+                        noiseTag +
                         `• <b>Lighting:</b> ${modeTag} (Sens: ${activeSensitivity}%)\n` +
                         `• <b>Time:</b> ${dateStr}`;
 
@@ -1627,6 +1745,27 @@
             log(`📸 <b>Delta Auto-Snapshot sent to Telegram:</b> ${newSig} ${quotaInfo}`);
           }
         }, 'image/jpeg', 0.85);
+
+        // Learn newly observed non-target objects into hourly noise filter
+        if (autoSnapLearnNoise && predictions && predictions.length > 0) {
+          const autoSnapMinScore = autoSnapThreshold / 100;
+          let newlyLearned = [];
+          for (let i = 0; i < predictions.length; i++) {
+            const p = predictions[i];
+            if (p.score >= autoSnapMinScore) {
+              if (!activeTargets.includes(p.class) && p.class !== safetyClass) {
+                if (!autoSnapLearnedNoise.has(p.class)) {
+                  autoSnapLearnedNoise.add(p.class);
+                  newlyLearned.push(p.class);
+                }
+              }
+            }
+          }
+          if (newlyLearned.length > 0) {
+            updateAutoSnapNoiseUI();
+            log(`🧠 Learned noise objects added to hourly filter: <b>${newlyLearned.join(', ')}</b>.`);
+          }
+        }
 
       } catch (err) {
         console.warn("Delta Auto-Snapshot generation error:", err);
@@ -2744,6 +2883,7 @@
             const targetsStr = (activeTargets && activeTargets.length) ? activeTargets.join(', ') : 'None';
             const activationsStr = (activeActivations && activeActivations.length) ? activeActivations.join(', ') : 'None';
             const autoSnapStr = autoSnapEnabled ? `📸 Active (Max ${autoSnapMaxPerMin}/min, Thresh: ${autoSnapThreshold}%)` : "⚪ Off";
+            const noiseStr = autoSnapLearnNoise ? `🧠 Active (${autoSnapLearnedNoise.size > 0 ? Array.from(autoSnapLearnedNoise).join(', ') : 'Learning...'})` : "⚪ Off";
             reply(
               `🏡 <b>Yard Guardian Status</b>\n\n` +
               `• <b>Version:</b> ${APP_VERSION}\n` +
@@ -2753,6 +2893,7 @@
               `• <b>AI Speed:</b> ${fpsStr}\n` +
               `• <b>Rotation:</b> ${cameraRotation}°\n` +
               `• <b>Auto-Snapshots:</b> ${autoSnapStr}\n` +
+              `• <b>Noise Filter:</b> ${noiseStr}\n` +
               `• <b>Lighting:</b> ${lightStr}\n` +
               `• <b>Torch:</b> ${torchStr}\n` +
               `• <b>Targets:</b> ${targetsStr}\n` +
@@ -2778,6 +2919,7 @@
               `• Current Screen: <b>${isStealth ? '🌙 OLED Blackout' : '☀️ Awake'}</b> (<code>/screen [on|off]</code>)\n\n` +
               `📸 <b>Smart Delta Auto-Snapshots:</b>\n` +
               `• State: <b>${autoSnapEnabled ? `ON (Max ${autoSnapMaxPerMin}/min, Thresh: ${autoSnapThreshold}%)` : 'OFF'}</b> (<code>/set autosnap on|off|5</code>, <code>/set autosnap thresh 5</code>)\n` +
+              `• Noise Filter: <b>${autoSnapLearnNoise ? `Active (${autoSnapLearnedNoise.size > 0 ? Array.from(autoSnapLearnedNoise).join(', ') : 'Empty'})` : 'Disabled'}</b> (<code>/set autosnap noise on|off|clear</code>)\n` +
               `• Mode: Change-driven snapshots only (animals arriving/leaving)\n\n` +
               `🎯 <b>Target Animals:</b> ${targetsStr}\n` +
               `<i>Edit: <code>/set targets cat,dog,bird</code></i>\n\n` +
@@ -2802,6 +2944,7 @@
                 `ℹ️ <b>Usage: /set &lt;option&gt; &lt;value&gt;</b>\n\n` +
                 `• <code>/set autosnap on|off|5</code> — Delta auto-snapshots\n` +
                 `• <code>/set autosnap thresh 5</code> — Auto-snapshot threshold (1-99%)\n` +
+                `• <code>/set autosnap noise on|off|clear</code> — Noise learning filter\n` +
                 `• <code>/set rotate 270</code> — Camera rotation (0|90|180|270)\n` +
                 `• <code>/set speed eco</code> — AI speed (eco|balanced|turbo)\n` +
                 `• <code>/set screen 1</code> — Auto screen timeout (mins|off)\n` +
@@ -2972,7 +3115,19 @@
               reply(`⚡ <b>Deterrent Actions updated:</b> ${actNames}`);
             } else if (key === 'autosnap' || key === 'autosnapshot' || key === 'snap_auto') {
               const lowVal = val.toLowerCase();
-              if (['off', '0', 'false', 'disable', 'disabled'].includes(lowVal)) {
+              if (lowVal.startsWith('noise') || lowVal.startsWith('filter')) {
+                const subArg = lowVal.replace(/^(noise|filter)[\s=:]*/, '').trim();
+                if (['off', '0', 'false', 'disable', 'disabled'].includes(subArg)) {
+                  toggleAutoSnapNoiseLearning(false);
+                  reply(`🧠 <b>Auto-Snap Noise Filter:</b> <b>DISABLED</b>`);
+                } else if (['clear', 'reset', 'clean', 'empty'].includes(subArg)) {
+                  clearAutoSnapNoiseFilter();
+                  reply(`🧹 <b>Auto-Snap Noise Filter Cleared!</b> (All learned non-target objects reset)`);
+                } else {
+                  toggleAutoSnapNoiseLearning(true);
+                  reply(`🧠 <b>Auto-Snap Noise Filter:</b> <b>ENABLED</b> (Hourly refresh cycle, currently ignoring: ${autoSnapLearnedNoise.size > 0 ? Array.from(autoSnapLearnedNoise).join(', ') : 'None yet'})`);
+                }
+              } else if (['off', '0', 'false', 'disable', 'disabled'].includes(lowVal)) {
                 toggleAutoSnap(false);
                 reply(`📸 <b>Delta Auto-Snapshots:</b> <b>DISABLED</b>`);
               } else if (['on', '1', 'true', 'enable', 'enabled'].includes(lowVal)) {
@@ -2994,7 +3149,7 @@
                   toggleAutoSnap(true);
                   reply(`📸 <b>Delta Auto-Snapshots:</b> <b>ENABLED</b> at <b>Max ${num} per minute</b> (Thresh: ${autoSnapThreshold}%).`);
                 } else {
-                  reply(`⚠️ Usage:\n• <code>/set autosnap on|off</code>\n• <code>/set autosnap &lt;rate&gt;</code> (e.g. <code>/set autosnap 5</code>)\n• <code>/set autosnap thresh &lt;%&gt;</code> (e.g. <code>/set autosnap thresh 5</code>)`);
+                  reply(`⚠️ Usage:\n• <code>/set autosnap on|off</code>\n• <code>/set autosnap &lt;rate&gt;</code> (e.g. <code>/set autosnap 5</code>)\n• <code>/set autosnap thresh &lt;%&gt;</code> (e.g. <code>/set autosnap thresh 5</code>)\n• <code>/set autosnap noise on|off|clear</code>`);
                 }
               }
             } else if (key === 'autosnap_thresh' || key === 'autosnap_threshold' || key === 'snap_thresh') {
@@ -3004,6 +3159,18 @@
                 reply(`📸 <b>Auto-Snapshot Threshold set to:</b> <b>${num}%</b> (Independent of day/night sensitivity).`);
               } else {
                 reply("⚠️ Please enter a threshold between 1 and 99% (e.g. <code>/set autosnap_thresh 5</code>).");
+              }
+            } else if (key === 'autosnap_noise' || key === 'snap_noise' || key === 'noise') {
+              const lowVal = val.toLowerCase();
+              if (['off', '0', 'false', 'disable', 'disabled'].includes(lowVal)) {
+                toggleAutoSnapNoiseLearning(false);
+                reply(`🧠 <b>Auto-Snap Noise Filter:</b> <b>DISABLED</b>`);
+              } else if (['clear', 'reset', 'clean', 'empty'].includes(lowVal)) {
+                clearAutoSnapNoiseFilter();
+                reply(`🧹 <b>Auto-Snap Noise Filter Cleared!</b> (All learned non-target objects reset)`);
+              } else {
+                toggleAutoSnapNoiseLearning(true);
+                reply(`🧠 <b>Auto-Snap Noise Filter:</b> <b>ENABLED</b> (Hourly refresh cycle, currently ignoring: ${autoSnapLearnedNoise.size > 0 ? Array.from(autoSnapLearnedNoise).join(', ') : 'None yet'})`);
               }
             } else if (key === 'webhook') {
               const wInput = document.getElementById('webhookInput');
