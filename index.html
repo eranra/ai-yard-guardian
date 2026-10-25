@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.8.7"></script>
+  <script src="telegram-bot.js?v=0.8.8"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.8.7 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.8.8 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -656,7 +656,7 @@
               <span style="font-size: 0.68rem; color: #94a3b8; line-height: 1.2;">Decoupled from animal sensitivity. Prevents night lights and reflections from triggering false Human pauses.</span>
             </div>
 
-            <!-- ✨ Autonomous Night Vision Auto-Tuner (v0.8.7 - Night Sight Long Exposure) -->
+            <!-- ✨ Autonomous Night Vision Auto-Tuner (v0.8.8 - Dynamic Quality Optimizer) -->
             <div style="background: #0f172a; padding: 8px 10px; border-radius: 6px; border: 1px solid #0284c7; margin-top: 6px;">
               <label class="toggle" style="font-size: 0.78rem; font-weight: 700; color: #38bdf8;">
                 <input type="checkbox" id="autoNightTunerToggle" checked onchange="toggleAutoNightTuner(this.checked)"> ✨ Auto Night Vision Tuner
@@ -925,19 +925,20 @@
     let nightBoostEnabled = true;
     let nightBoostLevel = 3; // 1 to 6 (default 3: Ultra Shadow-Lift)
     const NIGHT_BOOST_PRESETS = {
-      1: { filter: 'brightness(1.8) contrast(0.96) saturate(0.88)', label: 'Normal' },
-      2: { filter: 'brightness(2.4) contrast(0.94) saturate(0.85)', label: 'High (Clean SNR)' },
-      3: { filter: 'brightness(3.2) contrast(0.92) saturate(0.80)', label: 'Ultra (Deep Night)' },
-      4: { filter: 'brightness(4.0) contrast(0.90) saturate(0.75)', label: 'Max' },
-      5: { filter: 'brightness(4.8) contrast(0.88) saturate(0.70)', label: 'Extreme' },
-      6: { filter: 'brightness(5.6) contrast(0.85) saturate(0.65)', label: 'Moonlight Ultra' }
+      1: { filter: 'brightness(2.2) contrast(0.95) saturate(0.65)', label: 'Normal' },
+      2: { filter: 'brightness(3.2) contrast(0.92) saturate(0.50)', label: 'High' },
+      3: { filter: 'brightness(4.4) contrast(0.90) saturate(0.40)', label: 'Ultra (Deep Night)' },
+      4: { filter: 'brightness(5.6) contrast(0.88) saturate(0.32)', label: 'Max' },
+      5: { filter: 'brightness(6.8) contrast(0.86) saturate(0.25)', label: 'Extreme' },
+      6: { filter: 'brightness(8.2) contrast(0.84) saturate(0.18)', label: 'Moonlight Ultra' }
     };
     let hardwareExposureBoost = true;
     let nightLongExpMode = 'medium'; // Manual fallback: 'low', 'medium', 'high', 'off'
     let autoNightTuner = true; // Autonomous closed-loop night optimizer (default true)
     let tunedEv = 0.7; // Dynamically tuned hardware EV
-    let tunedBoostLevel = 2; // Dynamically tuned software boost level (1 to 4)
+    let tunedBoostLevel = 2; // Dynamically tuned software boost level (1 to 5)
     let currentMedianLuma = 75; // 50th percentile (yard median brightness)
+    let currentImageQuality = 50; // Dynamic 0-100 image information/quality score
     let tunerState = 'locked'; // 'tuning', 'locked'
     let lastTuneTime = 0;
     let torchAssistEnabled = false;
@@ -1883,6 +1884,15 @@
       // Fixed Yard Camera Advantage:
       // In a stationary yard camera, point light fixtures (e.g. garden lantern, fence light) occupy fixed pixels (0.5% - 2.5%).
       // We do NOT let a tiny stationary light fixture trick the system into plunging the whole yard into pitch darkness!
+      // Compute Autonomous Image Information & Quality Score (Q):
+      // - Ground Visibility: targets median yard luma (p50) in 65-90 range
+      // - Dynamic Range / Texture Contrast: spread between 75th and 25th percentile
+      // - Highlight Overexposure Penalty: broad clipping > 2%
+      const lumaScore = Math.max(0, 100 - Math.abs(p50 - 75) * 1.5);
+      const textureContrast = Math.min(100, (p75 - p25) * 2.5);
+      const clipPenalty = Math.min(100, Math.max(0, (clipRatio - 0.02) * 2000));
+      currentImageQuality = Math.max(0, Math.min(100, Math.round((lumaScore * 0.5 + textureContrast * 0.5) - clipPenalty)));
+
       // Real broad whiteout occurs only if:
       //  1. Large surface clipping (clipRatio > 4%)
       //  2. Median yard is washed out (p50 > 115)
@@ -1914,7 +1924,7 @@
           evChanged = true;
         } 
         // Priority 2: If sensor EV is capped or at +2.0 EV and yard is still dark, lift shadows via software
-        else if (tunedBoostLevel < 3) {
+        else if (tunedBoostLevel < 5) {
           tunedBoostLevel++;
           boostChanged = true;
         }
@@ -3563,7 +3573,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.8.7';
+    const APP_VERSION = 'v0.8.8';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -3590,7 +3600,7 @@
             const fpsStr = formatFpsModeDisplay();
             const lightStr = isNightMode 
               ? (autoNightTuner 
-                  ? `🌙 Night (✨ Auto-Tuned, Luma: ${Math.round(currentLuma)}, EV: +${tunedEv.toFixed(1)}, Boost: Lvl ${tunedBoostLevel}, Sens: ${nightSensitivity}%)`
+                  ? `🌙 Night (✨ Auto-Tuned [Q: ${currentImageQuality}%], Median: ${currentMedianLuma}, EV: +${tunedEv.toFixed(1)}, Boost: Lvl ${tunedBoostLevel}, Sens: ${nightSensitivity}%)`
                   : `🌙 Night (Luma: ${Math.round(currentLuma)}, Sens: ${nightSensitivity}%, Boost: Lvl ${nightBoostLevel}, Exp: ${formatLongExpModeDisplay()})`) 
               : `☀️ Day (Luma: ${Math.round(currentLuma)}, Sensitivity: ${daySensitivity}%)`;
             const torchStr = cameraCapabilities.torch ? (isTorchOn ? "🔦 ON" : "⚪ OFF") : "N/A";
@@ -4203,15 +4213,14 @@
               let frame = getAiInputFrame();
 
               if (isNightMode) {
-                // Multi-Frame Night Sight Long Exposure (3-frame temporal integration)
-                // Mathematical averaging cuts sensor noise by 42% while gathering 3x photons
+                // Multi-Frame Night Sight Long Exposure (5-frame temporal integration)
+                // Mathematical averaging cuts sensor noise by 55% while integrating photons across 350ms
                 sCtx.drawImage(frame, 0, 0, targetW, targetH);
-                await new Promise(r => setTimeout(r, 70));
-                sCtx.globalAlpha = 0.5;
-                sCtx.drawImage(getAiInputFrame(), 0, 0, targetW, targetH);
-                await new Promise(r => setTimeout(r, 70));
-                sCtx.globalAlpha = 0.333;
-                sCtx.drawImage(getAiInputFrame(), 0, 0, targetW, targetH);
+                for (let k = 1; k < 5; k++) {
+                  await new Promise(r => setTimeout(r, 60));
+                  sCtx.globalAlpha = 1 / (k + 1);
+                  sCtx.drawImage(getAiInputFrame(), 0, 0, targetW, targetH);
+                }
                 sCtx.globalAlpha = 1.0;
                 frame = snapCanvas;
               } else {
@@ -4341,7 +4350,7 @@
               // Formulate informative Telegram caption (matching detection alert & spray test)
               let caption;
               const modeTag = isNightMode 
-                ? (autoNightTuner ? `🌙 Night (✨ Auto EV +${tunedEv.toFixed(1)}, Boost L${tunedBoostLevel})` : `🌙 Night Boost Lvl ${nightBoostLevel}`) 
+                ? (autoNightTuner ? `🌙 Night (✨ Auto EV +${tunedEv.toFixed(1)}, Boost L${tunedBoostLevel}, Q: ${currentImageQuality}%)` : `🌙 Night Boost Lvl ${nightBoostLevel}`) 
                 : `☀️ Day`;
               if (detectedTargets.length > 0) {
                 caption = `🎯 <b>TARGET DETECTED:</b> ${detectedTargets.join(', ')}\n` +
