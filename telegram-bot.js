@@ -168,6 +168,7 @@
         const formData = new FormData();
         formData.append('chat_id', this.chatId);
         formData.append('caption', caption || '📸 Intruder Evidence Snapshot');
+        formData.append('parse_mode', 'HTML');
         formData.append('photo', blob, 'intruder_snapshot.jpg');
 
         const res = await fetch(url, {

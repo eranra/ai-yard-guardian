@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.5.9 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.6.0 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -2139,15 +2139,15 @@
       }
     }
 
-    function drawBox(x, y, w, h, text, color) {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 4;
-      ctx.strokeRect(x, y, w, h);
-      ctx.fillStyle = color;
-      ctx.font = 'bold 16px sans-serif';
-      ctx.fillRect(x, Math.max(0, y - 24), ctx.measureText(text).width + 12, 24);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(text, x + 6, Math.max(16, y - 6));
+    function drawBox(x, y, w, h, text, color, targetCtx = ctx) {
+      targetCtx.strokeStyle = color;
+      targetCtx.lineWidth = 4;
+      targetCtx.strokeRect(x, y, w, h);
+      targetCtx.fillStyle = color;
+      targetCtx.font = 'bold 16px sans-serif';
+      targetCtx.fillRect(x, Math.max(0, y - 24), targetCtx.measureText(text).width + 12, 24);
+      targetCtx.fillStyle = '#ffffff';
+      targetCtx.fillText(text, x + 6, Math.max(16, y - 6));
     }
 
     // Dispatches active deterrents (Sprinklers, Siren, Strobe, etc.)
@@ -2395,7 +2395,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.5.9';
+    const APP_VERSION = 'v0.6.0';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -2833,11 +2833,89 @@
               snapCanvas.height = targetH;
               const sCtx = snapCanvas.getContext('2d');
               const frame = getAiInputFrame();
-              sCtx.drawImage(frame, 0, 0);
+              sCtx.drawImage(frame, 0, 0, targetW, targetH);
+
+              const now = new Date();
+              const dateStr = now.toLocaleTimeString();
+              const activeSensitivity = isNightMode ? nightSensitivity : daySensitivity;
+              const minScore = activeSensitivity / 100;
+
+              let detectedTargets = [];
+              let seenLabels = [];
+
+              if (model) {
+                try {
+                  const detectThreshold = Math.max(0.01, Math.min(0.05, minScore));
+                  const predictions = await model.detect(frame, 20, detectThreshold);
+                  for (let i = 0; i < predictions.length; i++) {
+                    const p = predictions[i];
+                    const scorePercent = Math.round(p.score * 100);
+                    seenLabels.push(`${p.class} (${scorePercent}%)`);
+                    const [x, y, w, h] = p.bbox;
+
+                    if (p.class === safetyClass) {
+                      drawBox(x, y, w, h, `Human (${scorePercent}%)`, '#f59e0b', sCtx);
+                    } else if (activeTargets.includes(p.class) && p.score >= minScore) {
+                      detectedTargets.push(`${p.class.toUpperCase()} (${scorePercent}%)`);
+                      drawBox(x, y, w, h, `🎯 ${p.class.toUpperCase()} (${scorePercent}%)`, '#ef4444', sCtx);
+                    } else if (p.score >= minScore) {
+                      drawBox(x, y, w, h, `${p.class} (${scorePercent}%)`, '#38bdf8', sCtx);
+                    } else {
+                      drawBox(x, y, w, h, `${p.class} (${scorePercent}%)`, '#64748b', sCtx);
+                    }
+                  }
+                } catch (detErr) {
+                  console.warn("Snapshot AI detection pass error:", detErr);
+                  if (canvas.width > 0 && canvas.height > 0) {
+                    sCtx.drawImage(canvas, 0, 0, targetW, targetH);
+                  }
+                }
+              } else if (canvas.width > 0 && canvas.height > 0) {
+                sCtx.drawImage(canvas, 0, 0, targetW, targetH);
+              }
+
+              // Draw bottom timestamp & detection status banner (matching detection snapshots)
+              const barHeight = Math.max(28, Math.round(snapCanvas.height * 0.055));
+              sCtx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+              sCtx.fillRect(0, snapCanvas.height - barHeight, snapCanvas.width, barHeight);
+
+              const fontSize = Math.max(12, Math.round(barHeight * 0.5));
+              sCtx.fillStyle = '#38bdf8';
+              sCtx.font = `bold ${fontSize}px monospace, sans-serif`;
+              sCtx.textBaseline = 'middle';
+
+              let bannerText;
+              if (detectedTargets.length > 0) {
+                bannerText = `🛡️ Yard Guardian ${isNightMode ? '🌙' : '☀️'} | 🎯 ${detectedTargets.join(', ')} | 🕒 ${dateStr}`;
+              } else if (seenLabels.length > 0) {
+                bannerText = `🛡️ Yard Guardian ${isNightMode ? '🌙' : '☀️'} | 👁️ Seeing: ${seenLabels.slice(0, 3).join(', ')} | 🕒 ${dateStr}`;
+              } else {
+                bannerText = `🛡️ Yard Guardian ${isNightMode ? '🌙' : '☀️'} | 👁️ Scene Clear | 🕒 ${dateStr}`;
+              }
+              sCtx.fillText(bannerText, 10, snapCanvas.height - (barHeight / 2));
+
+              // Formulate informative Telegram caption (matching detection alert & spray test)
+              let caption;
+              const modeTag = isNightMode ? `🌙 Night Boost Lvl ${nightBoostLevel}` : `☀️ Day`;
+              if (detectedTargets.length > 0) {
+                caption = `🎯 <b>TARGET DETECTED:</b> ${detectedTargets.join(', ')}\n` +
+                          `👁️ <b>Detected Objects:</b> ${seenLabels.join(', ')}\n` +
+                          `🌓 <b>Lighting:</b> ${modeTag} (Sens: ${activeSensitivity}%) | 🔄 ${cameraRotation}°\n` +
+                          `🕒 <b>Time:</b> ${dateStr}`;
+              } else if (seenLabels.length > 0) {
+                caption = `📸 <b>Snapshot:</b> 👁️ <b>Seeing:</b> ${seenLabels.join(', ')}\n` +
+                          `🎯 <b>Active Targets:</b> None exceeding ${activeSensitivity}% threshold\n` +
+                          `🌓 <b>Lighting:</b> ${modeTag} | 🔄 ${cameraRotation}°\n` +
+                          `🕒 <b>Time:</b> ${dateStr}`;
+              } else {
+                caption = `📸 <b>Snapshot:</b> 👁️ <b>Scene Clear</b> (No objects detected)\n` +
+                          `🌓 <b>Lighting:</b> ${modeTag} (Sens: ${activeSensitivity}%) | 🔄 ${cameraRotation}°\n` +
+                          `🕒 <b>Time:</b> ${dateStr}`;
+              }
 
               snapCanvas.toBlob(blob => {
                 if (blob) {
-                  replyPhoto(blob, `📸 Snapshot (${isNightMode ? `🌙 Night Boost Lvl ${nightBoostLevel}` : '☀️ Day'} | 🔄 ${cameraRotation}°)\n🕒 ${new Date().toLocaleTimeString()}`);
+                  replyPhoto(blob, caption);
                 } else {
                   reply("⚠️ Failed to generate snapshot image.");
                 }
