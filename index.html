@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.9.0"></script>
+  <script src="telegram-bot.js?v=0.9.1"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.0 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.1 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -925,12 +925,12 @@
     let nightBoostEnabled = true;
     let nightBoostLevel = 3; // 1 to 6 (default 3: Ultra Shadow-Lift)
     const NIGHT_BOOST_PRESETS = {
-      1: { filter: 'brightness(2.2) contrast(0.95) saturate(0.65)', label: 'Normal' },
-      2: { filter: 'brightness(3.2) contrast(0.92) saturate(0.50)', label: 'High' },
-      3: { filter: 'brightness(4.4) contrast(0.90) saturate(0.40)', label: 'Ultra (Deep Night)' },
-      4: { filter: 'brightness(5.6) contrast(0.88) saturate(0.32)', label: 'Max' },
-      5: { filter: 'brightness(6.8) contrast(0.86) saturate(0.25)', label: 'Extreme' },
-      6: { filter: 'brightness(8.2) contrast(0.84) saturate(0.18)', label: 'Moonlight Ultra' }
+      1: { filter: 'brightness(1.6) contrast(1.04) saturate(0.85)', label: 'Normal' },
+      2: { filter: 'brightness(2.2) contrast(1.02) saturate(0.70)', label: 'High (Clean SNR)' },
+      3: { filter: 'brightness(3.0) contrast(1.00) saturate(0.55)', label: 'Ultra' },
+      4: { filter: 'brightness(3.8) contrast(0.98) saturate(0.40)', label: 'Max' },
+      5: { filter: 'brightness(4.8) contrast(0.95) saturate(0.30)', label: 'Extreme' },
+      6: { filter: 'brightness(6.0) contrast(0.92) saturate(0.20)', label: 'Moonlight Ultra' }
     };
     let hardwareExposureBoost = true;
     let nightLongExpMode = 'medium'; // Manual fallback: 'low', 'medium', 'high', 'off'
@@ -1885,24 +1885,23 @@
       // In a stationary yard camera, point light fixtures (e.g. garden lantern, fence light) occupy fixed pixels (0.5% - 2.5%).
       // We do NOT let a tiny stationary light fixture trick the system into plunging the whole yard into pitch darkness!
       // Compute Autonomous Image Information & Quality Score (Q):
-      // - Ground Visibility: targets median yard luma (p50) in 65-90 range
+      // - Ground Visibility: targets clean natural night yard median (p50 in 30-50 range)
       // - Dynamic Range / Texture Contrast: spread between 75th and 25th percentile
       // - Highlight Overexposure Penalty: broad clipping > 2%
-      const lumaScore = Math.max(0, 100 - Math.abs(p50 - 75) * 1.5);
-      const textureContrast = Math.min(100, (p75 - p25) * 2.5);
-      const clipPenalty = Math.min(100, Math.max(0, (clipRatio - 0.02) * 2000));
+      const lumaScore = Math.max(0, 100 - Math.abs(p50 - 38) * 2.5);
+      const textureContrast = Math.min(100, (p75 - p25) * 3.5);
+      const clipPenalty = Math.min(100, Math.max(0, (clipRatio - 0.02) * 1500));
       currentImageQuality = Math.max(0, Math.min(100, Math.round((lumaScore * 0.5 + textureContrast * 0.5) - clipPenalty)));
 
-      // Real broad whiteout occurs only if:
-      //  1. Large surface clipping (clipRatio > 4%)
-      //  2. Median yard is washed out (p50 > 115)
-      //  3. 75th percentile is blown out (p75 > 165)
-      //  4. Clipping occurring while median yard is already bright (clipRatio > 2% && p50 > 92)
-      const isBroadWhiteout = (clipRatio > 0.04) || (p50 > 115) || (p75 > 165) || (clipRatio > 0.02 && p50 > 92);
+      // Real broad whiteout or severe noise fog occurs if:
+      //  1. Large surface clipping (clipRatio > 3%)
+      //  2. Median yard is washed out / over-amplified (p50 > 55)
+      //  3. 75th percentile is blown out (p75 > 85)
+      const isBroadWhiteout = (clipRatio > 0.03) || (p50 > 55) || (p75 > 85);
 
       // Yard underexposure (ground is dark and details are lost):
-      // Median ground is dark (p50 < 65) or deep shadows dominate (p50 < 75 && p25 < 35), and no broad whiteout
-      const isYardDark = !isBroadWhiteout && (p50 < 65 || (p50 < 75 && p25 < 35));
+      // Median ground is dark (p50 < 30) or deep shadows dominate (p50 < 38 && p25 < 18), and no broad whiteout
+      const isYardDark = !isBroadWhiteout && (p50 < 30 || (p50 < 38 && p25 < 18));
 
       if (isBroadWhiteout) {
         tunerState = 'tuning';
@@ -1923,13 +1922,14 @@
           tunedEv = Math.min(maxEv, Math.round((tunedEv + 0.33) * 100) / 100);
           evChanged = true;
         } 
-        // Priority 2: If sensor EV is capped or at +2.0 EV and yard is still dark, lift shadows via software
-        else if (tunedBoostLevel < 5) {
+        // Priority 2: If sensor EV is capped or at +2.0 EV and yard is still dark, lift shadows gently
+        // Strictly cap at Level 2 so auto-tuner NEVER multiplies sensor thermal noise into purple fog!
+        else if (tunedBoostLevel < 2) {
           tunedBoostLevel++;
           boostChanged = true;
         }
       } else {
-        // Optimal Sweet Spot for Fixed Yard: 65 <= p50 <= 90 with clean highlights
+        // Optimal Sweet Spot for Fixed Yard: 30 <= p50 <= 45 with deep clean blacks and sharp targets
         tunerState = 'locked';
       }
 
@@ -2453,10 +2453,15 @@
       const p = parseInt(val);
       if (!isNaN(p) && p >= 1 && p <= 6) {
         nightBoostLevel = p;
+        tunedBoostLevel = p;
+        autoNightTuner = false;
+        const at = document.getElementById('autoNightTunerToggle');
+        if (at) at.checked = false;
+        localStorage.setItem('yard_guardian_auto_night_tuner', '0');
         const bSel = document.getElementById('nightBoostLevelSelect');
         if (bSel) bSel.value = p.toString();
         saveSettings();
-        log(`🚀 AI Night Shadow Boost set to: Level ${nightBoostLevel} (${NIGHT_BOOST_PRESETS[nightBoostLevel].label})`);
+        log(`🚀 AI Night Shadow Boost set to: Level ${nightBoostLevel} (${NIGHT_BOOST_PRESETS[nightBoostLevel].label}) [Auto-Tuner paused for manual control]`);
       }
     }
 
@@ -3794,7 +3799,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.9.0';
+    const APP_VERSION = 'v0.9.1';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -4076,10 +4081,15 @@
                   if (!isNaN(p) && p >= 1 && p <= 6) lvl = p;
                 }
                 nightBoostLevel = lvl;
+                tunedBoostLevel = lvl;
+                autoNightTuner = false; // Pauses Auto-Tuner so user manual setting is strictly enforced!
+                const at = document.getElementById('autoNightTunerToggle');
+                if (at) at.checked = false;
+                localStorage.setItem('yard_guardian_auto_night_tuner', '0');
                 const bSel = document.getElementById('nightBoostLevelSelect');
                 if (bSel) bSel.value = lvl.toString();
                 saveSettings();
-                reply(`🚀 <b>AI Night Shadow Boost set to:</b> <b>Level ${lvl} (${NIGHT_BOOST_PRESETS[lvl].label})</b>\n<i>Filter: <code>${NIGHT_BOOST_PRESETS[lvl].filter}</code></i>`);
+                reply(`🚀 <b>AI Night Shadow Boost set to:</b> <b>Level ${lvl} (${NIGHT_BOOST_PRESETS[lvl].label})</b>\n<i>Auto-Tuner paused to enforce manual boost. Filter: <code>${NIGHT_BOOST_PRESETS[lvl].filter}</code></i>`);
               }
             } else if (key === 'rotate' || key === 'rotation' || key === 'orientation' || key === 'angle') {
               const angle = parseInt(val);
