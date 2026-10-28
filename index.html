@@ -2116,7 +2116,7 @@
       const now = Date.now();
 
       // 🐾 Motion Auto-Capture for Unconfirmed Movements (Default ON)
-      if (autoSnapMotion && motionDebugEvent && !targetDetected) {
+      if (autoSnapMotion && motionDebugEvent && !targetDetected && !humanDetected) {
         const minMotionSpacing = 15000; // 15s spacing between unconfirmed motion snapshots
         const spacingElapsed = (now - lastMotionSnapTime) >= minMotionSpacing;
         autoSnapHistory = autoSnapHistory.filter(t => now - t < 60000);
