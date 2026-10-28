@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.9.2"></script>
+  <script src="telegram-bot.js?v=0.9.3"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.2 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.3 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -605,6 +605,15 @@
           </div>
           <div id="autoSnapNoiseStatus" style="font-size: 0.68rem; color: #64748b; line-height: 1.2; width: 100%; margin-top: 2px;">
             Learned noise: <span id="autoSnapNoiseList" style="color: #94a3b8;">None</span> (60m sliding TTL)
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #334155;">
+            <label class="toggle" style="font-size: 0.74rem; color: #cbd5e1;">
+              <input type="checkbox" id="autoSnapMotionToggle" checked onchange="toggleAutoSnapMotion(this.checked)"> ⚡ Motion Auto-Capture (Unconfirmed Movements)
+            </label>
+            <span style="font-size: 0.65rem; color: #38bdf8; font-weight: bold;">Default ON</span>
+          </div>
+          <div style="font-size: 0.68rem; color: #64748b; line-height: 1.2; width: 100%; margin-top: 2px;">
+            Captures photos &amp; 1:1 zoomed crops with AI candidate guesses for moving yard animals.
           </div>
         </div>
 
@@ -945,11 +954,12 @@
     let isTorchOn = false;
     let cameraCapabilities = {};
 
-    // 📸 Smart Delta Auto-Snapshot Engine (v0.7.3)
-    let autoSnapEnabled = false;
+    // 📸 Smart Delta Auto-Snapshot Engine (v0.7.3 / v0.9.3)
+    let autoSnapEnabled = true; // Auto-Snapshot Default ON (v0.9.3)
     let autoSnapMaxPerMin = 5;
     let autoSnapThreshold = 5; // Independent threshold (default 5%)
     let autoSnapLearnNoise = true; // Auto-learn non-target noisy objects
+    let autoSnapMotion = true; // 🐾 Motion Auto-Capture for Unconfirmed Animals (v0.9.3 - Default ON)
     let autoSnapLearnedNoise = new Map(); // className -> lastSeenTimestamp (60m sliding TTL)
     const NOISE_TTL_MS = 60 * 60 * 1000; // 60 minutes continuous sliding window
     let lastDetectionSignature = '__init__';
@@ -957,6 +967,7 @@
     let pendingSignatureFrames = 0;
     let autoSnapHistory = [];
     let lastAutoSnapTime = 0;
+    let lastMotionSnapTime = 0;
 
     // 🔋 Battery Status & Auto Screen Saver Engine (v5.4)
     let batteryInfo = {
@@ -1449,6 +1460,7 @@
       localStorage.setItem('yard_guardian_autosnap_rate', autoSnapMaxPerMin.toString());
       localStorage.setItem('yard_guardian_autosnap_thresh', autoSnapThreshold.toString());
       localStorage.setItem('yard_guardian_autosnap_noise', autoSnapLearnNoise ? '1' : '0');
+      localStorage.setItem('yard_guardian_autosnap_motion', autoSnapMotion ? '1' : '0');
     }
 
     function loadSettings() {
@@ -1669,6 +1681,8 @@
           autoSnapEnabled = savedAutoSnap === '1';
         } else if (s && s.autoSnap !== undefined) {
           autoSnapEnabled = !!s.autoSnap;
+        } else {
+          autoSnapEnabled = true; // Default ON (v0.9.3)
         }
         const autoSnapToggleEl = document.getElementById('autoSnapToggle');
         const autoSnapBadgeEl = document.getElementById('autoSnapBadge');
@@ -1712,6 +1726,17 @@
         const autoSnapNoiseToggleEl = document.getElementById('autoSnapNoiseToggle');
         if (autoSnapNoiseToggleEl) autoSnapNoiseToggleEl.checked = autoSnapLearnNoise;
         updateAutoSnapNoiseUI();
+
+        const savedAutoSnapMotion = localStorage.getItem('yard_guardian_autosnap_motion');
+        if (savedAutoSnapMotion !== null) {
+          autoSnapMotion = savedAutoSnapMotion !== '0';
+        } else if (s && s.autoSnapMotion !== undefined) {
+          autoSnapMotion = !!s.autoSnapMotion;
+        } else {
+          autoSnapMotion = true; // Default ON (v0.9.3)
+        }
+        const autoSnapMotionToggleEl = document.getElementById('autoSnapMotionToggle');
+        if (autoSnapMotionToggleEl) autoSnapMotionToggleEl.checked = autoSnapMotion;
 
         // Restore collapse/expand state (default to collapsed to save maximum screen space)
         const savedExpanded = localStorage.getItem('yard_guardian_settings_expanded');
@@ -2035,6 +2060,15 @@
       log(`🧠 Auto-Snap noise learning ${autoSnapLearnNoise ? '<b>ENABLED</b> (60m sliding TTL)' : '<b>DISABLED</b>'}.`);
     }
 
+    function toggleAutoSnapMotion(enabled) {
+      autoSnapMotion = !!enabled;
+      const toggle = document.getElementById('autoSnapMotionToggle');
+      if (toggle && toggle.checked !== autoSnapMotion) toggle.checked = autoSnapMotion;
+      localStorage.setItem('yard_guardian_autosnap_motion', autoSnapMotion ? '1' : '0');
+      saveSettings();
+      log(`📸 ⚡ <b>Motion Auto-Capture:</b> ${autoSnapMotion ? '<b>ENABLED (Unconfirmed Animal Movements)</b>' : '<b>DISABLED</b>'}.`);
+    }
+
     function clearAutoSnapNoiseFilter() {
       const count = autoSnapLearnedNoise.size;
       autoSnapLearnedNoise.clear();
@@ -2075,11 +2109,26 @@
      * 4. Sliding rate limit (max N / min with spacing) is respected.
      * 5. The change is NOT purely from learned non-target noise objects.
      */
-    function checkAndTriggerDeltaAutoSnap(currentSignature, predictions, activeSensitivity, targetDetected, seenLabels, humanDetected = false) {
+    function checkAndTriggerDeltaAutoSnap(currentSignature, predictions, activeSensitivity, targetDetected, seenLabels, humanDetected = false, motionDebugEvent = null) {
       if (!autoSnapEnabled) return;
       if (!window.TelegramBot || !TelegramBot.enabled || !TelegramBot.isConfigured()) return;
 
       const now = Date.now();
+
+      // 🐾 Motion Auto-Capture for Unconfirmed Movements (Default ON)
+      if (autoSnapMotion && motionDebugEvent && !targetDetected) {
+        const minMotionSpacing = 15000; // 15s spacing between unconfirmed motion snapshots
+        const spacingElapsed = (now - lastMotionSnapTime) >= minMotionSpacing;
+        autoSnapHistory = autoSnapHistory.filter(t => now - t < 60000);
+        const withinQuota = autoSnapHistory.length < autoSnapMaxPerMin;
+
+        if (spacingElapsed && withinQuota) {
+          lastMotionSnapTime = now;
+          lastAutoSnapTime = now;
+          autoSnapHistory.push(now);
+          sendMotionEventSnapshot(motionDebugEvent, activeSensitivity);
+        }
+      }
 
       // Prune and refresh continuous 60m sliding TTL for learned non-target noise objects
       if (autoSnapLearnNoise) {
@@ -2158,6 +2207,90 @@
 
           sendDeltaAutoSnapshot(lastDetectionSignature, prevSig, predictions, activeSensitivity, targetDetected, seenLabels);
         }
+      }
+    }
+
+    /**
+     * Renders full snapshot canvas and 1:1 focus crop for unconfirmed motion events,
+     * transmitting to Telegram with top classifier candidate guesses for instant visual debugging.
+     */
+    function sendMotionEventSnapshot(motionEvent, activeSensitivity) {
+      if (!video || !video.videoWidth) return;
+      if (!window.TelegramBot || !TelegramBot.enabled || !TelegramBot.isConfigured()) return;
+
+      try {
+        const is90or270 = (cameraRotation === 90 || cameraRotation === 270);
+        const targetW = is90or270 ? video.videoHeight : video.videoWidth;
+        const targetH = is90or270 ? video.videoWidth : video.videoHeight;
+
+        const snapCanvas = document.createElement('canvas');
+        snapCanvas.width = targetW;
+        snapCanvas.height = targetH;
+        const sCtx = snapCanvas.getContext('2d');
+        const frame = getAiInputFrame();
+        sCtx.drawImage(frame, 0, 0, targetW, targetH);
+
+        const [mx, my, mw, mh] = motionEvent.bbox;
+        const topGuess = (motionEvent.topPredictions && motionEvent.topPredictions[0]) 
+          ? `${motionEvent.topPredictions[0].label} (${motionEvent.topPredictions[0].confidence}%)`
+          : 'Movement';
+
+        // Draw amber bounding box around motion region
+        drawBox(mx, my, mw, mh, `⚡ MOTION: ${topGuess}`, '#f59e0b', sCtx);
+
+        // Bottom status banner
+        const now = new Date();
+        const dateStr = now.toLocaleTimeString();
+        const barHeight = Math.max(28, Math.round(snapCanvas.height * 0.055));
+        sCtx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        sCtx.fillRect(0, snapCanvas.height - barHeight, snapCanvas.width, barHeight);
+
+        const fontSize = Math.max(12, Math.round(barHeight * 0.5));
+        sCtx.fillStyle = '#f59e0b';
+        sCtx.font = `bold ${fontSize}px monospace, sans-serif`;
+        sCtx.textBaseline = 'middle';
+        sCtx.fillText(`⚡ Motion Auto-Capture | 👁️ ${topGuess} | 🕒 ${dateStr}`, 10, snapCanvas.height - (barHeight / 2));
+
+        // Format detailed Telegram debug caption
+        let guessLines = '';
+        if (motionEvent.topPredictions && motionEvent.topPredictions.length > 0) {
+          guessLines = motionEvent.topPredictions.map((p, idx) => `   • <b>${idx + 1}.</b> ${p.label} (<b>${p.confidence}%</b>)`).join('\n');
+        } else {
+          guessLines = `   • ${topGuess}`;
+        }
+
+        const modeTag = isNightMode 
+          ? (autoNightTuner ? `🌙 Night (✨ Auto-Tuned Q: ${currentImageQuality}%)` : `🌙 Night Boost Lvl ${nightBoostLevel}`)
+          : `☀️ Day`;
+
+        const caption = `⚡ <b>MOTION AUTO-CAPTURE (Unconfirmed Movement)</b>\n` +
+                        `📍 <b>Region:</b> [X: ${mx}, Y: ${my}, W: ${mw}, H: ${mh}] (${motionEvent.pixelCount} motion px)\n` +
+                        `🧠 <b>Classifier Candidate Predictions:</b>\n${guessLines}\n` +
+                        `🌓 <b>Lighting:</b> ${modeTag} | 🔄 ${cameraRotation}°\n` +
+                        `🕒 <b>Time:</b> ${dateStr}\n\n` +
+                        `<i>💡 If this is an animal that was missed, note the label above so we can add it to target matchers!</i>`;
+
+        const cropCanvas = generateFocusCrop(snapCanvas, motionEvent.bbox, targetW, targetH, topGuess, (motionEvent.topPredictions?.[0]?.confidence || 50) / 100);
+
+        snapCanvas.toBlob(blob => {
+          if (!blob || !window.TelegramBot) return;
+          TelegramBot.sendPhotoBlob(blob, caption);
+          log(`📸 ⚡ <b>Motion Auto-Capture sent to Telegram:</b> ${topGuess}`);
+
+          if (cropCanvas) {
+            setTimeout(() => {
+              cropCanvas.toBlob(cropBlob => {
+                if (cropBlob && window.TelegramBot) {
+                  const cropCaption = `🔍 <b>Magnified Motion Crop:</b> <b>${topGuess}</b>\n• <b>Sensor:</b> ${formatResolutionDisplay()}\n• <b>Time:</b> ${dateStr}`;
+                  TelegramBot.sendPhotoBlob(cropBlob, cropCaption);
+                }
+              }, 'image/jpeg', 0.88);
+            }, 350);
+          }
+        }, 'image/jpeg', 0.85);
+
+      } catch (err) {
+        console.warn("Error sending motion event snapshot:", err);
       }
     }
 
@@ -3177,12 +3310,26 @@
         const isInanimate = INANIMATE_NOISE_CLASSES.some(n => topName.includes(n));
         if (isInanimate && topResult.probability >= 0.30) {
           return {
+            isTarget: false,
             isInanimate: true,
             label: topResult.className.split(',')[0].trim(),
             confidence: topResult.probability,
             bbox: [sx, sy, sw, sh]
           };
         }
+
+        // Return candidate classification for motion auto-capture and visual debugging
+        return {
+          isTarget: false,
+          isInanimate: false,
+          label: topResult.className.split(',')[0].trim(),
+          confidence: topResult.probability,
+          topPredictions: results.slice(0, 3).map(r => ({
+            label: r.className.split(',')[0].trim(),
+            confidence: Math.round(r.probability * 100)
+          })),
+          bbox: [sx, sy, sw, sh]
+        };
       } catch (err) {
         // Safe fail
       }
@@ -3357,6 +3504,7 @@
         // 1. Motion-Guided ROI Detection (Sub-millisecond background subtraction on stationary camera)
         const motionBox = detectMotionBoundingBox(aiInput, targetW, targetH);
         let motionConfirmedAnimal = null;
+        let motionDebugEvent = null;
 
         if (motionBox) {
           const mResult = await classifyAnimalRegion(aiInput, motionBox.x, motionBox.y, motionBox.w, motionBox.h);
@@ -3374,6 +3522,13 @@
               score: motionConfirmedAnimal.score,
               bbox: motionConfirmedAnimal.bbox,
               lastSeenTime: Date.now()
+            };
+          } else if (mResult && !mResult.isInanimate && autoSnapMotion && motionBox.pixelCount >= 14) {
+            motionDebugEvent = {
+              bbox: [motionBox.x, motionBox.y, motionBox.w, motionBox.h],
+              pixelCount: motionBox.pixelCount,
+              topPredictions: mResult.topPredictions || [{ label: mResult.label, confidence: Math.round(mResult.confidence * 100) }],
+              time: Date.now()
             };
           }
         }
@@ -3516,7 +3671,7 @@
           }
           const keys = Object.keys(counts).sort();
           const currentSignature = keys.length === 0 ? 'clear' : keys.map(k => `${k}:${counts[k]}`).join(',');
-          checkAndTriggerDeltaAutoSnap(currentSignature, predictions, activeSensitivity, targetDetected, seenLabels, humanDetected);
+          checkAndTriggerDeltaAutoSnap(currentSignature, predictions, activeSensitivity, targetDetected, seenLabels, humanDetected, motionDebugEvent);
         }
       } catch (err) {}
 
@@ -3814,7 +3969,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.9.2';
+    const APP_VERSION = 'v0.9.3';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -4185,7 +4340,12 @@
               reply(`⚡ <b>Deterrent Actions updated:</b> ${actNames}`);
             } else if (key === 'autosnap' || key === 'autosnapshot' || key === 'snap_auto') {
               const lowVal = val.toLowerCase();
-              if (lowVal.startsWith('noise') || lowVal.startsWith('filter')) {
+              if (lowVal.startsWith('motion')) {
+                const subArg = lowVal.replace(/^motion[\s=:]*/, '').trim();
+                const mEnable = subArg ? !(['off', '0', 'false', 'disable', 'disabled'].includes(subArg)) : !autoSnapMotion;
+                toggleAutoSnapMotion(mEnable);
+                reply(`📸 ⚡ <b>Motion Auto-Capture:</b> <b>${mEnable ? 'ENABLED' : 'DISABLED'}</b>\n<i>${mEnable ? 'Captures photos & 1:1 focus crops with classifier candidate guesses for unconfirmed animal movements.' : 'Disabled unconfirmed motion capture.'}</i>`);
+              } else if (lowVal.startsWith('noise') || lowVal.startsWith('filter')) {
                 const subArg = lowVal.replace(/^(noise|filter)[\s=:]*/, '').trim();
                 if (['off', '0', 'false', 'disable', 'disabled'].includes(subArg)) {
                   toggleAutoSnapNoiseLearning(false);
@@ -4202,7 +4362,7 @@
                 reply(`📸 <b>Delta Auto-Snapshots:</b> <b>DISABLED</b>`);
               } else if (['on', '1', 'true', 'enable', 'enabled'].includes(lowVal)) {
                 toggleAutoSnap(true);
-                reply(`📸 <b>Delta Auto-Snapshots:</b> <b>ENABLED</b> (Max ${autoSnapMaxPerMin}/min, Thresh: ${autoSnapThreshold}%)\n<i>Sends snapshots only when scene detection changes (arrivals/departures).</i>`);
+                reply(`📸 <b>Delta Auto-Snapshots:</b> <b>ENABLED</b> (Max ${autoSnapMaxPerMin}/min, Thresh: ${autoSnapThreshold}%, Motion Capture: ${autoSnapMotion ? 'ON' : 'OFF'})\n<i>Sends snapshots when scene detection changes or unconfirmed animals move.</i>`);
               } else if (lowVal.startsWith('thresh') || lowVal.startsWith('sens') || lowVal.startsWith('conf')) {
                 const parts = val.split(/[\s=:]+/);
                 const num = parseInt(parts[1] || parts[0].replace(/\D/g, ''));
@@ -4217,11 +4377,16 @@
                 if (!isNaN(num) && num >= 1 && num <= 20) {
                   onAutoSnapRateChange(num);
                   toggleAutoSnap(true);
-                  reply(`📸 <b>Delta Auto-Snapshots:</b> <b>ENABLED</b> at <b>Max ${num} per minute</b> (Thresh: ${autoSnapThreshold}%).`);
+                  reply(`📸 <b>Delta Auto-Snapshots:</b> <b>ENABLED</b> at <b>Max ${num} per minute</b> (Thresh: ${autoSnapThreshold}%, Motion Capture: ${autoSnapMotion ? 'ON' : 'OFF'}).`);
                 } else {
-                  reply(`⚠️ Usage:\n• <code>/set autosnap on|off</code>\n• <code>/set autosnap &lt;rate&gt;</code> (e.g. <code>/set autosnap 5</code>)\n• <code>/set autosnap thresh &lt;%&gt;</code> (e.g. <code>/set autosnap thresh 5</code>)\n• <code>/set autosnap noise on|off|clear</code>`);
+                  reply(`⚠️ Usage:\n• <code>/set autosnap on|off</code>\n• <code>/set autosnap &lt;rate&gt;</code> (e.g. <code>/set autosnap 5</code>)\n• <code>/set autosnap thresh &lt;%&gt;</code> (e.g. <code>/set autosnap thresh 5</code>)\n• <code>/set autosnap motion on|off</code>\n• <code>/set autosnap noise on|off|clear</code>`);
                 }
               }
+            } else if (key === 'autosnap_motion' || key === 'snap_motion' || key === 'motion_snap') {
+              const lowVal = val.toLowerCase();
+              const mEnable = !(['off', '0', 'false', 'disable', 'disabled'].includes(lowVal));
+              toggleAutoSnapMotion(mEnable);
+              reply(`📸 ⚡ <b>Motion Auto-Capture:</b> <b>${mEnable ? 'ENABLED' : 'DISABLED'}</b>\n<i>${mEnable ? 'Captures photos & 1:1 focus crops with classifier candidate guesses for unconfirmed animal movements.' : 'Disabled unconfirmed motion capture.'}</i>`);
             } else if (key === 'autosnap_thresh' || key === 'autosnap_threshold' || key === 'snap_thresh') {
               const num = parseInt(val);
               if (!isNaN(num) && num >= 1 && num <= 99) {
