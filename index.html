@@ -1645,7 +1645,7 @@
 
         // Restore Deep Yard Scanner Settings (Default 'off' for clean 16:9 natural view)
         const savedScannerMode = localStorage.getItem('yard_guardian_scanner_mode');
-        if (savedScannerMode && ['2zone', 'off'].includes(savedScannerMode)) {
+        if (savedScannerMode && ['horizon', '2zone', 'off'].includes(savedScannerMode)) {
           scannerMode = savedScannerMode;
         } else {
           scannerMode = 'off';
