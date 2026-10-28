@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.9.1"></script>
+  <script src="telegram-bot.js?v=0.9.2"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.1 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.2 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -1881,55 +1881,56 @@
       let evChanged = false;
       let boostChanged = false;
 
-      // Fixed Yard Camera Advantage:
-      // In a stationary yard camera, point light fixtures (e.g. garden lantern, fence light) occupy fixed pixels (0.5% - 2.5%).
-      // We do NOT let a tiny stationary light fixture trick the system into plunging the whole yard into pitch darkness!
-      // Compute Autonomous Image Information & Quality Score (Q):
-      // - Ground Visibility: targets clean natural night yard median (p50 in 30-50 range)
-      // - Dynamic Range / Texture Contrast: spread between 75th and 25th percentile
-      // - Highlight Overexposure Penalty: broad clipping > 2%
-      const lumaScore = Math.max(0, 100 - Math.abs(p50 - 38) * 2.5);
-      const textureContrast = Math.min(100, (p75 - p25) * 3.5);
-      const clipPenalty = Math.min(100, Math.max(0, (clipRatio - 0.02) * 1500));
-      currentImageQuality = Math.max(0, Math.min(100, Math.round((lumaScore * 0.5 + textureContrast * 0.5) - clipPenalty)));
+      // 1. Closed-Loop Detection Fitness & Image Quality (Q):
+      // - Target optimal night yard visibility: P50 in 30-44 band
+      // - Contrast Spread (P75 - P25): reward visible separation between ground and foliage
+      // - Noise Floor Penalty: penalize lifted thermal noise when P10 > 28
+      // - Highlight Bloom Penalty: penalize bloated fairy lights when clipRatio > 2%
+      const lumaFitness = Math.max(0, 100 - Math.abs(p50 - 36) * 2.5);
+      const contrastSpread = Math.min(100, (p75 - p25) * 3.5);
+      const noisePenalty = Math.min(100, Math.max(0, (p10 - 28) * 3.5));
+      const bloomPenalty = Math.min(100, Math.max(0, (clipRatio - 0.02) * 2000));
+      currentImageQuality = Math.max(0, Math.min(100, Math.round((lumaFitness * 0.45 + contrastSpread * 0.55) - noisePenalty - bloomPenalty)));
 
-      // Real broad whiteout or severe noise fog occurs if:
-      //  1. Large surface clipping (clipRatio > 3%)
-      //  2. Median yard is washed out / over-amplified (p50 > 55)
-      //  3. 75th percentile is blown out (p75 > 85)
-      const isBroadWhiteout = (clipRatio > 0.03) || (p50 > 55) || (p75 > 85);
+      // 2. Closed-Loop Evaluator (Self-limiting on actual boosted output):
+      // A. Over-amplification / Noise Fog / Whiteout:
+      //    Occurs if:
+      //    - Point lights blooming (clipRatio > 2.5%)
+      //    - Lawn is over-amplified (p50 > 46)
+      //    - Thermal noise floor is lifted into visible fog (p10 > 29)
+      const isOverAmplified = (clipRatio > 0.025) || (p50 > 46) || (p10 > 29);
 
-      // Yard underexposure (ground is dark and details are lost):
-      // Median ground is dark (p50 < 30) or deep shadows dominate (p50 < 38 && p25 < 18), and no broad whiteout
-      const isYardDark = !isBroadWhiteout && (p50 < 30 || (p50 < 38 && p25 < 18));
+      // B. Underexposure:
+      //    Occurs if yard is dark (p50 < 30) or shadows are crushed (p25 < 18), and not over-amplified
+      const isUnderexposed = !isOverAmplified && (p50 < 30 || (p50 < 35 && p25 < 18));
 
-      if (isBroadWhiteout) {
+      if (isOverAmplified) {
         tunerState = 'tuning';
-        // Priority 1: Step down software gamma boost first to preserve natural highlight roll-off
+        // Priority 1: Step down software boost first (kills noise fog and bloom immediately)
         if (tunedBoostLevel > 1) {
           tunedBoostLevel--;
           boostChanged = true;
         } 
-        // Priority 2: Dial down hardware EV towards baseline
+        // Priority 2: If at Boost 1, step down hardware EV
         else if (tunedEv > minEv) {
           tunedEv = Math.max(minEv, Math.round((tunedEv - 0.33) * 100) / 100);
           evChanged = true;
         }
-      } else if (isYardDark) {
+      } else if (isUnderexposed) {
         tunerState = 'tuning';
         // Priority 1: Increase hardware sensor EV first (clean optical photons up to +2.0 EV)
         if (tunedEv < Math.min(maxEv, 2.0)) {
           tunedEv = Math.min(maxEv, Math.round((tunedEv + 0.33) * 100) / 100);
           evChanged = true;
         } 
-        // Priority 2: If sensor EV is capped or at +2.0 EV and yard is still dark, lift shadows gently
-        // Strictly cap at Level 2 so auto-tuner NEVER multiplies sensor thermal noise into purple fog!
-        else if (tunedBoostLevel < 2) {
+        // Priority 2: If sensor EV is capped at +2.0 EV and yard is still dark, step up software boost
+        // Uncapped limit: The closed-loop feedback naturally stops when p50 reaches 30-44 or p10 hits 29!
+        else if (tunedBoostLevel < 5) {
           tunedBoostLevel++;
           boostChanged = true;
         }
       } else {
-        // Optimal Sweet Spot for Fixed Yard: 30 <= p50 <= 45 with deep clean blacks and sharp targets
+        // Optimal Sweet Spot for Fixed Yard: 30 <= p50 <= 46 with clean blacks and sharp detection
         tunerState = 'locked';
       }
 
@@ -1937,7 +1938,7 @@
         lastTuneTime = now;
         if (evChanged) applyHardwareCameraConstraints();
         const evDisplay = `+${tunedEv.toFixed(1)} EV`;
-        log(`✨ <b>Auto-Tuner:</b> Adjusted to ${evDisplay}, Boost Lvl ${tunedBoostLevel} (Yard Median: ${p50}, Clip: ${(clipRatio * 100).toFixed(1)}%)`);
+        log(`✨ <b>Auto-Tuner:</b> Adjusted to ${evDisplay}, Boost Lvl ${tunedBoostLevel} (Median: ${p50}, NoiseFloor P10: ${p10}, Q: ${currentImageQuality}%)`);
       }
     }
 
@@ -2351,43 +2352,57 @@
       if (!video || !video.videoWidth || !video.videoHeight) return;
 
       try {
+        // 1. Raw incoming stream analysis (for Auto Day/Night transition)
         lumaCtx.drawImage(video, 0, 0, 32, 24);
-        const imgData = lumaCtx.getImageData(0, 0, 32, 24);
-        const d = imgData.data;
-        let totalLuma = 0;
+        const rawImgData = lumaCtx.getImageData(0, 0, 32, 24);
+        const rawD = rawImgData.data;
+        let rawTotalLuma = 0;
         const totalPixels = 32 * 24;
 
-        const yValues = new Uint8Array(totalPixels);
-        let clipCount = 0;
-        let darkCount = 0;
-        let pIdx = 0;
-        for (let i = 0; i < d.length; i += 4) {
-          const y = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
-          yValues[pIdx++] = y;
-          totalLuma += y;
-          if (y > 230) clipCount++;
-          if (y < 25) darkCount++;
+        for (let i = 0; i < rawD.length; i += 4) {
+          rawTotalLuma += Math.round(0.299 * rawD[i] + 0.587 * rawD[i + 1] + 0.114 * rawD[i + 2]);
+        }
+        currentLuma = rawTotalLuma / totalPixels;
+
+        // 2. Closed-Loop Post-Boost Output Analysis for Autonomous Night Tuner
+        if (isNightMode && autoNightTuner) {
+          const boostedFrame = getAiInputFrame();
+          lumaCtx.drawImage(boostedFrame, 0, 0, 32, 24);
+          const bData = lumaCtx.getImageData(0, 0, 32, 24);
+          const bd = bData.data;
+          const yValues = new Uint8Array(totalPixels);
+          let clipCount = 0;
+          let darkCount = 0;
+          let boostedTotalLuma = 0;
+          let pIdx = 0;
+
+          for (let i = 0; i < bd.length; i += 4) {
+            const y = Math.round(0.299 * bd[i] + 0.587 * bd[i + 1] + 0.114 * bd[i + 2]);
+            yValues[pIdx++] = y;
+            boostedTotalLuma += y;
+            if (y > 230) clipCount++;
+            if (y < 20) darkCount++;
+          }
+
+          yValues.sort();
+          const p10 = yValues[76];
+          const p25 = yValues[192];
+          const p50 = yValues[384];
+          const p75 = yValues[576];
+          const p95 = yValues[729];
+
+          currentMedianLuma = p50;
+          const clipRatio = clipCount / totalPixels;
+          const darkRatio = darkCount / totalPixels;
+          tuneNightExposure({ p10, p25, p50, p75, p95, avgLuma: (boostedTotalLuma / totalPixels), clipRatio, darkRatio });
+        } else {
+          currentMedianLuma = Math.round(currentLuma);
         }
 
-        yValues.sort();
-        const p10 = yValues[76];
-        const p25 = yValues[192];
-        const p50 = yValues[384];
-        const p75 = yValues[576];
-        const p95 = yValues[729];
-
-        currentLuma = totalLuma / totalPixels;
-        currentMedianLuma = p50;
-        const clipRatio = clipCount / totalPixels;
-        const darkRatio = darkCount / totalPixels;
         updateLumaUI();
 
-        if (isNightMode && autoNightTuner) {
-          tuneNightExposure({ p10, p25, p50, p75, p95, avgLuma: currentLuma, clipRatio, darkRatio });
-        }
-
         if (nightModeSetting === 'auto') {
-          // Hysteresis: Night if < 45 for 2 checks, Day if > 65 for 2 checks
+          // Hysteresis: Night if raw sensor < 45 for 2 checks, Day if > 65 for 2 checks
           if (currentLuma < 45) {
             consecutiveLowLumaCount++;
             consecutiveHighLumaCount = 0;
@@ -3799,7 +3814,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.9.1';
+    const APP_VERSION = 'v0.9.2';
 
     function forceAppRefresh() {
       if ('caches' in window) {
