@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.8.8"></script>
+  <script src="telegram-bot.js?v=0.9.0"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.8.8 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.0 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -2188,11 +2188,20 @@
         if (predictions && predictions.length > 0) {
           for (let i = 0; i < predictions.length; i++) {
             const p = predictions[i];
+            const [x, y, w, h] = p.bbox;
+
+            if (p.isMotionVerified || p.isStationaryTracked) {
+              const scorePercent = Math.round(p.score * 100);
+              detectedTargets.push(`${p.class.toUpperCase()} (${scorePercent}%)`);
+              const statusTag = p.isMotionVerified ? '⚡ MOTION' : '💤 STATIONARY';
+              drawBox(x, y, w, h, `🎯 ${p.class.toUpperCase()} (${scorePercent}%) [${statusTag}]`, '#ef4444', sCtx);
+              continue;
+            }
+
             if (p.class === safetyClass && p.score < humanMinScore) continue;
             const reqScore = (p.class === safetyClass) ? humanMinScore : (activeTargets.includes(p.class) ? minScore : autoSnapMinScore);
             if (p.score < reqScore) continue;
             const scorePercent = Math.round(p.score * 100);
-            const [x, y, w, h] = p.bbox;
 
             if (p.class === safetyClass) {
               if (p.score >= humanMinScore) {
@@ -2999,27 +3008,172 @@
     cropCanvas.height = 224;
     const cropCtx = cropCanvas.getContext('2d');
 
-    async function checkPorcupine(x, y, w, h) {
-      if (!classifierModel) return null;
-      try {
-        if (w > 10 && h > 10) {
-          const sx = Math.max(0, x);
-          const sy = Math.max(0, y);
-          const sw = Math.min(w, video.videoWidth - sx);
-          const sh = Math.min(h, video.videoHeight - sy);
-          const src = (isNightMode && nightBoostEnabled && nightBoostCanvas.width > 0) ? nightBoostCanvas : video;
-          cropCtx.drawImage(src, sx, sy, sw, sh, 0, 0, 224, 224);
-          const results = await classifierModel.classify(cropCanvas, 3);
-          const match = results.find(r => 
-            r.className.toLowerCase().includes('porcupine') || 
-            r.className.toLowerCase().includes('hedgehog') ||
-            r.className.toLowerCase().includes('echidna')
-          );
-          if (match && match.probability >= 0.20) {
-            return match.probability;
+    // 🐾 Deep Feline, Canine, and Wildlife ImageNet Matchers (v0.9.0)
+    const IMAGENET_TARGET_MAPPINGS = {
+      cat: [
+        'tabby', 'tiger cat', 'persian cat', 'siamese', 'egyptian cat', 
+        'lynx', 'cougar', 'leopard', 'snow leopard', 'jaguar', 'lion', 
+        'cheetah', 'cat'
+      ],
+      dog: [
+        'dog', 'terrier', 'retriever', 'shepherd', 'spaniel', 'hound', 
+        'poodle', 'bulldog', 'chihuahua', 'collie', 'dingo', 'fox', 
+        'wolf', 'corgi', 'boxer', 'beagle', 'mastiff', 'husky', 'pug', 
+        'rottweiler', 'dalmatian', 'pinscher', 'setter', 'whippet'
+      ],
+      bird: [
+        'bird', 'robin', 'magpie', 'jay', 'sparrow', 'pigeon', 'crow', 
+        'quail', 'partridge', 'owl', 'finch', 'lorikeet', 'macaw', 
+        'cockatoo', 'hummingbird', 'drake', 'duck', 'goose', 'swan'
+      ],
+      porcupine: [
+        'porcupine', 'hedgehog', 'echidna'
+      ],
+      deer: [
+        'deer', 'ibex', 'gazelle', 'impala', 'antelope', 'hartebeest', 
+        'bighorn', 'ram', 'sheep'
+      ],
+      cow: [
+        'ox', 'bull', 'cow', 'water buffalo', 'bison'
+      ],
+      horse: [
+        'horse', 'sorrel', 'zebra'
+      ],
+      bear: [
+        'brown bear', 'black bear', 'polar bear', 'sloth bear'
+      ]
+    };
+
+    const INANIMATE_NOISE_CLASSES = [
+      'television', 'screen', 'spotlight', 'lamp', 'pot, flowerpot', 
+      'vase', 'pillow', 'folding chair', 'bench', 'sliding door', 'window shade',
+      'patio', 'wall clock', 'street sign', 'traffic light', 'mailbox', 'umbrella'
+    ];
+
+    // 🏃 Motion Detection Engine on Fixed Yard View
+    const motionCanvas = document.createElement('canvas');
+    motionCanvas.width = 80;
+    motionCanvas.height = 60;
+    const motionCtx = motionCanvas.getContext('2d', { willReadFrequently: true });
+    let prevMotionLuma = null;
+    let trackedAnimal = null; // { label, displayLabel, score, bbox: [x,y,w,h], lastSeenTime }
+
+    function detectMotionBoundingBox(inputSource, targetW, targetH) {
+      motionCtx.drawImage(inputSource, 0, 0, 80, 60);
+      const imgData = motionCtx.getImageData(0, 0, 80, 60);
+      const d = imgData.data;
+      const currLuma = new Uint8Array(4800);
+      
+      let minX = 80, minY = 60, maxX = 0, maxY = 0;
+      let motionPixelCount = 0;
+
+      for (let i = 0; i < d.length; i += 4) {
+        const pIdx = i / 4;
+        const y = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
+        currLuma[pIdx] = y;
+
+        if (prevMotionLuma) {
+          const diff = Math.abs(y - prevMotionLuma[pIdx]);
+          if (diff > 16) {
+            const px = pIdx % 80;
+            const py = Math.floor(pIdx / 80);
+            if (px < minX) minX = px;
+            if (py < minY) minY = py;
+            if (px > maxX) maxX = px;
+            if (py > maxY) maxY = py;
+            motionPixelCount++;
           }
         }
-      } catch (e) {}
+      }
+
+      if (!prevMotionLuma) {
+        prevMotionLuma = currLuma;
+      } else {
+        // Slow EMA background adaptation (0.85 old + 0.15 new)
+        for (let i = 0; i < 4800; i++) {
+          prevMotionLuma[i] = Math.round(prevMotionLuma[i] * 0.85 + currLuma[i] * 0.15);
+        }
+      }
+
+      // Animal size cluster: between 6 pixels and 1800 pixels on 80x60 grid
+      if (motionPixelCount >= 6 && motionPixelCount <= 1800 && maxX >= minX && maxY >= minY) {
+        const padX = 2;
+        const padY = 2;
+        const bMinX = Math.max(0, minX - padX);
+        const bMinY = Math.max(0, minY - padY);
+        const bMaxX = Math.min(79, maxX + padX);
+        const bMaxY = Math.min(59, maxY + padY);
+
+        const scaleX = targetW / 80;
+        const scaleY = targetH / 60;
+
+        const x = Math.round(bMinX * scaleX);
+        const y = Math.round(bMinY * scaleY);
+        const w = Math.round((bMaxX - bMinX + 1) * scaleX);
+        const h = Math.round((bMaxY - bMinY + 1) * scaleY);
+
+        return { x, y, w, h, pixelCount: motionPixelCount };
+      }
+
+      return null;
+    }
+
+    async function classifyAnimalRegion(sourceImg, x, y, w, h) {
+      if (!classifierModel) return null;
+      try {
+        const sx = Math.max(0, Math.round(x));
+        const sy = Math.max(0, Math.round(y));
+        const sw = Math.min(Math.round(w), (sourceImg.videoWidth || sourceImg.width) - sx);
+        const sh = Math.min(Math.round(h), (sourceImg.videoHeight || sourceImg.height) - sy);
+        if (sw < 12 || sh < 12) return null;
+
+        cropCtx.drawImage(sourceImg, sx, sy, sw, sh, 0, 0, 224, 224);
+        const results = await classifierModel.classify(cropCanvas, 5);
+        if (!results || results.length === 0) return null;
+
+        // Check if matches any active target animal
+        for (const targetKey of activeTargets) {
+          const matchers = IMAGENET_TARGET_MAPPINGS[targetKey];
+          if (!matchers) continue;
+
+          for (const res of results) {
+            const lowerName = res.className.toLowerCase();
+            const isMatch = matchers.some(m => lowerName.includes(m));
+            if (isMatch && res.probability >= 0.15) {
+              return {
+                isTarget: true,
+                target: targetKey,
+                label: res.className.split(',')[0].trim(),
+                confidence: res.probability,
+                bbox: [sx, sy, sw, sh]
+              };
+            }
+          }
+        }
+
+        // Check if verified inanimate noise
+        const topResult = results[0];
+        const topName = topResult.className.toLowerCase();
+        const isInanimate = INANIMATE_NOISE_CLASSES.some(n => topName.includes(n));
+        if (isInanimate && topResult.probability >= 0.30) {
+          return {
+            isInanimate: true,
+            label: topResult.className.split(',')[0].trim(),
+            confidence: topResult.probability,
+            bbox: [sx, sy, sw, sh]
+          };
+        }
+      } catch (err) {
+        // Safe fail
+      }
+      return null;
+    }
+
+    async function checkPorcupine(x, y, w, h) {
+      const res = await classifyAnimalRegion(video, x, y, w, h);
+      if (res && res.isTarget && res.target === 'porcupine') {
+        return res.confidence;
+      }
       return null;
     }
 
@@ -3028,11 +3182,11 @@
       model = await cocoSsd.load({ base: 'mobilenet_v2' });
       log("✅ Animal Detection Engine Ready!");
 
-      // Wildlife & Porcupine Classifier
+      // Deep Feline, Canine & Wildlife Classifier
       if (window.mobilenet) {
-        mobilenet.load({ version: 2, alpha: 0.5 }).then(c => {
+        mobilenet.load({ version: 2, alpha: 0.75 }).then(c => {
           classifierModel = c;
-          log("✅ Porcupine & Wildlife AI Classifier Ready!");
+          log("✅ Deep Feline & Animal Classifier Ready!");
         }).catch(e => console.log("Wildlife classifier note:", e));
       }
     }
@@ -3180,6 +3334,58 @@
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+        // 1. Motion-Guided ROI Detection (Sub-millisecond background subtraction on stationary camera)
+        const motionBox = detectMotionBoundingBox(aiInput, targetW, targetH);
+        let motionConfirmedAnimal = null;
+
+        if (motionBox) {
+          const mResult = await classifyAnimalRegion(aiInput, motionBox.x, motionBox.y, motionBox.w, motionBox.h);
+          if (mResult && mResult.isTarget) {
+            motionConfirmedAnimal = {
+              class: mResult.target,
+              displayLabel: mResult.label,
+              score: Math.max(0.80, mResult.confidence),
+              bbox: [motionBox.x, motionBox.y, motionBox.w, motionBox.h],
+              isMotionVerified: true
+            };
+            trackedAnimal = {
+              label: mResult.target,
+              displayLabel: mResult.label,
+              score: motionConfirmedAnimal.score,
+              bbox: motionConfirmedAnimal.bbox,
+              lastSeenTime: Date.now()
+            };
+          }
+        }
+
+        // 2. Stationary Tracked Animal Persistence (Solving "Cat walked & stopped in grass")
+        if (!motionConfirmedAnimal && trackedAnimal) {
+          const timeSinceSeen = Date.now() - trackedAnimal.lastSeenTime;
+          if (timeSinceSeen < 35000) { // Keep tracking for 35s after motion stops
+            if (frameCounter % 5 === 0) {
+              const [tx, ty, tw, th] = trackedAnimal.bbox;
+              const reVerify = await classifyAnimalRegion(aiInput, tx, ty, tw, th);
+              if (reVerify && reVerify.isTarget) {
+                trackedAnimal.lastSeenTime = Date.now();
+                trackedAnimal.score = Math.max(0.75, reVerify.confidence);
+              }
+            }
+            predictions.push({
+              class: trackedAnimal.label,
+              displayLabel: trackedAnimal.displayLabel,
+              score: trackedAnimal.score,
+              bbox: trackedAnimal.bbox,
+              isStationaryTracked: true
+            });
+          } else {
+            trackedAnimal = null; // Animal departed
+          }
+        }
+
+        if (motionConfirmedAnimal) {
+          predictions.push(motionConfirmedAnimal);
+        }
+
         let humanDetected = false;
         let targetDetected = null;
         let seenLabels = [];
@@ -3187,24 +3393,39 @@
 
         for (let i = 0; i < predictions.length; i++) {
           const p = predictions[i];
-          const scorePercent = Math.round(p.score * 100);
-          if (p.class === safetyClass && p.score < humanMinScore) continue;
-          if (p.score < minScore) continue;
-
-          seenLabels.push(`${p.class} (${scorePercent}%)`);
-
           const [x, y, w, h] = p.bbox;
           let label = p.class;
           let score = p.score;
 
-          // Porcupine check if candidate animal detected and porcupine is selected
-          if (activeTargets.includes('porcupine') && classifierModel && ['cat', 'dog', 'bear', 'sheep', 'teddy bear', 'bird'].includes(label)) {
-            const porcupineProb = await checkPorcupine(x, y, w, h);
-            if (porcupineProb) {
-              label = 'porcupine';
-              score = Math.max(score, porcupineProb);
+          // Case A: Motion-verified or Stationary-tracked animal
+          if (p.isMotionVerified || p.isStationaryTracked) {
+            seenLabels.push(`${label} (${Math.round(score * 100)}%)`);
+            targetDetected = { label, score, bbox: [x, y, w, h] };
+            const statusTag = p.isMotionVerified ? '⚡ MOTION' : '💤 STATIONARY';
+            drawBox(x, y, w, h, `🎯 ${label.toUpperCase()} (${Math.round(score * 100)}%) [${statusTag}]`, '#ef4444');
+            continue;
+          }
+
+          // Case B: Static / COCO-SSD candidate
+          // Suppress low-confidence inanimate noise (like fairy lights labeled tv, or chairs)
+          if (score < 0.50 && classifierModel) {
+            const cropCheck = await classifyAnimalRegion(aiInput, x, y, w, h);
+            if (cropCheck && cropCheck.isInanimate) {
+              // Confirmed inanimate background object -> suppress false alarm!
+              continue;
+            }
+            if (cropCheck && cropCheck.isTarget) {
+              // Promoted by deep classifier!
+              label = cropCheck.target;
+              score = Math.max(score, cropCheck.confidence);
             }
           }
+
+          const scorePercent = Math.round(score * 100);
+          if (label === safetyClass && score < humanMinScore) continue;
+          if (score < minScore) continue;
+
+          seenLabels.push(`${label} (${scorePercent}%)`);
 
           // Person is STRICTLY Safety Cutoff only
           if (label === safetyClass) {
@@ -3573,7 +3794,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.8.8';
+    const APP_VERSION = 'v0.9.0';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -4275,23 +4496,62 @@
                     predictions = mergePredictions(leftPreds, rightPreds);
                   }
                   const humanMinScore = humanSensitivity / 100;
+
+                  // Incorporate stationary tracked animal if active
+                  if (trackedAnimal && (Date.now() - trackedAnimal.lastSeenTime < 35000)) {
+                    predictions.push({
+                      class: trackedAnimal.label,
+                      displayLabel: trackedAnimal.displayLabel,
+                      score: trackedAnimal.score,
+                      bbox: trackedAnimal.bbox,
+                      isStationaryTracked: true
+                    });
+                  }
+
                   for (let i = 0; i < predictions.length; i++) {
                     const p = predictions[i];
-                    if (p.class === safetyClass && p.score < humanMinScore) continue;
-                    if (p.score < minScore) continue;
-                    const scorePercent = Math.round(p.score * 100);
-                    seenLabels.push(`${p.class} (${scorePercent}%)`);
+                    let label = p.class;
+                    let score = p.score;
                     const [x, y, w, h] = p.bbox;
 
-                    if (p.class === safetyClass) {
-                      if (p.score >= humanMinScore) {
+                    // Case A: Motion-verified or stationary tracked animal
+                    if (p.isMotionVerified || p.isStationaryTracked) {
+                      const scorePercent = Math.round(score * 100);
+                      seenLabels.push(`${label} (${scorePercent}%)`);
+                      detectedTargets.push(`${label.toUpperCase()} (${scorePercent}%)`);
+                      const statusTag = p.isMotionVerified ? '⚡ MOTION' : '💤 STATIONARY';
+                      drawBox(x, y, w, h, `🎯 ${label.toUpperCase()} (${scorePercent}%) [${statusTag}]`, '#ef4444', sCtx);
+                      continue;
+                    }
+
+                    // Case B: Static / COCO-SSD candidate - Deep verification & noise rejection
+                    if (score < 0.50 && classifierModel) {
+                      const cropCheck = await classifyAnimalRegion(frame, x, y, w, h);
+                      if (cropCheck && cropCheck.isInanimate) {
+                        continue; // Suppress false alarm (e.g. garden fairy lights labeled tv)
+                      }
+                      if (cropCheck && cropCheck.isTarget) {
+                        label = cropCheck.target;
+                        score = Math.max(score, cropCheck.confidence);
+                        p.class = label;
+                        p.score = score;
+                      }
+                    }
+
+                    if (label === safetyClass && score < humanMinScore) continue;
+                    if (score < minScore) continue;
+                    const scorePercent = Math.round(score * 100);
+                    seenLabels.push(`${label} (${scorePercent}%)`);
+
+                    if (label === safetyClass) {
+                      if (score >= humanMinScore) {
                         drawBox(x, y, w, h, `Human (${scorePercent}%)`, '#f59e0b', sCtx);
                       }
-                    } else if (activeTargets.includes(p.class)) {
-                      detectedTargets.push(`${p.class.toUpperCase()} (${scorePercent}%)`);
-                      drawBox(x, y, w, h, `🎯 ${p.class.toUpperCase()} (${scorePercent}%)`, '#ef4444', sCtx);
+                    } else if (activeTargets.includes(label)) {
+                      detectedTargets.push(`${label.toUpperCase()} (${scorePercent}%)`);
+                      drawBox(x, y, w, h, `🎯 ${label.toUpperCase()} (${scorePercent}%)`, '#ef4444', sCtx);
                     } else {
-                      drawBox(x, y, w, h, `${p.class} (${scorePercent}%)`, '#38bdf8', sCtx);
+                      drawBox(x, y, w, h, `${label} (${scorePercent}%)`, '#38bdf8', sCtx);
                     }
                   }
 
