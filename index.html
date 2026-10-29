@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.9.3"></script>
+  <script src="telegram-bot.js?v=0.9.4"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.3 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.4 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -2325,10 +2325,11 @@
             const [x, y, w, h] = p.bbox;
 
             if (p.isMotionVerified || p.isStationaryTracked) {
+              const displayLabel = p.displayLabel || p.class;
               const scorePercent = Math.round(p.score * 100);
-              detectedTargets.push(`${p.class.toUpperCase()} (${scorePercent}%)`);
+              detectedTargets.push(`${displayLabel.toUpperCase()} (${scorePercent}%)`);
               const statusTag = p.isMotionVerified ? '⚡ MOTION' : '💤 STATIONARY';
-              drawBox(x, y, w, h, `🎯 ${p.class.toUpperCase()} (${scorePercent}%) [${statusTag}]`, '#ef4444', sCtx);
+              drawBox(x, y, w, h, `🎯 ${displayLabel.toUpperCase()} (${scorePercent}%) [${statusTag}]`, '#ef4444', sCtx);
               continue;
             }
 
@@ -3161,12 +3162,12 @@
     cropCanvas.height = 224;
     const cropCtx = cropCanvas.getContext('2d');
 
-    // 🐾 Deep Feline, Canine, and Wildlife ImageNet Matchers (v0.9.0)
+    // 🐾 Deep Feline, Canine, and Wildlife ImageNet Matchers (v0.9.4)
     const IMAGENET_TARGET_MAPPINGS = {
       cat: [
         'tabby', 'tiger cat', 'persian cat', 'siamese', 'egyptian cat', 
         'lynx', 'cougar', 'leopard', 'snow leopard', 'jaguar', 'lion', 
-        'cheetah', 'cat'
+        'cheetah', 'cat', 'polecat', 'weasel', 'mink', 'quoll', 'meerkat', 'badger'
       ],
       dog: [
         'dog', 'terrier', 'retriever', 'shepherd', 'spaniel', 'hound', 
@@ -3196,6 +3197,13 @@
         'brown bear', 'black bear', 'polar bear', 'sloth bear'
       ]
     };
+
+    // 🐾 Domestic Tuxedo / Piebald Cat Proxies in ImageNet (v0.9.4)
+    // ImageNet lacks a specific "tuxedo cat" class, so MobileNet commonly classifies black-and-white
+    // domestic cats as Border collie, Boston bull, or small piebald quadrupeds.
+    const TUXEDO_CAT_CLASSES = [
+      'border collie', 'collie', 'boston bull', 'boston terrier', 'badger', 'skunk'
+    ];
 
     const INANIMATE_NOISE_CLASSES = [
       'television', 'screen', 'spotlight', 'lamp', 'pot, flowerpot', 
@@ -3284,27 +3292,7 @@
         const results = await classifierModel.classify(cropCanvas, 5);
         if (!results || results.length === 0) return null;
 
-        // Check if matches any active target animal
-        for (const targetKey of activeTargets) {
-          const matchers = IMAGENET_TARGET_MAPPINGS[targetKey];
-          if (!matchers) continue;
-
-          for (const res of results) {
-            const lowerName = res.className.toLowerCase();
-            const isMatch = matchers.some(m => lowerName.includes(m));
-            if (isMatch && res.probability >= 0.15) {
-              return {
-                isTarget: true,
-                target: targetKey,
-                label: res.className.split(',')[0].trim(),
-                confidence: res.probability,
-                bbox: [sx, sy, sw, sh]
-              };
-            }
-          }
-        }
-
-        // Check if verified inanimate noise
+        // Check if verified inanimate noise first (if high confidence inanimate >= 30%)
         const topResult = results[0];
         const topName = topResult.className.toLowerCase();
         const isInanimate = INANIMATE_NOISE_CLASSES.some(n => topName.includes(n));
@@ -3316,6 +3304,67 @@
             confidence: topResult.probability,
             bbox: [sx, sy, sw, sh]
           };
+        }
+
+        const cropArea = sw * sh;
+        const isSmallAnimalCrop = (cropArea <= 45000 || (sw <= 220 && sh <= 220));
+
+        // Check active targets with Tuxedo & Cumulative Probability resolution
+        for (const targetKey of activeTargets) {
+          const matchers = IMAGENET_TARGET_MAPPINGS[targetKey];
+          if (!matchers) continue;
+
+          let cumulativeScore = 0;
+          let bestMatch = null;
+          let isTuxedo = false;
+
+          for (const res of results) {
+            const lowerName = res.className.toLowerCase();
+            let isMatch = matchers.some(m => lowerName.includes(m));
+
+            // Tuxedo / Domestic Bicolor Cat Disambiguation Heuristic:
+            // When user targets 'cat' and crop is small domestic animal scale,
+            // map piebald/bicolor quadruped ImageNet proxies (Border collie, Boston bull) to Cat
+            if (targetKey === 'cat' && !isMatch && isSmallAnimalCrop) {
+              if (TUXEDO_CAT_CLASSES.some(c => lowerName.includes(c))) {
+                isMatch = true;
+                isTuxedo = true;
+              }
+            }
+
+            if (isMatch) {
+              cumulativeScore += res.probability;
+              if (!bestMatch || res.probability > bestMatch.probability) {
+                bestMatch = res;
+                if (targetKey === 'cat' && TUXEDO_CAT_CLASSES.some(c => lowerName.includes(c))) {
+                  isTuxedo = true;
+                }
+              }
+            }
+          }
+
+          // Confirmed target threshold for motion crops:
+          // 1. Any single matching class >= 12%
+          // 2. Top-1 prediction matches target with >= 6% (motion-isolated crop)
+          // 3. Cumulative matching animal score >= 12% across top predictions
+          const topMatchesTarget = bestMatch && (results[0] === bestMatch) && (bestMatch.probability >= 0.06);
+          const hasStrongSingle = bestMatch && (bestMatch.probability >= 0.12);
+          const hasStrongCumulative = cumulativeScore >= 0.12;
+
+          if (bestMatch && (topMatchesTarget || hasStrongSingle || hasStrongCumulative)) {
+            const displayLabel = isTuxedo 
+              ? 'Cat (Tuxedo)' 
+              : bestMatch.className.split(',')[0].trim();
+            const calculatedConf = Math.min(0.95, Math.max(bestMatch.probability, cumulativeScore, 0.75));
+
+            return {
+              isTarget: true,
+              target: targetKey,
+              label: displayLabel,
+              confidence: calculatedConf,
+              bbox: [sx, sy, sw, sh]
+            };
+          }
         }
 
         // Return candidate classification for motion auto-capture and visual debugging
@@ -3543,6 +3592,7 @@
               if (reVerify && reVerify.isTarget) {
                 trackedAnimal.lastSeenTime = Date.now();
                 trackedAnimal.score = Math.max(0.75, reVerify.confidence);
+                trackedAnimal.displayLabel = reVerify.label;
               }
             }
             predictions.push({
@@ -3574,10 +3624,11 @@
 
           // Case A: Motion-verified or Stationary-tracked animal
           if (p.isMotionVerified || p.isStationaryTracked) {
-            seenLabels.push(`${label} (${Math.round(score * 100)}%)`);
-            targetDetected = { label, score, bbox: [x, y, w, h] };
+            const displayLabel = p.displayLabel || label;
+            seenLabels.push(`${displayLabel} (${Math.round(score * 100)}%)`);
+            targetDetected = { label, displayLabel, score, bbox: [x, y, w, h] };
             const statusTag = p.isMotionVerified ? '⚡ MOTION' : '💤 STATIONARY';
-            drawBox(x, y, w, h, `🎯 ${label.toUpperCase()} (${Math.round(score * 100)}%) [${statusTag}]`, '#ef4444');
+            drawBox(x, y, w, h, `🎯 ${displayLabel.toUpperCase()} (${Math.round(score * 100)}%) [${statusTag}]`, '#ef4444');
             continue;
           }
 
@@ -3969,7 +4020,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.9.3';
+    const APP_VERSION = 'v0.9.4';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -4706,11 +4757,12 @@
 
                     // Case A: Motion-verified or stationary tracked animal
                     if (p.isMotionVerified || p.isStationaryTracked) {
+                      const displayLabel = p.displayLabel || label;
                       const scorePercent = Math.round(score * 100);
-                      seenLabels.push(`${label} (${scorePercent}%)`);
-                      detectedTargets.push(`${label.toUpperCase()} (${scorePercent}%)`);
+                      seenLabels.push(`${displayLabel} (${scorePercent}%)`);
+                      detectedTargets.push(`${displayLabel.toUpperCase()} (${scorePercent}%)`);
                       const statusTag = p.isMotionVerified ? '⚡ MOTION' : '💤 STATIONARY';
-                      drawBox(x, y, w, h, `🎯 ${label.toUpperCase()} (${scorePercent}%) [${statusTag}]`, '#ef4444', sCtx);
+                      drawBox(x, y, w, h, `🎯 ${displayLabel.toUpperCase()} (${scorePercent}%) [${statusTag}]`, '#ef4444', sCtx);
                       continue;
                     }
 
