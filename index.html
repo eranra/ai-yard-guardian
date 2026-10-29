@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.9.4"></script>
+  <script src="telegram-bot.js?v=0.9.5"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.4 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.5 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -3211,6 +3211,41 @@
       'patio', 'wall clock', 'street sign', 'traffic light', 'mailbox', 'umbrella'
     ];
 
+    /**
+     * 📐 Physical Scale & Perspective Geometry Filter (v0.9.5)
+     * Rejects physically impossible domestic animal bounding boxes (e.g. 800px wide tree canopy hallucinations).
+     */
+    function isRealisticAnimalGeometry(label, x, y, w, h, targetW, targetH) {
+      if (label === safetyClass) return true; // Humans can stand close and be tall
+
+      const area = w * h;
+      const totalScreenArea = targetW * targetH;
+      if (totalScreenArea <= 0) return true;
+      const areaRatio = area / totalScreenArea;
+
+      // 1. A domestic yard animal (cat, dog, bird, porcupine) cannot occupy > 28% of the total camera frame
+      if (areaRatio > 0.28) {
+        return false;
+      }
+
+      // 2. Horizon / Background distance rule:
+      // In the upper 70% of the screen (y + h <= targetH * 0.70), animals are 10-20 meters away.
+      // At that distance, a domestic cat or dog cannot physically exceed 38% screen width or 40% screen height.
+      const isUpperBackground = (y + h <= targetH * 0.70);
+      if (isUpperBackground) {
+        if (w > targetW * 0.38 || h > targetH * 0.40) {
+          return false;
+        }
+      }
+
+      // 3. Absolute width ceiling: a domestic animal cannot span > 60% of total frame width
+      if (w > targetW * 0.60) {
+        return false;
+      }
+
+      return true;
+    }
+
     // 🏃 Motion Detection Engine on Fixed Yard View
     const motionCanvas = document.createElement('canvas');
     motionCanvas.width = 80;
@@ -3611,6 +3646,7 @@
           predictions.push(motionConfirmedAnimal);
         }
 
+        let validPredictions = [];
         let humanDetected = false;
         let targetDetected = null;
         let seenLabels = [];
@@ -3627,14 +3663,23 @@
             const displayLabel = p.displayLabel || label;
             seenLabels.push(`${displayLabel} (${Math.round(score * 100)}%)`);
             targetDetected = { label, displayLabel, score, bbox: [x, y, w, h] };
+            validPredictions.push(p);
             const statusTag = p.isMotionVerified ? '⚡ MOTION' : '💤 STATIONARY';
             drawBox(x, y, w, h, `🎯 ${displayLabel.toUpperCase()} (${Math.round(score * 100)}%) [${statusTag}]`, '#ef4444');
             continue;
           }
 
-          // Case B: Static / COCO-SSD candidate
-          // Suppress low-confidence inanimate noise (like fairy lights labeled tv, or chairs)
-          if (score < 0.50 && classifierModel) {
+          // Case B: Static / COCO-SSD candidate (NO physical motion verified)
+          // 1. Enforce realistic animal scale and perspective geometry
+          if (!isRealisticAnimalGeometry(label, x, y, w, h, targetW, targetH)) {
+            continue; // Suppress physically impossible animal sizes (e.g. 45% screen width covering trees/walls)
+          }
+
+          // 2. High-precision deep verification for low-confidence (<50%) static candidates
+          if (score < 0.50) {
+            if (!classifierModel) {
+              continue; // Wait for high-res classifier to finish loading before evaluating low-confidence candidates
+            }
             const cropCheck = await classifyAnimalRegion(aiInput, x, y, w, h);
             if (cropCheck && cropCheck.isInanimate) {
               // Confirmed inanimate background object -> suppress false alarm!
@@ -3644,6 +3689,12 @@
               // Promoted by deep classifier!
               label = cropCheck.target;
               score = Math.max(score, cropCheck.confidence);
+              p.class = label;
+              p.score = score;
+            } else {
+              // Static background candidate with low confidence (<50%) that was NOT confirmed by
+              // high-resolution classifier -> suppress false alarm!
+              continue;
             }
           }
 
@@ -3651,6 +3702,7 @@
           if (label === safetyClass && score < humanMinScore) continue;
           if (score < minScore) continue;
 
+          validPredictions.push(p);
           seenLabels.push(`${label} (${scorePercent}%)`);
 
           // Person is STRICTLY Safety Cutoff only
@@ -3707,8 +3759,8 @@
         // 📸 Smart Delta Auto-Snapshot Check (Independent Threshold)
         if (autoSnapEnabled) {
           const counts = {};
-          for (let i = 0; i < predictions.length; i++) {
-            const p = predictions[i];
+          for (let i = 0; i < validPredictions.length; i++) {
+            const p = validPredictions[i];
             if (p.class === safetyClass && p.score < humanMinScore) continue;
             const reqScore = (p.class === safetyClass) 
               ? humanMinScore 
@@ -3722,7 +3774,7 @@
           }
           const keys = Object.keys(counts).sort();
           const currentSignature = keys.length === 0 ? 'clear' : keys.map(k => `${k}:${counts[k]}`).join(',');
-          checkAndTriggerDeltaAutoSnap(currentSignature, predictions, activeSensitivity, targetDetected, seenLabels, humanDetected, motionDebugEvent);
+          checkAndTriggerDeltaAutoSnap(currentSignature, validPredictions, activeSensitivity, targetDetected, seenLabels, humanDetected, motionDebugEvent);
         }
       } catch (err) {}
 
@@ -4020,7 +4072,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.9.4';
+    const APP_VERSION = 'v0.9.5';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -4749,6 +4801,7 @@
                     });
                   }
 
+                  let validPredictions = [];
                   for (let i = 0; i < predictions.length; i++) {
                     const p = predictions[i];
                     let label = p.class;
@@ -4761,13 +4814,19 @@
                       const scorePercent = Math.round(score * 100);
                       seenLabels.push(`${displayLabel} (${scorePercent}%)`);
                       detectedTargets.push(`${displayLabel.toUpperCase()} (${scorePercent}%)`);
+                      validPredictions.push(p);
                       const statusTag = p.isMotionVerified ? '⚡ MOTION' : '💤 STATIONARY';
                       drawBox(x, y, w, h, `🎯 ${displayLabel.toUpperCase()} (${scorePercent}%) [${statusTag}]`, '#ef4444', sCtx);
                       continue;
                     }
 
                     // Case B: Static / COCO-SSD candidate - Deep verification & noise rejection
-                    if (score < 0.50 && classifierModel) {
+                    if (!isRealisticAnimalGeometry(label, x, y, w, h, targetW, targetH)) {
+                      continue; // Suppress physically impossible animal sizes
+                    }
+
+                    if (score < 0.50) {
+                      if (!classifierModel) continue;
                       const cropCheck = await classifyAnimalRegion(frame, x, y, w, h);
                       if (cropCheck && cropCheck.isInanimate) {
                         continue; // Suppress false alarm (e.g. garden fairy lights labeled tv)
@@ -4777,11 +4836,14 @@
                         score = Math.max(score, cropCheck.confidence);
                         p.class = label;
                         p.score = score;
+                      } else {
+                        continue; // Suppress unverified low-confidence static detection
                       }
                     }
 
                     if (label === safetyClass && score < humanMinScore) continue;
                     if (score < minScore) continue;
+                    validPredictions.push(p);
                     const scorePercent = Math.round(score * 100);
                     seenLabels.push(`${label} (${scorePercent}%)`);
 
@@ -4871,10 +4933,10 @@
               }
 
               const humanMinScore = humanSensitivity / 100;
-              const primaryPred = (predictions && predictions.length > 0)
-                ? (predictions.find(p => activeTargets.includes(p.class) && p.score >= minScore) ||
-                   predictions.find(p => p.class === safetyClass && p.score >= humanMinScore) ||
-                   predictions.find(p => p.score >= minScore && p.class !== safetyClass))
+              const primaryPred = (validPredictions && validPredictions.length > 0)
+                ? (validPredictions.find(p => activeTargets.includes(p.class) && p.score >= minScore) ||
+                   validPredictions.find(p => p.class === safetyClass && p.score >= humanMinScore) ||
+                   validPredictions.find(p => p.score >= minScore && p.class !== safetyClass))
                 : null;
 
               let cropCanvas = null;
