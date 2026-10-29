@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.9.8"></script>
+  <script src="telegram-bot.js?v=0.9.9"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.8 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.9 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -2449,7 +2449,8 @@
             const p = predictions[i];
             if (p.score >= autoSnapMinScore) {
               const isConfirmedHuman = (p.class === safetyClass && p.score >= humanMinScore);
-              if (!activeTargets.includes(p.class) && !isConfirmedHuman) {
+              const isAnimalQuadruped = ['bear', 'dog', 'cow', 'sheep', 'cat', 'horse'].includes(p.class);
+              if (!activeTargets.includes(p.class) && !isConfirmedHuman && !isAnimalQuadruped) {
                 if (!autoSnapLearnedNoise.has(p.class)) {
                   newlyLearned.push(p.class);
                 }
@@ -3198,11 +3199,14 @@
       ]
     };
 
-    // 🐾 Domestic Tuxedo & Dark Feline ImageNet Proxies (v0.9.8)
-    // Dark quadruped classes in ImageNet (border collie, wild boar, warthog, hog) that MobileNet
-    // commonly outputs when black, dark, or tuxedo domestic cats move in garden mulch or trees.
+    // 🐾 Domestic Tuxedo & Dark Feline ImageNet Proxies (v0.9.9)
+    // Dark quadruped classes in ImageNet (border collie, corgi, kelpie, entlebucher, bear, boar, etc.)
+    // that MobileNet outputs when black, dark, or tuxedo domestic cats move in garden mulch or trees.
     const DARK_FELINE_PROXIES = [
-      'border collie', 'collie', 'boston bull', 'boston terrier', 'wild boar', 'warthog', 'hog'
+      'corgi', 'cardigan', 'pembroke', 'collie', 'border collie', 
+      'kelpie', 'entlebucher', 'appenzeller', 'mountain dog', 
+      'boston bull', 'boston terrier', 'sloth bear', 'black bear', 'bear',
+      'wild boar', 'boar', 'warthog', 'hog', 'badger', 'skunk'
     ];
 
     const INANIMATE_NOISE_CLASSES = [
@@ -3343,10 +3347,16 @@
     async function classifyAnimalRegion(sourceImg, x, y, w, h) {
       if (!classifierModel) return null;
       try {
-        const sx = Math.max(0, Math.round(x));
-        const sy = Math.max(0, Math.round(y));
-        const sw = Math.min(Math.round(w), (sourceImg.videoWidth || sourceImg.width) - sx);
-        const sh = Math.min(Math.round(h), (sourceImg.videoHeight || sourceImg.height) - sy);
+        const imgW = sourceImg.videoWidth || sourceImg.naturalWidth || sourceImg.width || 1024;
+        const imgH = sourceImg.videoHeight || sourceImg.naturalHeight || sourceImg.height || 576;
+
+        // 15% contextual padding around animal crop for superior ImageNet feature framing (v0.9.9)
+        const padX = Math.round(w * 0.15);
+        const padY = Math.round(h * 0.15);
+        const sx = Math.max(0, Math.round(x - padX));
+        const sy = Math.max(0, Math.round(y - padY));
+        const sw = Math.min(Math.round(w + 2 * padX), imgW - sx);
+        const sh = Math.min(Math.round(h + 2 * padY), imgH - sy);
         if (sw < 12 || sh < 12) return null;
 
         cropCtx.drawImage(sourceImg, sx, sy, sw, sh, 0, 0, 224, 224);
@@ -3377,6 +3387,7 @@
 
           let directScore = 0;
           let bestDirect = null;
+          let tuxedoScore = 0;
           let bestTuxedo = null;
 
           for (const res of results) {
@@ -3390,6 +3401,7 @@
               }
             } else if (targetKey === 'cat' && isSmallAnimalCrop) {
               if (DARK_FELINE_PROXIES.some(c => lowerName.includes(c))) {
+                tuxedoScore += res.probability;
                 if (!bestTuxedo || res.probability > bestTuxedo.probability) {
                   bestTuxedo = res;
                 }
@@ -3412,17 +3424,16 @@
             };
           }
 
-          // 2. Tuxedo & Dark Feline Proxy Match (border collie, boston bull, wild boar, warthog on small crop)
+          // 2. Tuxedo & Dark Feline Proxy Match (v0.9.9)
+          // Allows single proxy class >= 12% OR cumulative dark feline proxy mass >= 15%
           if (bestTuxedo) {
             const lowerTuxName = bestTuxedo.className.toLowerCase();
-            const isBoarLike = lowerTuxName.includes('boar') || lowerTuxName.includes('hog') || lowerTuxName.includes('pig');
-            // Wild boar/hog on small residential garden crop: threshold is 10%
-            // Border collie/bull: threshold is 20%
-            const reqProxyScore = isBoarLike ? 0.10 : 0.20;
+            const isBoarLike = ['boar', 'hog', 'pig'].some(k => lowerTuxName.includes(k));
+            const isBearLike = lowerTuxName.includes('bear');
 
-            if (bestTuxedo.probability >= reqProxyScore) {
-              const calculatedConf = Math.min(0.95, Math.max(bestTuxedo.probability, 0.75));
-              const displayLabel = isBoarLike ? 'Cat (Dark)' : 'Cat (Tuxedo)';
+            if (bestTuxedo.probability >= 0.12 || tuxedoScore >= 0.15) {
+              const calculatedConf = Math.min(0.95, Math.max(bestTuxedo.probability, tuxedoScore, 0.75));
+              const displayLabel = isBoarLike ? 'Cat (Dark)' : (isBearLike ? 'Cat (Dark)' : 'Cat (Tuxedo)');
               return {
                 isTarget: true,
                 isTuxedo: true,
@@ -3713,10 +3724,15 @@
             continue; // Suppress physically impossible animal sizes (e.g. 45% screen width covering trees/walls)
           }
 
-          // 2. High-precision deep verification for low-confidence (<50%) static candidates
-          if (score < 0.50) {
+          // 2. High-precision deep verification (v0.9.9):
+          // Evaluates candidate if score < 50% OR if COCO-SSD misclassified a domestic cat/dog as a quadruped
+          // ('bear', 'dog', 'cow', 'sheep') not currently in activeTargets
+          const isCocoQuadrupedMismatch = !activeTargets.includes(label) && ['bear', 'dog', 'cow', 'sheep'].includes(label) && activeTargets.includes('cat');
+          const needsDeepVerification = (score < 0.50) || isCocoQuadrupedMismatch;
+
+          if (needsDeepVerification) {
             if (!classifierModel) {
-              continue; // Wait for high-res classifier to finish loading before evaluating low-confidence candidates
+              continue; // Wait for high-res classifier to finish loading before evaluating
             }
             const cropCheck = await classifyAnimalRegion(aiInput, x, y, w, h);
             if (cropCheck && cropCheck.isInanimate) {
@@ -3729,9 +3745,9 @@
               score = Math.max(score, cropCheck.confidence);
               p.class = label;
               p.score = score;
+              p.displayLabel = cropCheck.label;
             } else {
-              // Static background candidate with low confidence (<50%) that was NOT confirmed by
-              // high-resolution classifier -> suppress false alarm!
+              // Static background candidate not confirmed by high-resolution classifier -> suppress false alarm!
               continue;
             }
           }
@@ -3741,7 +3757,8 @@
           if (score < minScore) continue;
 
           validPredictions.push(p);
-          seenLabels.push(`${label} (${scorePercent}%)`);
+          const displayLabel = p.displayLabel || label;
+          seenLabels.push(`${displayLabel} (${scorePercent}%)`);
 
           // Person is STRICTLY Safety Cutoff only
           if (label === safetyClass) {
@@ -3754,8 +3771,8 @@
               }
             }
           } else if (activeTargets.includes(label)) {
-            targetDetected = { label, score, bbox: [x, y, w, h] };
-            drawBox(x, y, w, h, `🎯 ${label.toUpperCase()} (${Math.round(score * 100)}%)`, '#ef4444');
+            targetDetected = { label, displayLabel, score, bbox: [x, y, w, h] };
+            drawBox(x, y, w, h, `🎯 ${displayLabel.toUpperCase()} (${Math.round(score * 100)}%)`, '#ef4444');
           } else {
             drawBox(x, y, w, h, `${label} (${Math.round(score * 100)}%)`, '#64748b');
           }
@@ -4110,7 +4127,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.9.8';
+    const APP_VERSION = 'v0.9.9';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -4864,7 +4881,10 @@
                       continue; // Suppress physically impossible animal sizes
                     }
 
-                    if (score < 0.50) {
+                    const isCocoQuadrupedMismatch = !activeTargets.includes(label) && ['bear', 'dog', 'cow', 'sheep'].includes(label) && activeTargets.includes('cat');
+                    const needsDeepVerification = (score < 0.50) || isCocoQuadrupedMismatch;
+
+                    if (needsDeepVerification) {
                       if (!classifierModel) continue;
                       const cropCheck = await classifyAnimalRegion(frame, x, y, w, h);
                       if (cropCheck && cropCheck.isInanimate) {
@@ -4875,8 +4895,9 @@
                         score = Math.max(score, cropCheck.confidence);
                         p.class = label;
                         p.score = score;
+                        p.displayLabel = cropCheck.label;
                       } else {
-                        continue; // Suppress unverified low-confidence static detection
+                        continue; // Suppress unverified static detection
                       }
                     }
 
@@ -4884,15 +4905,16 @@
                     if (score < minScore) continue;
                     validPredictions.push(p);
                     const scorePercent = Math.round(score * 100);
-                    seenLabels.push(`${label} (${scorePercent}%)`);
+                    const displayLabel = p.displayLabel || label;
+                    seenLabels.push(`${displayLabel} (${scorePercent}%)`);
 
                     if (label === safetyClass) {
                       if (score >= humanMinScore) {
                         drawBox(x, y, w, h, `Human (${scorePercent}%)`, '#f59e0b', sCtx);
                       }
                     } else if (activeTargets.includes(label)) {
-                      detectedTargets.push(`${label.toUpperCase()} (${scorePercent}%)`);
-                      drawBox(x, y, w, h, `🎯 ${label.toUpperCase()} (${scorePercent}%)`, '#ef4444', sCtx);
+                      detectedTargets.push(`${displayLabel.toUpperCase()} (${scorePercent}%)`);
+                      drawBox(x, y, w, h, `🎯 ${displayLabel.toUpperCase()} (${scorePercent}%)`, '#ef4444', sCtx);
                     } else {
                       drawBox(x, y, w, h, `${label} (${scorePercent}%)`, '#38bdf8', sCtx);
                     }
@@ -4907,7 +4929,8 @@
                       const pj = predictions[j];
                       if (pj.score >= autoSnapMinScore) {
                         const isConfirmedHuman = (pj.class === safetyClass && pj.score >= humanMinScore);
-                        if (!activeTargets.includes(pj.class) && !isConfirmedHuman) {
+                        const isAnimalQuadruped = ['bear', 'dog', 'cow', 'sheep', 'cat', 'horse'].includes(pj.class);
+                        if (!activeTargets.includes(pj.class) && !isConfirmedHuman && !isAnimalQuadruped) {
                           if (!autoSnapLearnedNoise.has(pj.class)) {
                             newlyLearned.push(pj.class);
                           }
