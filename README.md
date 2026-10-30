@@ -21,6 +21,7 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
   - **🛡️ Static Scenery Anti-Hallucination Gate (v0.9.5):** Solves false detections on stationary trees, garden walls, and shadows. Any static candidate with low confidence (<50%) that has NO verified motion is strictly rejected unless the high-resolution deep classifier confirms it as a real target animal.
   - **Inanimate Noise Rejection:** Ambiguous objects are inspected at full resolution; objects identified as lamps, flowerpots, folding chairs, lawn mowers, fences, or garden walls are automatically suppressed, eliminating false alarms.
   - **⚡ Motion-Triggered Auto-Capture for Unconfirmed Movements (v0.9.3 / v0.9.10 - Default ON):** Automatically captures full yard photos and **1:1 zoomed crops** of moving creatures detected in the yard with top 3 AI candidate guesses. In v0.9.10, features **Horizon & Depth Zone Gating**: distinguishes the Far Garden (distant trees/horizon in upper 63%) from the Near Garden (foreground lawn), enforces cluster motion density ($\ge 8\%$) to eliminate sparse tree canopy wind swaying (e.g. 23 pixels across an 800px area), enforces domestic animal perspective geometry, and introduces **Configurable Motion Pixel Threshold** (default **30 px**, customizable via `/set motionpx <6-200>` or `/set autosnap motion <px>`). Rate-limited (15s spacing).
+  - **🖥️ Local Analysis Server & Ingest Hub (v0.9.14):** In addition to Telegram, stream full-resolution snapshot photos, detection metadata, and alert text logs directly to a lightweight Node.js receiver on your local PC over Wi-Fi. Enables automated false-positive analysis and offline tracking with zero cloud dependencies. See [📖 LOCAL_SERVER.md](LOCAL_SERVER.md) for full guide.
 - **🤖 Telegram Remote Control, Live Touch Buttons & Full Configuration:**
   - 🔘 **Interactive Touch Buttons:** Persistent custom reply keyboard at the bottom of your chat:
     - `[ 📸 Snapshot ]` `[ 💦 Spray Test ]`
@@ -56,9 +57,10 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/set longexp <low|medium|high|off>` — set manual night exposure mode (low +0.4 EV, medium +1.0 EV, high +1.6 EV, or off 0.0 EV). Auto-balancing is handled by `/autotune`.
     - `/set torch_assist <on|off>` — toggle flashlight assist on night alert.
     - `/set safety <on|off>` — toggle human safety pause cutoff.
+    - `/set localserver <http://ip:port|on|off>` — configure local analysis server & logger relay.
     - `/set webhook <url>` — update Smart Life webhook URL.
     - `/target add <animal>` / `/target remove <animal>` — add/remove target.
-    - `/action add <action>` / `/action remove <action>` — add/remove action.
+    - `/action add <sprinklers|screenshot|siren|strobe|local_server>` — add/remove deterrent action.
     - `/camera list` and `/camera <number>` — switch physical camera lens remotely.
   - 📡 **Quick Commands:**
     - `/snap` — capture and send back a live photo from the garden phone right now with active AI object detection, bounding box overlay, timestamped banner, and detailed detection caption.

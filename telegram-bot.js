@@ -14,7 +14,9 @@
     TOKEN: 'yard_guardian_tg_token',
     CHAT_ID: 'yard_guardian_tg_chat_id',
     ENABLED: 'yard_guardian_tg_enabled',
-    REMOTE_ENABLED: 'yard_guardian_tg_remote_enabled'
+    REMOTE_ENABLED: 'yard_guardian_tg_remote_enabled',
+    LOCAL_SERVER_URL: 'yard_guardian_local_server_url',
+    LOCAL_SERVER_ENABLED: 'yard_guardian_local_server_enabled'
   };
 
   const DEFAULT_KEYBOARD = {
@@ -32,6 +34,8 @@
     chatId: '',
     enabled: false,
     remoteControlEnabled: true,
+    localServerUrl: '',
+    localServerEnabled: false,
     isPolling: false,
     lastUpdateId: 0,
     pollingAbortController: null,
@@ -43,7 +47,58 @@
       this.chatId = (localStorage.getItem(STORAGE_KEYS.CHAT_ID) || '').trim();
       this.enabled = localStorage.getItem(STORAGE_KEYS.ENABLED) === 'true';
       this.remoteControlEnabled = localStorage.getItem(STORAGE_KEYS.REMOTE_ENABLED) !== 'false';
+      this.localServerUrl = (localStorage.getItem(STORAGE_KEYS.LOCAL_SERVER_URL) || '').trim();
+      this.localServerEnabled = localStorage.getItem(STORAGE_KEYS.LOCAL_SERVER_ENABLED) === 'true';
       return this.isConfigured();
+    },
+
+    setLocalServer: function (url, enabled) {
+      this.localServerUrl = (url || '').trim().replace(/\/+$/, '');
+      this.localServerEnabled = !!enabled;
+      localStorage.setItem(STORAGE_KEYS.LOCAL_SERVER_URL, this.localServerUrl);
+      localStorage.setItem(STORAGE_KEYS.LOCAL_SERVER_ENABLED, this.localServerEnabled ? 'true' : 'false');
+    },
+
+    sendLocalLog: function (text, type = 'message', metadata = null) {
+      if (!this.localServerEnabled || !this.localServerUrl || !text) return;
+      try {
+        const payload = {
+          timestamp: Date.now(),
+          dateStr: new Date().toLocaleString(),
+          isoTime: new Date().toISOString(),
+          type: type,
+          text: text,
+          metadata: metadata
+        };
+        fetch(`${this.localServerUrl}/api/log`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(() => {});
+      } catch (e) {}
+    },
+
+    sendLocalPhoto: function (blob, caption = '', metadata = null) {
+      if (!this.localServerEnabled || !this.localServerUrl || !blob) return;
+      try {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result;
+          fetch(`${this.localServerUrl}/api/upload`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              photoBase64: base64,
+              caption: caption || '',
+              timestamp: Date.now(),
+              dateStr: new Date().toLocaleString(),
+              isoTime: new Date().toISOString(),
+              metadata: metadata || null
+            })
+          }).catch(() => {});
+        };
+        reader.readAsDataURL(blob);
+      } catch (e) {}
     },
 
     isConfigured: function () {
@@ -113,7 +168,10 @@
     /**
      * Send text message to user's Telegram chat with optional custom keyboard
      */
-    sendMessage: async function (text, parseMode = 'HTML', replyMarkup = undefined) {
+    sendMessage: async function (text, parseMode = 'HTML', replyMarkup = undefined, metadata = null) {
+      if (this.localServerEnabled && this.localServerUrl && text) {
+        this.sendLocalLog(text, 'message', metadata);
+      }
       if (!this.isConfigured() || !this.enabled) return false;
 
       try {
@@ -146,21 +204,27 @@
      * Send formatted intruder alert message
      */
     sendIntruderAlert: async function (target, score, timeStr) {
-      if (!this.isConfigured() || !this.enabled) return false;
-
       const pct = Math.round((score || 0) * 100);
       const text = `🚨 <b>INTRUDER ALERT!</b>\n` +
         `🎯 Detected: <b>${(target || 'Intruder').toUpperCase()}</b> (${pct}% confidence)\n` +
         `🕒 Time: <b>${timeStr || new Date().toLocaleTimeString()}</b>\n` +
         `🛡️ AI Yard Guardian has triggered deterrence.`;
 
+      if (this.localServerEnabled && this.localServerUrl) {
+        this.sendLocalLog(text, 'alert', { target, score: pct, time: timeStr });
+      }
+
+      if (!this.isConfigured() || !this.enabled) return false;
       return this.sendMessage(text);
     },
 
     /**
-     * Send captured snapshot photo blob directly to Telegram chat
+     * Send captured snapshot photo blob directly to Telegram chat and/or Local Server
      */
-    sendPhotoBlob: async function (blob, caption = '') {
+    sendPhotoBlob: async function (blob, caption = '', metadata = null) {
+      if (this.localServerEnabled && this.localServerUrl && blob) {
+        this.sendLocalPhoto(blob, caption, metadata);
+      }
       if (!this.isConfigured() || !this.enabled || !blob) return false;
 
       try {
@@ -328,6 +392,7 @@
             '🌙 <code>/set longexp &lt;low|medium|high|off&gt;</code> — Manual night exposure mode\n' +
             '🔬 <code>/exposure</code> or <code>/camera exp</code> — Camera hardware exposure info\n' +
             '🔦 <code>/set torch_assist &lt;on|off&gt;</code> — Torch on alert\n' +
+            '🖥️ <code>/set localserver &lt;url|on|off&gt;</code> — Local analysis server &amp; logger\n' +
             '💧 <code>/set webhook &lt;url&gt;</code> — Update webhook URL\n\n' +
             '<i>Tip: Tap the buttons below your keyboard anytime!</i>'
           );
@@ -405,6 +470,13 @@
         case '/fps':
           if (this.callbacks.onCommand) {
             this.callbacks.onCommand('set', reply, replyPhoto, ['speed', ...args]);
+          }
+          break;
+
+        case '/localserver':
+        case '/local_server':
+          if (this.callbacks.onCommand) {
+            this.callbacks.onCommand('set', reply, replyPhoto, ['localserver', ...args]);
           }
           break;
 

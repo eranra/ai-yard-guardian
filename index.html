@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.9.13"></script>
+  <script src="telegram-bot.js?v=0.9.14"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.13 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.14 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -568,6 +568,10 @@
               <label class="combo-item">
                 <input type="checkbox" class="activation-checkbox" value="strobe" onchange="onActivationSelectionChange()">
                 <span>⚡ Screen Strobe Alert</span>
+              </label>
+              <label class="combo-item">
+                <input type="checkbox" class="activation-checkbox" value="local_server" onchange="onActivationSelectionChange()">
+                <span>🖥️ Local Server Log &amp; Relay</span>
               </label>
             </div>
           </div>
@@ -830,6 +834,35 @@
             <div style="display: flex; gap: 8px; align-items: center; margin-top: 6px;">
               <button type="button" class="btn-primary" style="padding: 6px 14px; font-size: 0.76rem;" onclick="testTelegramBotConnection()">📤 Test Message</button>
               <span id="tgTestStatus" style="font-size: 0.74rem; color: #94a3b8;"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 🖥️ Local Analysis Server & Ingest Hub (v0.9.14) -->
+        <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 10px; background: #0f172a; padding: 10px; border-radius: 8px; border: 1px solid #334155; width: 100%;" id="localServerSection">
+          <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+              <span>🖥️ Local Server Analysis &amp; Ingest Hub</span>
+            </div>
+            <a href="LOCAL_SERVER.md" target="_blank" class="btn-help" style="text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">📖 Guide</a>
+          </div>
+          <p style="font-size: 0.74rem; color: #94a3b8; line-height: 1.3;">
+            Streams all alert logs, text readouts, and full-res snapshot photos directly to a local Node.js receiver on your PC for offline tracking and AI model analysis.
+          </p>
+
+          <div style="width: 100%; display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
+            <label class="toggle" style="font-size: 0.78rem;">
+              <input type="checkbox" id="localServerToggle" onchange="saveLocalServerSettings()"> Enable Local Server Relay
+            </label>
+
+            <div style="margin-top: 2px;">
+              <label for="localServerUrlInput" style="font-size: 0.74rem; color: #cbd5e1; display: block; margin-bottom: 2px;">Local Server URL (e.g. PC IP on Wi-Fi):</label>
+              <input type="text" id="localServerUrlInput" placeholder="http://192.168.1.109:8780" onchange="saveLocalServerSettings()" oninput="saveLocalServerSettings()" style="font-size: 0.75rem;">
+            </div>
+
+            <div style="display: flex; gap: 8px; align-items: center; margin-top: 6px;">
+              <button type="button" class="btn-primary" style="padding: 6px 14px; font-size: 0.76rem;" onclick="testLocalServerConnection()">📡 Test Connection</button>
+              <span id="localServerTestStatus" style="font-size: 0.74rem; color: #94a3b8;"></span>
             </div>
           </div>
         </div>
@@ -1321,7 +1354,8 @@
       'sprinklers': '💦 Sprinklers',
       'screenshot': '📸 Screenshot',
       'siren': '🔊 Siren',
-      'strobe': '⚡ Strobe'
+      'strobe': '⚡ Strobe',
+      'local_server': '🖥️ Local Server'
     };
 
     // 1. Targets Dropdown Toggle
@@ -1381,6 +1415,7 @@
         if (a === 'screenshot') return '📸';
         if (a === 'siren') return '🔊';
         if (a === 'strobe') return '⚡';
+        if (a === 'local_server') return '🖥️';
         return a;
       });
       const actStr = actIcons.length > 0 ? actIcons.join('') : 'none';
@@ -1820,6 +1855,11 @@
           if (tChat) tChat.value = tgCreds.chatId || '';
           if (tAlerts) tAlerts.checked = tgCreds.enabled;
           if (tRemote) tRemote.checked = tgCreds.remoteControlEnabled;
+
+          const localUrlInput = document.getElementById('localServerUrlInput');
+          if (localUrlInput) localUrlInput.value = TelegramBot.localServerUrl || '';
+          const localToggle = document.getElementById('localServerToggle');
+          if (localToggle) localToggle.checked = TelegramBot.localServerEnabled || false;
         }
       } catch (e) {
         console.warn('Could not load settings:', e);
@@ -1839,6 +1879,46 @@
         TelegramBot.startPolling();
       } else {
         TelegramBot.stopPolling();
+      }
+    }
+
+    function saveLocalServerSettings() {
+      if (!window.TelegramBot) return;
+      const url = (document.getElementById('localServerUrlInput')?.value || '').trim();
+      const enabled = document.getElementById('localServerToggle')?.checked || false;
+      TelegramBot.setLocalServer(url, enabled);
+      saveSettings();
+    }
+
+    async function testLocalServerConnection() {
+      saveLocalServerSettings();
+      const statusEl = document.getElementById('localServerTestStatus');
+      const url = (document.getElementById('localServerUrlInput')?.value || '').trim();
+      if (!url) {
+        if (statusEl) {
+          statusEl.innerText = "⚠️ Enter URL";
+          statusEl.style.color = "#f59e0b";
+        }
+        return;
+      }
+      if (statusEl) {
+        statusEl.innerText = "⏳ Testing...";
+        statusEl.style.color = "#38bdf8";
+      }
+      try {
+        const res = await fetch(`${url}/api/status`);
+        const data = await res.json();
+        if (statusEl) {
+          statusEl.innerText = `✅ Connected (${data.status})!`;
+          statusEl.style.color = "#22c55e";
+        }
+        log(`🖥️ Connected to Local Server at <b>${url}</b> (Saved photos: ${data.savedPhotosCount})`);
+      } catch (err) {
+        if (statusEl) {
+          statusEl.innerText = "❌ Unreachable";
+          statusEl.style.color = "#ef4444";
+        }
+        log(`⚠️ Could not reach Local Server at ${url}: ${err.message}`);
       }
     }
 
@@ -3977,7 +4057,8 @@
       log(`🚨 <b>${label.toUpperCase()} DETECTED (${scorePercent}%)!</b> Triggering deterrents...`);
 
       // Send alert to Telegram Bot (if configured & enabled)
-      if (window.TelegramBot && TelegramBot.enabled && TelegramBot.isConfigured()) {
+      // Send Instant Intruder Alert to Telegram & Local Server
+      if (window.TelegramBot && ((TelegramBot.enabled && TelegramBot.isConfigured()) || TelegramBot.localServerEnabled)) {
         const nightTag = isNightMode ? ' 🌙 [Night Mode]' : '';
         TelegramBot.sendIntruderAlert(label + nightTag, score, new Date().toLocaleTimeString());
       }
@@ -4023,6 +4104,14 @@
             });
         } else {
           log("⚠️ Sprinklers selected, but no Webhook URL configured in settings!");
+        }
+      }
+
+      // 5. Local Server Relay
+      if (activeActivations.includes('local_server') || (window.TelegramBot && TelegramBot.localServerEnabled)) {
+        log("🖥️ Streaming intruder alert & evidence to Local Server...");
+        if (!activeActivations.includes('screenshot')) {
+          captureDetectionSnapshot(label, score, bbox);
         }
       }
     }
@@ -4114,8 +4203,8 @@
           cropCanvas = generateFocusCrop(snapCanvas, bbox, targetW, targetH, label, score);
         }
 
-        // Send photo to Telegram Bot (if configured & enabled)
-        if (window.TelegramBot && TelegramBot.enabled && TelegramBot.isConfigured()) {
+        // Send photo to Telegram Bot and/or Local Server (if configured & enabled)
+        if (window.TelegramBot && ((TelegramBot.enabled && TelegramBot.isConfigured()) || TelegramBot.localServerEnabled || activeActivations.includes('local_server'))) {
           try {
             if (scannerSnap === 'crop' && cropCanvas) {
               cropCanvas.toBlob((cropBlob) => {
@@ -4241,7 +4330,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.9.13';
+    const APP_VERSION = 'v0.9.14';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -4339,7 +4428,8 @@
               `🔍 <b>Deep Yard Scanner:</b> <b>${formatScannerModeDisplay()}</b> (Snaps: <b>${formatScannerSnapDisplay()}</b>) (<code>/set scanner horizon|2zone|off</code>, <code>/set scanner snap both|full|crop</code>)\n` +
               `🔒 <b>Human Safety Pause:</b> <b>${safetyOn ? 'ON' : 'OFF'}</b> (<code>/set safety on|off</code>)\n` +
               `📷 <b>Active Lens:</b> ${camName} (<code>/camera list</code>)\n` +
-              `💧 <b>Smart Life Webhook:</b> ${webhookDisplay} (<code>/set webhook &lt;url&gt;</code>)`
+              `💧 <b>Smart Life Webhook:</b> ${webhookDisplay} (<code>/set webhook &lt;url&gt;</code>)\n` +
+              `🖥️ <b>Local Server:</b> <b>${TelegramBot.localServerEnabled ? `ENABLED (${TelegramBot.localServerUrl || 'No URL'})` : 'OFF'}</b> (<code>/set localserver &lt;url|on|off&gt;</code>)`
             );
           } else if (cmd === 'set') {
             if (!args || args.length < 2) {
@@ -4712,6 +4802,28 @@
               } else {
                 toggleAutoSnapNoiseLearning(true);
                 reply(`🧠 <b>Auto-Snap Noise Filter:</b> <b>ENABLED</b> (60m sliding TTL, currently ignoring: ${autoSnapLearnedNoise.size > 0 ? Array.from(autoSnapLearnedNoise.keys()).join(', ') : 'None yet'})`);
+              }
+            } else if (key === 'localserver' || key === 'local_server' || key === 'receiver') {
+              const lowVal = val.toLowerCase();
+              if (['off', '0', 'false', 'disable', 'disabled'].includes(lowVal)) {
+                TelegramBot.setLocalServer(TelegramBot.localServerUrl, false);
+                const localToggle = document.getElementById('localServerToggle');
+                if (localToggle) localToggle.checked = false;
+                reply(`🖥️ <b>Local Server Relay:</b> <b>DISABLED</b>`);
+              } else if (['on', '1', 'true', 'enable', 'enabled'].includes(lowVal)) {
+                TelegramBot.setLocalServer(TelegramBot.localServerUrl, true);
+                const localToggle = document.getElementById('localServerToggle');
+                if (localToggle) localToggle.checked = true;
+                reply(`🖥️ <b>Local Server Relay:</b> <b>ENABLED</b> (${TelegramBot.localServerUrl || 'No URL configured'})`);
+              } else if (val.startsWith('http://') || val.startsWith('https://')) {
+                TelegramBot.setLocalServer(val, true);
+                const localToggle = document.getElementById('localServerToggle');
+                if (localToggle) localToggle.checked = true;
+                const localUrlInput = document.getElementById('localServerUrlInput');
+                if (localUrlInput) localUrlInput.value = val;
+                reply(`🖥️ <b>Local Server URL set &amp; ENABLED:</b>\n<code>${val}</code>\n<i>Streaming alerts, readouts & photos to local receiver.</i>`);
+              } else {
+                reply(`⚠️ Usage:\n• <code>/set localserver &lt;http://ip:port&gt;</code>\n• <code>/set localserver on|off</code>`);
               }
             } else if (key === 'webhook') {
               const wInput = document.getElementById('webhookInput');
