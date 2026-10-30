@@ -1,0 +1,5 @@
+received_events/
+cloudflared.exe
+node_modules/
+.DS_Store
+Thumbs.db

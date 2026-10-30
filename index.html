@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.14 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.15 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -3358,14 +3358,12 @@
       ]
     };
 
-    // 🐾 Domestic Tuxedo & Dark Feline ImageNet Proxies (v0.9.9)
-    // Dark quadruped classes in ImageNet (border collie, corgi, kelpie, entlebucher, bear, boar, etc.)
-    // that MobileNet outputs when black, dark, or tuxedo domestic cats move in garden mulch or trees.
+    // 🐾 Domestic Tuxedo & Dark Feline ImageNet Proxies (v0.9.9 / v0.9.15)
+    // Strictly small domestic dark canine proxies that MobileNet outputs for black/tuxedo cats.
+    // Wild forest animals (bear, boar, hog) are strictly excluded to avoid foliage/shadow false alarms.
     const DARK_FELINE_PROXIES = [
       'corgi', 'cardigan', 'pembroke', 'collie', 'border collie', 
-      'kelpie', 'entlebucher', 'appenzeller', 'mountain dog', 
-      'boston bull', 'boston terrier', 'sloth bear', 'black bear', 'bear',
-      'wild boar', 'boar', 'warthog', 'hog'
+      'kelpie', 'entlebucher', 'appenzeller', 'boston bull', 'boston terrier'
     ];
 
     const INANIMATE_NOISE_CLASSES = [
@@ -3373,11 +3371,12 @@
       'vase', 'pillow', 'folding chair', 'bench', 'park bench', 'sliding door', 'window shade',
       'patio', 'wall clock', 'street sign', 'traffic light', 'mailbox', 'umbrella',
       'lawn mower', 'hay', 'greenhouse', 'worm fence', 'stone wall', 'picket fence',
-      'chainlink fence', 'flagstone', 'birdhouse', 'fountain'
+      'chainlink fence', 'flagstone', 'birdhouse', 'fountain',
+      'ladder', 'stepladder', 'pole', 'trellis', 'banister', 'bannister', 'handrail', 'radiator'
     ];
 
     /**
-     * 📐 Physical Scale & Perspective Geometry Filter (v0.9.5 / v0.9.13)
+     * 📐 Physical Scale & Perspective Geometry Filter (v0.9.5 / v0.9.15)
      * Rejects physically impossible domestic animal bounding boxes (e.g. 500px wide tree canopy / wall hallucinations).
      */
     function isRealisticAnimalGeometry(label, x, y, w, h, targetW, targetH, isScannerCrop = false) {
@@ -3404,6 +3403,11 @@
       const centerY = y + h * 0.5;
       if (centerY <= targetH * 0.70) {
         if (w > targetW * 0.25 || h > targetH * 0.25) {
+          return false;
+        }
+        // In the upper trees/structures (center <= 60% height), quadruped animals (cat, dog, porcupine)
+        // cannot have a vertical aspect ratio (height > 1.7x width) which corresponds to ladder rungs, tree trunks, and poles
+        if (centerY <= targetH * 0.60 && ['cat', 'dog', 'porcupine'].includes(label) && (h > w * 1.7)) {
           return false;
         }
       }
@@ -3598,7 +3602,7 @@
           // Requires single class >= 16% or cumulative matching >= 20%
           if (bestDirect && (bestDirect.probability >= 0.16 || directScore >= 0.20)) {
             const displayLabel = bestDirect.className.split(',')[0].trim();
-            const calculatedConf = Math.min(0.95, Math.max(bestDirect.probability, directScore, 0.75));
+            const calculatedConf = Math.min(0.95, Math.max(bestDirect.probability, directScore));
             return {
               isTarget: true,
               isTuxedo: false,
@@ -3609,21 +3613,16 @@
             };
           }
 
-          // 2. Tuxedo & Dark Feline Proxy Match (v0.9.9)
-          // Allows single proxy class >= 12% OR cumulative dark feline proxy mass >= 15%
+          // 2. Tuxedo & Dark Feline Proxy Match (v0.9.9 / v0.9.15)
+          // Allows single domestic proxy class >= 15% OR cumulative dark feline proxy mass >= 20%
           if (bestTuxedo) {
-            const lowerTuxName = bestTuxedo.className.toLowerCase();
-            const isBoarLike = ['boar', 'hog', 'pig'].some(k => lowerTuxName.includes(k));
-            const isBearLike = lowerTuxName.includes('bear');
-
-            if (bestTuxedo.probability >= 0.12 || tuxedoScore >= 0.15) {
-              const calculatedConf = Math.min(0.95, Math.max(bestTuxedo.probability, tuxedoScore, 0.75));
-              const displayLabel = isBoarLike ? 'Cat (Dark)' : (isBearLike ? 'Cat (Dark)' : 'Cat (Tuxedo)');
+            if (bestTuxedo.probability >= 0.15 || tuxedoScore >= 0.20) {
+              const calculatedConf = Math.min(0.90, Math.max(bestTuxedo.probability, tuxedoScore));
               return {
                 isTarget: true,
                 isTuxedo: true,
                 target: targetKey,
-                label: displayLabel,
+                label: 'Cat (Tuxedo)',
                 confidence: calculatedConf,
                 bbox: [sx, sy, sw, sh]
               };
@@ -3918,7 +3917,7 @@
             continue; // Suppress physically impossible animal sizes (e.g. 45% screen width covering trees/walls)
           }
 
-          // 2. High-precision deep verification (v0.9.9):
+          // 2. High-precision deep verification (v0.9.9 / v0.9.15):
           // Evaluates candidate if score < 50% OR if COCO-SSD misclassified a domestic cat/dog as a quadruped
           // ('bear', 'dog', 'cow', 'sheep') not currently in activeTargets
           const isCocoQuadrupedMismatch = !activeTargets.includes(label) && ['bear', 'dog', 'cow', 'sheep'].includes(label) && activeTargets.includes('cat');
@@ -3933,10 +3932,12 @@
               // Confirmed inanimate background object -> suppress false alarm!
               continue;
             }
-            if (cropCheck && cropCheck.isTarget) {
+            // For static candidates with no physical motion:
+            // Require direct domestic animal match with high confidence (>= 0.60), never a proxy
+            if (cropCheck && cropCheck.isTarget && !cropCheck.isTuxedo && cropCheck.confidence >= 0.60) {
               // Promoted by deep classifier!
               label = cropCheck.target;
-              score = Math.max(score, cropCheck.confidence);
+              score = cropCheck.confidence;
               p.class = label;
               p.score = score;
               p.displayLabel = cropCheck.label;
@@ -4330,7 +4331,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.9.14';
+    const APP_VERSION = 'v0.9.15';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -5152,11 +5153,13 @@
                       if (!classifierModel) continue;
                       const cropCheck = await classifyAnimalRegion(frame, x, y, w, h);
                       if (cropCheck && cropCheck.isInanimate) {
-                        continue; // Suppress false alarm (e.g. garden fairy lights labeled tv)
+                        continue; // Suppress false alarm (e.g. garden fairy lights labeled tv, ladder, etc.)
                       }
-                      if (cropCheck && cropCheck.isTarget) {
+                      // For static candidates with no physical motion:
+                      // Require direct domestic animal match with high confidence (>= 0.60), never a proxy
+                      if (cropCheck && cropCheck.isTarget && !cropCheck.isTuxedo && cropCheck.confidence >= 0.60) {
                         label = cropCheck.target;
-                        score = Math.max(score, cropCheck.confidence);
+                        score = cropCheck.confidence;
                         p.class = label;
                         p.score = score;
                         p.displayLabel = cropCheck.label;
