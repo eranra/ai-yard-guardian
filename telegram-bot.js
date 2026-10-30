@@ -385,6 +385,14 @@
           }
           break;
 
+        case '/detectpx':
+        case '/detect_px':
+        case '/motiondetect':
+          if (this.callbacks.onCommand) {
+            this.callbacks.onCommand('set', reply, replyPhoto, ['detectpx', ...args]);
+          }
+          break;
+
         case '/scanner':
           if (this.callbacks.onCommand) {
             this.callbacks.onCommand('set', reply, replyPhoto, ['scanner', ...args]);

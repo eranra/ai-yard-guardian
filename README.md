@@ -44,6 +44,8 @@ A zero-install, on-device AI yard monitoring and wildlife deterrent system that 
     - `/set screen <1|2|5|10|30s|off>` — set auto-blackout inactivity timeout (default `1` minute).
     - `/set day <1-99>` — set daytime sensitivity threshold (e.g. `/set day 10`).
     - `/set night <1-99>` — set nighttime sensitivity threshold (e.g. `/set night 10` for maximum animal detection).
+    - `/set detectpx <4-100>` — set regular motion-guided detection pixel trigger threshold (default `10` px, controls physical motion required to trigger deep animal recognition).
+    - `/set motionpx <6-200>` — set unconfirmed movement auto-capture pixel trigger threshold (default `25` px).
     - `/set human <1-99>` — set independent human safety cutoff threshold (default `50%`, prevents faint night lights and reflections from triggering false human pauses when animal sensitivity is set ultra-sensitive at 10%).
     - `/set mode <auto|day|night>` — set light detection mode.
     - `/set targets <cat,dog,bird...>` — set target animal list.
