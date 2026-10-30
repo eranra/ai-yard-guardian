@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
   
   <!-- Telegram Bot Alert & Remote Integration -->
-  <script src="telegram-bot.js?v=0.9.9"></script>
+  <script src="telegram-bot.js?v=0.9.10"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.9 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.10 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -612,8 +612,15 @@
             </label>
             <span style="font-size: 0.65rem; color: #38bdf8; font-weight: bold;">Default ON</span>
           </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 4px;">
+            <label for="autoSnapMotionMinPxInput" style="font-size: 0.72rem; color: #94a3b8;">Min Motion Pixels:</label>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <input type="number" id="autoSnapMotionMinPxInput" min="6" max="200" value="25" onchange="updateAutoSnapMotionMinPx(this.value)" style="width: 50px; background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 2px 4px; border-radius: 4px; font-size: 0.72rem; text-align: center;">
+              <span style="font-size: 0.68rem; color: #64748b;">px</span>
+            </div>
+          </div>
           <div style="font-size: 0.68rem; color: #64748b; line-height: 1.2; width: 100%; margin-top: 2px;">
-            Captures photos &amp; 1:1 zoomed crops with AI candidate guesses for moving yard animals.
+            Captures photos &amp; 1:1 zoomed crops with AI candidate guesses for moving yard animals (Horizon &amp; Depth gated).
           </div>
         </div>
 
@@ -960,6 +967,7 @@
     let autoSnapThreshold = 5; // Independent threshold (default 5%)
     let autoSnapLearnNoise = true; // Auto-learn non-target noisy objects
     let autoSnapMotion = true; // 🐾 Motion Auto-Capture for Unconfirmed Animals (v0.9.3 - Default ON)
+    let autoSnapMotionMinPx = 25; // 🎯 Minimum motion pixels required to trigger unconfirmed motion capture (v0.9.10)
     let autoSnapLearnedNoise = new Map(); // className -> lastSeenTimestamp (60m sliding TTL)
     const NOISE_TTL_MS = 60 * 60 * 1000; // 60 minutes continuous sliding window
     let lastDetectionSignature = '__init__';
@@ -1461,6 +1469,7 @@
       localStorage.setItem('yard_guardian_autosnap_thresh', autoSnapThreshold.toString());
       localStorage.setItem('yard_guardian_autosnap_noise', autoSnapLearnNoise ? '1' : '0');
       localStorage.setItem('yard_guardian_autosnap_motion', autoSnapMotion ? '1' : '0');
+      localStorage.setItem('yard_guardian_autosnap_motion_min_px', autoSnapMotionMinPx.toString());
     }
 
     function loadSettings() {
@@ -1737,6 +1746,18 @@
         }
         const autoSnapMotionToggleEl = document.getElementById('autoSnapMotionToggle');
         if (autoSnapMotionToggleEl) autoSnapMotionToggleEl.checked = autoSnapMotion;
+
+        const savedAutoSnapMotionMinPx = localStorage.getItem('yard_guardian_autosnap_motion_min_px');
+        if (savedAutoSnapMotionMinPx !== null) {
+          const parsed = parseInt(savedAutoSnapMotionMinPx);
+          if (!isNaN(parsed) && parsed >= 6 && parsed <= 200) autoSnapMotionMinPx = parsed;
+        } else if (s && s.autoSnapMotionMinPx !== undefined) {
+          autoSnapMotionMinPx = s.autoSnapMotionMinPx;
+        } else {
+          autoSnapMotionMinPx = 25; // Default 25 px (v0.9.10)
+        }
+        const autoSnapMotionMinPxEl = document.getElementById('autoSnapMotionMinPxInput');
+        if (autoSnapMotionMinPxEl) autoSnapMotionMinPxEl.value = autoSnapMotionMinPx;
 
         // Restore collapse/expand state (default to collapsed to save maximum screen space)
         const savedExpanded = localStorage.getItem('yard_guardian_settings_expanded');
@@ -2067,6 +2088,18 @@
       localStorage.setItem('yard_guardian_autosnap_motion', autoSnapMotion ? '1' : '0');
       saveSettings();
       log(`📸 ⚡ <b>Motion Auto-Capture:</b> ${autoSnapMotion ? '<b>ENABLED (Unconfirmed Animal Movements)</b>' : '<b>DISABLED</b>'}.`);
+    }
+
+    function updateAutoSnapMotionMinPx(val) {
+      const num = parseInt(val);
+      if (!isNaN(num) && num >= 6 && num <= 200) {
+        autoSnapMotionMinPx = num;
+        const inputEl = document.getElementById('autoSnapMotionMinPxInput');
+        if (inputEl && parseInt(inputEl.value) !== autoSnapMotionMinPx) inputEl.value = autoSnapMotionMinPx;
+        localStorage.setItem('yard_guardian_autosnap_motion_min_px', autoSnapMotionMinPx.toString());
+        saveSettings();
+        log(`📸 ⚡ <b>Motion Auto-Capture Min Pixels set to:</b> <b>${autoSnapMotionMinPx} px</b> (Depth-Gated).`);
+      }
     }
 
     function clearAutoSnapNoiseFilter() {
@@ -3301,12 +3334,11 @@
         const meanX = sumX / count;
         const meanY = sumY / count;
 
-        // Centroid Density Filtering (v0.9.8):
-        // Rejects distant isolated wind outliers (radius > 16 cells on 80x60)
-        // Keeps the crop tightly focused on the dense animal body rather than spanning the entire yard!
+        // Centroid Density Filtering (v0.9.8 / v0.9.10):
+        // Focuses on dense cluster around the mean, rejecting distant outliers
         let minX = 80, minY = 60, maxX = 0, maxY = 0;
         let clusterCount = 0;
-        const maxDistSq = 256; // 16 cells squared (~200px radius on 1024 frame)
+        const maxDistSq = 144; // 12 cells radius (24 cells diameter, ~30% of yard view)
 
         for (let j = 0; j < count; j++) {
           const p = changedPixels[j];
@@ -3322,6 +3354,27 @@
         }
 
         if (clusterCount >= 6 && maxX >= minX && maxY >= minY) {
+          const cellW = (maxX - minX + 1);
+          const cellH = (maxY - minY + 1);
+          const boxCells = cellW * cellH;
+          const density = clusterCount / boxCells;
+
+          // 🌳 Horizon & Depth Split (v0.9.10)
+          // Distinguishes Far Garden (distant mulch/wall/trees in upper 63% of frame) vs Near Garden (foreground lawn)
+          const isFarZone = (maxY <= 38);
+
+          if (isFarZone) {
+            // In the distant garden / horizon:
+            // 1. A domestic animal cannot physically exceed 35% of yard width (28 cells) or 35% of height (21 cells)
+            if (cellW > 28 || cellH > 21) {
+              return null; // Reject wide tree canopy wind swaying
+            }
+            // 2. Minimum motion density: A real animal body is solid, whereas tree leaves fluttering are sparse
+            if (boxCells >= 40 && density < 0.08) {
+              return null; // Reject sparse wind leaf scatter (e.g. 23 pixels across 900 cells = 2.4% density)
+            }
+          }
+
           const padX = 2;
           const padY = 2;
           const bMinX = Math.max(0, minX - padX);
@@ -3337,7 +3390,7 @@
           const w = Math.round((bMaxX - bMinX + 1) * scaleX);
           const h = Math.round((bMaxY - bMinY + 1) * scaleY);
 
-          return { x, y, w, h, pixelCount: clusterCount };
+          return { x, y, w, h, pixelCount: clusterCount, density, isFarZone };
         }
       }
 
@@ -3651,13 +3704,20 @@
               bbox: motionConfirmedAnimal.bbox,
               lastMotionTime: Date.now()
             };
-          } else if (mResult && !mResult.isInanimate && autoSnapMotion && motionBox.pixelCount >= 14) {
-            motionDebugEvent = {
-              bbox: [motionBox.x, motionBox.y, motionBox.w, motionBox.h],
-              pixelCount: motionBox.pixelCount,
-              topPredictions: mResult.topPredictions || [{ label: mResult.label, confidence: Math.round(mResult.confidence * 100) }],
-              time: Date.now()
-            };
+          } else if (mResult && !mResult.isInanimate && autoSnapMotion && motionBox.pixelCount >= autoSnapMotionMinPx) {
+            // Physical perspective geometry filter: Reject impossible animal sizes (e.g. 800px wind canopy)
+            if (isRealisticAnimalGeometry('cat', motionBox.x, motionBox.y, motionBox.w, motionBox.h, targetW, targetH)) {
+              const topConfidence = mResult.topPredictions?.[0]?.confidence || Math.round(mResult.confidence * 100);
+              // Require top candidate confidence >= 10% (filters out pure noise guesses e.g. tiger 8%, cougar 4%)
+              if (topConfidence >= 10) {
+                motionDebugEvent = {
+                  bbox: [motionBox.x, motionBox.y, motionBox.w, motionBox.h],
+                  pixelCount: motionBox.pixelCount,
+                  topPredictions: mResult.topPredictions || [{ label: mResult.label, confidence: topConfidence }],
+                  time: Date.now()
+                };
+              }
+            }
           }
         }
 
@@ -4127,7 +4187,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.9.9';
+    const APP_VERSION = 'v0.9.10';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -4172,7 +4232,7 @@
               `• <b>Resolution:</b> ${formatResolutionDisplay()} @ ~${cameraFps} FPS\n` +
               `• <b>Scanner:</b> ${formatScannerModeDisplay()} [${scannerSnap.toUpperCase()}]\n` +
               `• <b>Rotation:</b> ${cameraRotation}°\n` +
-              `• <b>Auto-Snapshots:</b> ${autoSnapStr}\n` +
+              `• <b>Auto-Snapshots:</b> ${autoSnapStr} (Motion: ${autoSnapMotion ? `${autoSnapMotionMinPx}px` : 'Off'})\n` +
               `• <b>Noise Filter:</b> ${noiseStr}\n` +
               `• <b>Lighting:</b> ${lightStr}\n` +
               `• <b>Torch:</b> ${torchStr}\n` +
@@ -4200,6 +4260,7 @@
               `• Current Screen: <b>${isStealth ? '🌙 OLED Blackout' : '☀️ Awake'}</b> (<code>/screen [on|off]</code>)\n\n` +
               `📸 <b>Smart Delta Auto-Snapshots:</b>\n` +
               `• State: <b>${autoSnapEnabled ? `ON (Max ${autoSnapMaxPerMin}/min, Thresh: ${autoSnapThreshold}%)` : 'OFF'}</b> (<code>/set autosnap on|off|5</code>, <code>/set autosnap thresh 5</code>)\n` +
+              `• Motion Auto-Capture: <b>${autoSnapMotion ? `ENABLED (Min ${autoSnapMotionMinPx} px, Horizon-Gated)` : 'DISABLED'}</b> (<code>/set autosnap motion on|off|30</code>, <code>/set motionpx 30</code>)\n` +
               `• Noise Filter: <b>${autoSnapLearnNoise ? `Active (${autoSnapLearnedNoise.size > 0 ? Array.from(autoSnapLearnedNoise.keys()).join(', ') : 'Empty'})` : 'Disabled'}</b> (60m sliding TTL) (<code>/set autosnap noise on|off|clear</code>)\n` +
               `• Mode: Change-driven snapshots only (animals arriving/leaving)\n\n` +
               `🎯 <b>Target Animals:</b> ${targetsStr}\n` +
@@ -4500,9 +4561,16 @@
               const lowVal = val.toLowerCase();
               if (lowVal.startsWith('motion')) {
                 const subArg = lowVal.replace(/^motion[\s=:]*/, '').trim();
-                const mEnable = subArg ? !(['off', '0', 'false', 'disable', 'disabled'].includes(subArg)) : !autoSnapMotion;
-                toggleAutoSnapMotion(mEnable);
-                reply(`📸 ⚡ <b>Motion Auto-Capture:</b> <b>${mEnable ? 'ENABLED' : 'DISABLED'}</b>\n<i>${mEnable ? 'Captures photos & 1:1 focus crops with classifier candidate guesses for unconfirmed animal movements.' : 'Disabled unconfirmed motion capture.'}</i>`);
+                const num = parseInt(subArg.replace(/^px[\s=:]*/, ''));
+                if (!isNaN(num) && num >= 6 && num <= 200) {
+                  updateAutoSnapMotionMinPx(num);
+                  toggleAutoSnapMotion(true);
+                  reply(`📸 ⚡ <b>Motion Auto-Capture Min Pixels set to:</b> <b>${num} px</b> (Depth &amp; Horizon Gated).`);
+                } else {
+                  const mEnable = subArg ? !(['off', '0', 'false', 'disable', 'disabled'].includes(subArg)) : !autoSnapMotion;
+                  toggleAutoSnapMotion(mEnable);
+                  reply(`📸 ⚡ <b>Motion Auto-Capture:</b> <b>${mEnable ? 'ENABLED' : 'DISABLED'}</b> (Min: ${autoSnapMotionMinPx} px, Depth &amp; Horizon Gated)\n<i>${mEnable ? 'Captures photos & 1:1 focus crops with classifier candidate guesses for unconfirmed animal movements.' : 'Disabled unconfirmed motion capture.'}</i>`);
+                }
               } else if (lowVal.startsWith('noise') || lowVal.startsWith('filter')) {
                 const subArg = lowVal.replace(/^(noise|filter)[\s=:]*/, '').trim();
                 if (['off', '0', 'false', 'disable', 'disabled'].includes(subArg)) {
@@ -4537,14 +4605,30 @@
                   toggleAutoSnap(true);
                   reply(`📸 <b>Delta Auto-Snapshots:</b> <b>ENABLED</b> at <b>Max ${num} per minute</b> (Thresh: ${autoSnapThreshold}%, Motion Capture: ${autoSnapMotion ? 'ON' : 'OFF'}).`);
                 } else {
-                  reply(`⚠️ Usage:\n• <code>/set autosnap on|off</code>\n• <code>/set autosnap &lt;rate&gt;</code> (e.g. <code>/set autosnap 5</code>)\n• <code>/set autosnap thresh &lt;%&gt;</code> (e.g. <code>/set autosnap thresh 5</code>)\n• <code>/set autosnap motion on|off</code>\n• <code>/set autosnap noise on|off|clear</code>`);
+                  reply(`⚠️ Usage:\n• <code>/set autosnap on|off</code>\n• <code>/set autosnap &lt;rate&gt;</code> (e.g. <code>/set autosnap 5</code>)\n• <code>/set autosnap thresh &lt;%&gt;</code> (e.g. <code>/set autosnap thresh 5</code>)\n• <code>/set autosnap motion on|off|&lt;px&gt;</code>\n• <code>/set motionpx &lt;px&gt;</code>\n• <code>/set autosnap noise on|off|clear</code>`);
                 }
               }
             } else if (key === 'autosnap_motion' || key === 'snap_motion' || key === 'motion_snap') {
               const lowVal = val.toLowerCase();
-              const mEnable = !(['off', '0', 'false', 'disable', 'disabled'].includes(lowVal));
-              toggleAutoSnapMotion(mEnable);
-              reply(`📸 ⚡ <b>Motion Auto-Capture:</b> <b>${mEnable ? 'ENABLED' : 'DISABLED'}</b>\n<i>${mEnable ? 'Captures photos & 1:1 focus crops with classifier candidate guesses for unconfirmed animal movements.' : 'Disabled unconfirmed motion capture.'}</i>`);
+              const num = parseInt(lowVal.replace(/^px[\s=:]*/, ''));
+              if (!isNaN(num) && num >= 6 && num <= 200) {
+                updateAutoSnapMotionMinPx(num);
+                toggleAutoSnapMotion(true);
+                reply(`📸 ⚡ <b>Motion Auto-Capture Min Pixels set to:</b> <b>${num} px</b> (Depth &amp; Horizon Gated).`);
+              } else {
+                const mEnable = !(['off', '0', 'false', 'disable', 'disabled'].includes(lowVal));
+                toggleAutoSnapMotion(mEnable);
+                reply(`📸 ⚡ <b>Motion Auto-Capture:</b> <b>${mEnable ? 'ENABLED' : 'DISABLED'}</b> (Min: ${autoSnapMotionMinPx} px, Depth &amp; Horizon Gated)\n<i>${mEnable ? 'Captures photos & 1:1 focus crops with classifier candidate guesses for unconfirmed animal movements.' : 'Disabled unconfirmed motion capture.'}</i>`);
+              }
+            } else if (key === 'motionpx' || key === 'motion_px' || key === 'minpx') {
+              const num = parseInt(val);
+              if (!isNaN(num) && num >= 6 && num <= 200) {
+                updateAutoSnapMotionMinPx(num);
+                toggleAutoSnapMotion(true);
+                reply(`📸 ⚡ <b>Motion Auto-Capture Min Pixels set to:</b> <b>${num} px</b> (Depth &amp; Horizon Gated).`);
+              } else {
+                reply("⚠️ Please enter a motion pixel threshold between 6 and 200 px (e.g. <code>/set motionpx 25</code>).");
+              }
             } else if (key === 'autosnap_thresh' || key === 'autosnap_threshold' || key === 'snap_thresh') {
               const num = parseInt(val);
               if (!isNaN(num) && num >= 1 && num <= 99) {

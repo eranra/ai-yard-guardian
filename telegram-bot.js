@@ -378,6 +378,13 @@
           }
           break;
 
+        case '/motionpx':
+        case '/motion_px':
+          if (this.callbacks.onCommand) {
+            this.callbacks.onCommand('set', reply, replyPhoto, ['motionpx', ...args]);
+          }
+          break;
+
         case '/scanner':
           if (this.callbacks.onCommand) {
             this.callbacks.onCommand('set', reply, replyPhoto, ['scanner', ...args]);
