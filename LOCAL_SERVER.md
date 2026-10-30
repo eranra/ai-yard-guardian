@@ -56,19 +56,27 @@ Endpoints ready:
 
 ### Step 2: Configure AI Yard Guardian on Your Phone
 
-Make sure your phone is connected to the same home Wi-Fi network as your PC.
+> [!TIP]
+> **HTTPS vs. Local HTTP (Important for GitHub Pages):**
+> When opening AI Yard Guardian from **GitHub Pages (`https://...`)**, mobile browsers enforce HTTPS Mixed-Content security and block requests to plain `http://192.168.x.x`.
+> To connect from GitHub Pages, simply expose your local receiver via a secure Cloudflare Tunnel:
+> ```bash
+> cloudflared tunnel --url http://127.0.0.1:8780
+> ```
+> Use the generated `https://...trycloudflare.com` URL in Yard Guardian.
+> *(If running Yard Guardian locally over HTTP on your LAN, plain `http://192.168.x.x:8780` works directly).*
 
 #### Option A: Via the Web UI
 1. Open the AI Yard Guardian settings on your phone.
 2. Scroll to **🖥️ Local Server Analysis & Ingest Hub**.
 3. Check **Enable Local Server Relay**.
-4. Enter your PC's local URL (e.g. `http://192.168.1.109:8780`).
+4. Enter your Local Server URL (e.g. `https://...trycloudflare.com` or `http://192.168.1.109:8780`).
 5. Tap **📡 Test Connection**. You will see a green `✅ Connected` badge when successful!
 6. *(Optional)* Under **⚡ Deterrent Activation Actions**, check **🖥️ Local Server Log & Relay** to ensure intruder alert photos are always forwarded to the local server.
 
 #### Option B: Via Telegram Commands
 If you already use the Telegram bot, you can configure it remotely:
-* `/set localserver http://192.168.1.109:8780` — sets the URL and enables relay.
+* `/set localserver https://<your-tunnel-url>` — sets the URL and enables relay.
 * `/set localserver on` or `/set localserver off` — toggles relay.
 * `/action add local_server` — adds local server to active deterrent actions.
 
