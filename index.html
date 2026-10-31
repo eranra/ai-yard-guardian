@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.15 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.16 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -3358,12 +3358,15 @@
       ]
     };
 
-    // 🐾 Domestic Tuxedo & Dark Feline ImageNet Proxies (v0.9.9 / v0.9.15)
-    // Strictly small domestic dark canine proxies that MobileNet outputs for black/tuxedo cats.
-    // Wild forest animals (bear, boar, hog) are strictly excluded to avoid foliage/shadow false alarms.
+    // 🐾 Domestic Black & Tuxedo Feline ImageNet Proxies (v0.9.9 / v0.9.16)
+    // ImageNet has no generic "black cat" class. When a dark/black domestic cat moves in a garden,
+    // MobileNet outputs dark quadruped proxies (capuchin, spider monkey, black bear, border collie, kelpie, corgi).
+    // Note: These proxies are strictly gated to motion-verified detections (isMotionVerified) only;
+    // static background objects cannot trigger deterrence using proxies.
     const DARK_FELINE_PROXIES = [
       'corgi', 'cardigan', 'pembroke', 'collie', 'border collie', 
-      'kelpie', 'entlebucher', 'appenzeller', 'boston bull', 'boston terrier'
+      'kelpie', 'entlebucher', 'appenzeller', 'boston bull', 'boston terrier',
+      'capuchin', 'spider monkey', 'howler monkey', 'black bear', 'sloth bear', 'panther'
     ];
 
     const INANIMATE_NOISE_CLASSES = [
@@ -3458,9 +3461,10 @@
       if (!prevMotionLuma) {
         prevMotionLuma = currLuma;
       } else {
-        // Slow EMA background adaptation (0.85 old + 0.15 new)
+        // Fast frame-to-frame background adaptation (0.35 old + 0.65 new)
+        // Prevents lingering ghost wakes at 1 FPS from lagging behind a walking animal
         for (let i = 0; i < 4800; i++) {
-          prevMotionLuma[i] = Math.round(prevMotionLuma[i] * 0.85 + currLuma[i] * 0.15);
+          prevMotionLuma[i] = Math.round(prevMotionLuma[i] * 0.35 + currLuma[i] * 0.65);
         }
       }
 
@@ -3470,11 +3474,12 @@
         const meanX = sumX / count;
         const meanY = sumY / count;
 
-        // Centroid Density Filtering (v0.9.8 / v0.9.10):
-        // Focuses on dense cluster around the mean, rejecting distant outliers
+        // Centroid Density Filtering (v0.9.8 / v0.9.16):
+        // Expands cluster radius to 18 cells (36 cells diameter, ~45% of yard view)
+        // so a walking cat's head, body, and tail are completely enveloped
         let minX = 80, minY = 60, maxX = 0, maxY = 0;
         let clusterCount = 0;
-        const maxDistSq = 144; // 12 cells radius (24 cells diameter, ~30% of yard view)
+        const maxDistSq = 324; // 18 cells radius (36 cells diameter)
 
         for (let j = 0; j < count; j++) {
           const p = changedPixels[j];
@@ -3567,7 +3572,9 @@
         }
 
         const cropArea = sw * sh;
-        const isSmallAnimalCrop = (cropArea <= 45000 || (sw <= 220 && sh <= 220));
+        // Allows animal crops up to realistic perspective limits (300k px or 40% camera width/height)
+        // so full-body cats in 1080p foreground are completely evaluated
+        const isAnimalScaleCrop = (cropArea <= 300000 && sw <= (inputW * 0.40) && sh <= (inputH * 0.40));
 
         // Evaluate active targets
         for (const targetKey of activeTargets) {
@@ -3588,7 +3595,7 @@
               if (!bestDirect || res.probability > bestDirect.probability) {
                 bestDirect = res;
               }
-            } else if (targetKey === 'cat' && isSmallAnimalCrop) {
+            } else if (targetKey === 'cat' && isAnimalScaleCrop) {
               if (DARK_FELINE_PROXIES.some(c => lowerName.includes(c))) {
                 tuxedoScore += res.probability;
                 if (!bestTuxedo || res.probability > bestTuxedo.probability) {
@@ -3613,16 +3620,20 @@
             };
           }
 
-          // 2. Tuxedo & Dark Feline Proxy Match (v0.9.9 / v0.9.15)
-          // Allows single domestic proxy class >= 15% OR cumulative dark feline proxy mass >= 20%
+          // 2. Black & Tuxedo Feline Proxy Match (v0.9.9 / v0.9.16)
+          // Allows single proxy class >= 10% OR cumulative dark feline proxy mass >= 16%
           if (bestTuxedo) {
-            if (bestTuxedo.probability >= 0.15 || tuxedoScore >= 0.20) {
-              const calculatedConf = Math.min(0.90, Math.max(bestTuxedo.probability, tuxedoScore));
+            const lowerTuxName = bestTuxedo.className.toLowerCase();
+            const isDarkCatLike = ['capuchin', 'monkey', 'bear', 'panther'].some(k => lowerTuxName.includes(k));
+            const displayLabel = isDarkCatLike ? 'Cat (Black)' : 'Cat (Tuxedo)';
+
+            if (bestTuxedo.probability >= 0.10 || tuxedoScore >= 0.16) {
+              const calculatedConf = Math.min(0.92, Math.max(bestTuxedo.probability * 3.0, tuxedoScore * 2.5, 0.70));
               return {
                 isTarget: true,
                 isTuxedo: true,
                 target: targetKey,
-                label: 'Cat (Tuxedo)',
+                label: displayLabel,
                 confidence: calculatedConf,
                 bbox: [sx, sy, sw, sh]
               };
@@ -4331,7 +4342,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.9.15';
+    const APP_VERSION = 'v0.9.16';
 
     function forceAppRefresh() {
       if ('caches' in window) {
