@@ -40,6 +40,14 @@
     "description": "Domestic cat sitting in garden border"
   },
   {
+    "id": "cat_lawn_front_grass",
+    "file": "images/cat_lawn_front_grass.jpg",
+    "type": "cat",
+    "expectedTarget": "cat",
+    "expectedAction": "deter",
+    "description": "Full-body domestic cat against green lawn grass"
+  },
+  {
     "id": "human_yard_morning",
     "file": "images/human_yard_morning.jpg",
     "type": "human",
@@ -70,6 +78,22 @@
     "expectedTarget": "person",
     "expectedAction": "safety_pause",
     "description": "Real human walking past far lawn/gate boundary"
+  },
+  {
+    "id": "human_grass_horizontal_lying",
+    "file": "images/human_grass_horizontal_lying.jpg",
+    "type": "human",
+    "expectedTarget": "person",
+    "expectedAction": "safety_pause",
+    "description": "Person lying horizontally flat on garden lawn"
+  },
+  {
+    "id": "mixed_person_standing_cat_grass",
+    "file": "images/mixed_person_standing_cat_grass.jpg",
+    "type": "mixed",
+    "expectedTarget": "person",
+    "expectedAction": "safety_pause",
+    "description": "Person standing next to cat on grass (detects both, safety pause)"
   },
   {
     "id": "negative_ladder_shadow",

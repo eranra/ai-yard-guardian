@@ -6,3 +6,5 @@ run_offline_verification.js
 test_assets/
 .DS_Store
 Thumbs.db
+
+test_candidates/

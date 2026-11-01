@@ -377,7 +377,7 @@
   <header>
     <div class="title" style="display:flex; align-items:center; gap:8px;">
       <span>🛡️ Yard Guardian</span>
-      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.21 🔄</span>
+      <span style="font-size: 0.68rem; color: #38bdf8; font-weight: bold; cursor: pointer;" onclick="forceAppRefresh()" title="Tap to refresh app">v0.9.22 🔄</span>
       <a href="https://github.com/eranra/ai-yard-guardian" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; color:#94a3b8; text-decoration:none; padding:2px;" title="GitHub Repository">
         <svg height="15" width="15" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -3382,50 +3382,36 @@
      * Rejects physically impossible domestic animal bounding boxes (e.g. 500px wide tree canopy / wall hallucinations).
      */
     function isRealisticAnimalGeometry(label, x, y, w, h, targetW, targetH, isScannerCrop = false) {
+      const area = w * h;
+      const totalScreenArea = targetW * targetH;
+      const areaRatio = totalScreenArea > 0 ? (area / totalScreenArea) : 0;
+
       if (label === safetyClass) {
-        // Human Perspective & Silhouette Verification (v0.9.20):
-        // Upright standing or walking humans in a yard camera view have a vertical silhouette (h >= w * 1.70).
-        // Wide squarish clusters (h < w * 1.70) on lawns, patios, or fences are inanimate landscape items.
-        if (h < targetH * 0.85 && h < w * 1.70) return false;
+        // Human Perspective & Silhouette Verification (v0.9.22):
+        // Flat horizontal lying humans on grass (large full-body scale, w > h * 1.40)
+        if (w > h * 1.40 && areaRatio >= 0.08) return true;
+        // Upright standing or walking humans in a yard camera view have a vertical silhouette (h >= w * 1.65).
+        // Wide squarish clusters on lawns, patios, or fences are inanimate landscape items.
+        if (h < targetH * 0.85 && h < w * 1.65) return false;
         return true;
       }
 
-      const area = w * h;
-      const totalScreenArea = targetW * targetH;
-      if (totalScreenArea <= 0) return true;
-      const areaRatio = area / totalScreenArea;
+      // 1. Domestic yard animals limit (extended to 40% for close-up inspection)
+      if (areaRatio > 0.40) return false;
 
-      // 1. Domestic yard animals (cat, dog, bird, porcupine) cannot occupy > 15% of the total camera frame (was 28%)
-      if (areaRatio > 0.15) {
-        return false;
-      }
+      // 2. Absolute limits
+      if (w > targetW * 0.60 || h > targetH * 0.85) return false;
 
-      // 2. Absolute limits: a domestic animal cannot span > 38% screen width or 38% screen height (was 60%)
-      if (w > targetW * 0.38 || h > targetH * 0.38) {
-        return false;
-      }
-
-      // 3. Garden / Background distance rule:
-      // Evaluate object center (y + h * 0.5): in the mid/upper garden (center <= 70% height),
-      // animals are 8-20 meters away. At that distance, a domestic cat or dog cannot exceed 25% screen width or height.
+      // 3. Garden / Background distance rule
       const centerY = y + h * 0.5;
-      if (centerY <= targetH * 0.70) {
-        if (w > targetW * 0.25 || h > targetH * 0.25) {
-          return false;
-        }
-        // In the upper trees/structures (center <= 60% height), quadruped animals (cat, dog, porcupine)
-        // cannot have a vertical aspect ratio (height > 1.7x width) which corresponds to ladder rungs, tree trunks, and poles
-        if (centerY <= targetH * 0.60 && ['cat', 'dog', 'porcupine'].includes(label) && (h > w * 1.7)) {
+      if (centerY <= targetH * 0.70 && areaRatio < 0.20) {
+        if (w > targetW * 0.35 || h > targetH * 0.35) return false;
+        if (centerY <= targetH * 0.60 && ['cat', 'dog', 'porcupine'].includes(label) && (h > w * 1.8)) {
           return false;
         }
       }
 
-      // 4. Deep Yard Scanner Macro-Zoning Ceiling:
-      // The scanner is specifically meant for small distant animals; ignore any macro-landscape box
-      if (isScannerCrop && (w > targetW * 0.22 || h > targetH * 0.22)) {
-        return false;
-      }
-
+      if (isScannerCrop && (w > targetW * 0.25 || h > targetH * 0.25)) return false;
       return true;
     }
 
@@ -3936,7 +3922,7 @@
           // 2. High-precision deep verification (v0.9.9 / v0.9.15):
           // Evaluates candidate if score < 50% OR if COCO-SSD misclassified a domestic cat/dog as a quadruped
           // ('bear', 'dog', 'cow', 'sheep') not currently in activeTargets
-          const isCocoQuadrupedMismatch = !activeTargets.includes(label) && ['bear', 'dog', 'cow', 'sheep'].includes(label) && activeTargets.includes('cat');
+          const isCocoQuadrupedMismatch = !activeTargets.includes(label) && ['bear', 'dog', 'cow', 'sheep', 'bird'].includes(label) && activeTargets.includes('cat');
           const needsDeepVerification = (score < 0.50) || isCocoQuadrupedMismatch;
 
           if (needsDeepVerification) {
@@ -4353,7 +4339,7 @@
       log("☀️ Stealth mode disabled.");
     }
 
-    const APP_VERSION = 'v0.9.21';
+    const APP_VERSION = 'v0.9.22';
 
     function forceAppRefresh() {
       if ('caches' in window) {
@@ -5168,7 +5154,7 @@
                       continue; // Suppress physically impossible animal sizes
                     }
 
-                    const isCocoQuadrupedMismatch = !activeTargets.includes(label) && ['bear', 'dog', 'cow', 'sheep'].includes(label) && activeTargets.includes('cat');
+                    const isCocoQuadrupedMismatch = !activeTargets.includes(label) && ['bear', 'dog', 'cow', 'sheep', 'bird'].includes(label) && activeTargets.includes('cat');
                     const needsDeepVerification = (score < 0.50) || isCocoQuadrupedMismatch;
 
                     if (needsDeepVerification) {

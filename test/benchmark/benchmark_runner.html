@@ -37,24 +37,25 @@
     ];
 
     function isRealisticAnimalGeometry(label, x, y, w, h, targetW, targetH, isScannerCrop = false) {
-      if (label === 'person') {
-        // Human Perspective & Silhouette Verification (v0.9.20):
-        // Upright standing or walking humans in a yard camera view have a vertical silhouette (h >= w * 1.70).
-        // Wide squarish clusters (h < w * 1.70) on lawns, patios, or fences are inanimate landscape items.
-        if (h < targetH * 0.85 && h < w * 1.70) return false;
-        return true;
-      }
       const area = w * h;
       const totalScreenArea = targetW * targetH;
-      if (totalScreenArea <= 0) return true;
-      const areaRatio = area / totalScreenArea;
+      const areaRatio = totalScreenArea > 0 ? (area / totalScreenArea) : 0;
 
-      if (areaRatio > 0.20) return false;
-      if (w > targetW * 0.40 || h > targetH * 0.40) return false;
+      if (label === 'person') {
+        // Flat horizontal lying humans on grass (large full-body scale, w > h * 1.40)
+        if (w > h * 1.40 && areaRatio >= 0.08) return true;
+        // Upright standing or walking humans in a yard camera view have a vertical silhouette (h >= w * 1.65).
+        // Wide squarish clusters on lawns, patios, or fences are inanimate landscape items.
+        if (h < targetH * 0.85 && h < w * 1.65) return false;
+        return true;
+      }
+
+      if (areaRatio > 0.40) return false;
+      if (w > targetW * 0.60 || h > targetH * 0.85) return false;
 
       const centerY = y + h * 0.5;
-      if (centerY <= targetH * 0.70) {
-        if (w > targetW * 0.28 || h > targetH * 0.28) return false;
+      if (centerY <= targetH * 0.70 && areaRatio < 0.20) {
+        if (w > targetW * 0.35 || h > targetH * 0.35) return false;
         if (centerY <= targetH * 0.60 && ['cat', 'dog', 'porcupine'].includes(label) && (h > w * 1.8)) {
           return false;
         }
@@ -216,7 +217,7 @@
         }
 
         // Deep verification check
-        const isCocoQuadrupedMismatch = !APPLICATION_DEFAULTS.activeTargets.includes(label) && ['bear', 'dog', 'cow', 'sheep'].includes(label);
+        const isCocoQuadrupedMismatch = !APPLICATION_DEFAULTS.activeTargets.includes(label) && ['bear', 'dog', 'cow', 'sheep', 'bird'].includes(label);
         const needsDeepVerification = (score < 0.50) || isCocoQuadrupedMismatch;
 
         if (needsDeepVerification && label !== 'person') {
@@ -337,8 +338,15 @@
           const img = await loadImage(imgUrl);
           const evalResult = await evaluateYardImage(img);
 
-          const isPass = (evalResult.recognizedTarget === testCase.expectedTarget) &&
-                         (evalResult.finalAction === testCase.expectedAction);
+          let isPass = false;
+          if (testCase.type === 'mixed') {
+            const hasCat = evalResult.validDetections.some(d => d.class === 'cat' || (d.displayLabel && d.displayLabel.toLowerCase().includes('cat')));
+            const hasHuman = evalResult.validDetections.some(d => d.class === 'person');
+            isPass = (hasCat && hasHuman && evalResult.finalAction === 'safety_pause');
+          } else {
+            isPass = (evalResult.recognizedTarget === testCase.expectedTarget) &&
+                     (evalResult.finalAction === testCase.expectedAction);
+          }
 
           if (isPass) passCount++;
           else failCount++;

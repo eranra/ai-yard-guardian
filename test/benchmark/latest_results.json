@@ -1,6 +1,6 @@
 {
-  "total": 15,
-  "passCount": 15,
+  "total": 18,
+  "passCount": 18,
   "failCount": 0,
   "passRate": 100,
   "success": true,
@@ -216,6 +216,48 @@
       }
     },
     {
+      "id": "cat_lawn_front_grass",
+      "description": "Full-body domestic cat against green lawn grass",
+      "type": "cat",
+      "expectedTarget": "cat",
+      "expectedAction": "deter",
+      "actualTarget": "cat",
+      "actualAction": "deter",
+      "confidence": 0.7314714789390564,
+      "pass": true,
+      "details": {
+        "finalAction": "deter",
+        "recognizedTarget": "cat",
+        "confidence": 0.7314714789390564,
+        "rawPredsCount": 1,
+        "validDetections": [
+          {
+            "class": "cat",
+            "displayLabel": "cat",
+            "score": 0.7314714789390564,
+            "bbox": [
+              446.47127389907837,
+              69.48963582515717,
+              325.19638538360596,
+              536.7915242910385
+            ]
+          }
+        ],
+        "targetDetected": {
+          "label": "cat",
+          "displayLabel": "cat",
+          "score": 0.7314714789390564,
+          "bbox": [
+            446.47127389907837,
+            69.48963582515717,
+            325.19638538360596,
+            536.7915242910385
+          ]
+        },
+        "humanDetected": null
+      }
+    },
+    {
       "id": "human_yard_morning",
       "description": "Real human walking across lawn in morning at 8:58 AM",
       "type": "human",
@@ -371,6 +413,107 @@
             84.32195663452148,
             309.82452392578125,
             736.145224571228
+          ]
+        }
+      }
+    },
+    {
+      "id": "human_grass_horizontal_lying",
+      "description": "Person lying horizontally flat on garden lawn",
+      "type": "human",
+      "expectedTarget": "person",
+      "expectedAction": "safety_pause",
+      "actualTarget": "person",
+      "actualAction": "safety_pause",
+      "confidence": 0.987226665019989,
+      "pass": true,
+      "details": {
+        "finalAction": "safety_pause",
+        "recognizedTarget": "person",
+        "confidence": 0.987226665019989,
+        "rawPredsCount": 3,
+        "validDetections": [
+          {
+            "class": "person",
+            "score": 0.987226665019989,
+            "bbox": [
+              235.62011450529099,
+              263.0329215526581,
+              1010.9913244843483,
+              369.77668285369873
+            ]
+          }
+        ],
+        "targetDetected": null,
+        "humanDetected": {
+          "label": "person",
+          "score": 0.987226665019989,
+          "bbox": [
+            235.62011450529099,
+            263.0329215526581,
+            1010.9913244843483,
+            369.77668285369873
+          ]
+        }
+      }
+    },
+    {
+      "id": "mixed_person_standing_cat_grass",
+      "description": "Person standing next to cat on grass (detects both, safety pause)",
+      "type": "mixed",
+      "expectedTarget": "person",
+      "expectedAction": "safety_pause",
+      "actualTarget": "person",
+      "actualAction": "safety_pause",
+      "confidence": 0.8868328928947449,
+      "pass": true,
+      "details": {
+        "finalAction": "safety_pause",
+        "recognizedTarget": "person",
+        "confidence": 0.8868328928947449,
+        "rawPredsCount": 3,
+        "validDetections": [
+          {
+            "class": "person",
+            "score": 0.8868328928947449,
+            "bbox": [
+              425.3788232803345,
+              586.1971998214722,
+              379.4977128505707,
+              270.0256562232971
+            ]
+          },
+          {
+            "class": "cat",
+            "displayLabel": "tabby",
+            "score": 0.8815799402073026,
+            "bbox": [
+              530.0993829965591,
+              241.63787126541138,
+              341.2057012319565,
+              245.95211744308472
+            ]
+          }
+        ],
+        "targetDetected": {
+          "label": "cat",
+          "displayLabel": "tabby",
+          "score": 0.8815799402073026,
+          "bbox": [
+            530.0993829965591,
+            241.63787126541138,
+            341.2057012319565,
+            245.95211744308472
+          ]
+        },
+        "humanDetected": {
+          "label": "person",
+          "score": 0.8868328928947449,
+          "bbox": [
+            425.3788232803345,
+            586.1971998214722,
+            379.4977128505707,
+            270.0256562232971
           ]
         }
       }
