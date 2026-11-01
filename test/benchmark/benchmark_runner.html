@@ -178,7 +178,16 @@
       });
     }
 
-    // AI Yard Guardian Frame Detection Pipeline
+    // AI Yard Guardian Official Built-in Defaults (Single Source of Truth)
+    const APPLICATION_DEFAULTS = {
+      activeTargets: ['cat'],
+      animalSensitivity: 0.30,    // 30% min animal confidence
+      humanSensitivity: 0.40,     // 40% human safety cutoff threshold
+      enableHumanSafety: true,    // Human presence triggers safety pause
+      groundPlaneRatio: 0.28      // Lawn perspective horizon (Y >= 28%)
+    };
+
+    // AI Yard Guardian Frame Detection Pipeline (Running Official Application Defaults)
     async function evaluateYardImage(img) {
       const W = img.naturalWidth || img.width;
       const H = img.naturalHeight || img.height;
@@ -201,7 +210,7 @@
         }
 
         // Deep verification check
-        const isCocoQuadrupedMismatch = (label !== 'cat') && ['bear', 'dog', 'cow', 'sheep'].includes(label);
+        const isCocoQuadrupedMismatch = !APPLICATION_DEFAULTS.activeTargets.includes(label) && ['bear', 'dog', 'cow', 'sheep'].includes(label);
         const needsDeepVerification = (score < 0.50) || isCocoQuadrupedMismatch;
 
         if (needsDeepVerification && label !== 'person') {
@@ -210,7 +219,7 @@
             continue; // Suppress inanimate object
           }
 
-          const isGroundPlane = (y + h * 0.5 >= H * 0.28);
+          const isGroundPlane = (y + h * 0.5 >= H * APPLICATION_DEFAULTS.groundPlaneRatio);
           const isVerifiedMatch = cropCheck && cropCheck.isTarget && (
             (!cropCheck.isTuxedo && cropCheck.confidence >= 0.50) ||
             (cropCheck.isTuxedo && isGroundPlane && cropCheck.confidence >= 0.60)
@@ -227,18 +236,18 @@
 
         // Check if Human (Safety cutoff)
         if (label === 'person') {
-          if (score >= 0.40) {
+          if (score >= APPLICATION_DEFAULTS.humanSensitivity) {
             if (!humanDetected || score > humanDetected.score) {
               humanDetected = { label: 'person', score, bbox: [x,y,w,h] };
             }
             validDetections.push({ class: 'person', score, bbox: [x,y,w,h] });
           }
-        } else if (label === 'cat') {
-          if (score >= 0.30) {
+        } else if (APPLICATION_DEFAULTS.activeTargets.includes(label)) {
+          if (score >= APPLICATION_DEFAULTS.animalSensitivity) {
             if (!targetDetected || score > targetDetected.score) {
-              targetDetected = { label: 'cat', displayLabel: p.displayLabel || 'cat', score, bbox: [x,y,w,h] };
+              targetDetected = { label, displayLabel: p.displayLabel || label, score, bbox: [x,y,w,h] };
             }
-            validDetections.push({ class: 'cat', displayLabel: p.displayLabel || 'cat', score, bbox: [x,y,w,h] });
+            validDetections.push({ class: label, displayLabel: p.displayLabel || label, score, bbox: [x,y,w,h] });
           }
         }
       }
@@ -305,7 +314,8 @@
 
         log('⏳ Loading MobileNet (version 2, alpha 0.75)...');
         mobilenetModel = await mobilenet.load({ version: 2, alpha: 0.75 });
-        log('✅ MobileNet loaded.\n');
+        log('✅ MobileNet loaded.');
+        log(`⚙️ Running Benchmark against Application Defaults: targets=[${APPLICATION_DEFAULTS.activeTargets}], animalSens=${Math.round(APPLICATION_DEFAULTS.animalSensitivity*100)}%, humanSens=${Math.round(APPLICATION_DEFAULTS.humanSensitivity*100)}%, groundPlane=${Math.round(APPLICATION_DEFAULTS.groundPlaneRatio*100)}%\n`);
 
         // Fetch benchmark manifest
         const manifestRes = await fetch('/test/benchmark/benchmark.json');
