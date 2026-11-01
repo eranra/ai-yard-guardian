@@ -1,0 +1,33 @@
+name: AI Yard Guardian Benchmark CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    name: Vision & Deterrence Benchmark (12 Test Cases)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify Chrome Availability
+        run: |
+          google-chrome --version || chromium-browser --version
+
+      - name: Run AI Yard Guardian Benchmark Suite
+        run: |
+          node test/run_benchmark.js
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+          BENCHMARK_PORT: 8792

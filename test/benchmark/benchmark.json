@@ -1,0 +1,98 @@
+[
+  {
+    "id": "01_cat_yard_black",
+    "file": "images/01_cat_yard_black.jpg",
+    "type": "cat",
+    "expectedTarget": "cat",
+    "expectedAction": "deter",
+    "description": "Real black cat walking on front lawn at 6:28 AM"
+  },
+  {
+    "id": "02_cat_yard_tuxedo",
+    "file": "images/02_cat_yard_tuxedo.jpg",
+    "type": "cat",
+    "expectedTarget": "cat",
+    "expectedAction": "deter",
+    "description": "Real tuxedo cat standing on lawn in yard"
+  },
+  {
+    "id": "03_cat_tabby_yard",
+    "file": "images/03_cat_tabby_yard.jpg",
+    "type": "cat",
+    "expectedTarget": "cat",
+    "expectedAction": "deter",
+    "description": "Tabby cat outdoor reference in grass"
+  },
+  {
+    "id": "04_cat_garden_sitting",
+    "file": "images/04_cat_garden_sitting.jpg",
+    "type": "cat",
+    "expectedTarget": "cat",
+    "expectedAction": "deter",
+    "description": "Domestic cat sitting in garden border"
+  },
+  {
+    "id": "05_human_lawn_walking",
+    "file": "images/05_human_lawn_walking.jpg",
+    "type": "human",
+    "expectedTarget": "person",
+    "expectedAction": "safety_pause",
+    "description": "User walking across lawn (Human Safety Cutoff trigger)"
+  },
+  {
+    "id": "06_human_lawn_morning",
+    "file": "images/06_human_lawn_morning.jpg",
+    "type": "human",
+    "expectedTarget": "person",
+    "expectedAction": "safety_pause",
+    "description": "User entering morning yard scene at 8:58 AM"
+  },
+  {
+    "id": "07_human_lawn_entry",
+    "file": "images/07_human_lawn_entry.jpg",
+    "type": "human",
+    "expectedTarget": "person",
+    "expectedAction": "safety_pause",
+    "description": "Person entering lawn from gate boundary"
+  },
+  {
+    "id": "08_human_yard_standing",
+    "file": "images/08_human_yard_standing.jpg",
+    "type": "human",
+    "expectedTarget": "person",
+    "expectedAction": "safety_pause",
+    "description": "Human standing in yard near camera"
+  },
+  {
+    "id": "09_negative_ladder_shadow",
+    "file": "images/09_negative_ladder_shadow.jpg",
+    "type": "negative",
+    "expectedTarget": "none",
+    "expectedAction": "ignore",
+    "description": "Ladder shadow and tree branches (false positive test)"
+  },
+  {
+    "id": "10_negative_lawn_day_sun",
+    "file": "images/10_negative_lawn_day_sun.jpg",
+    "type": "negative",
+    "expectedTarget": "none",
+    "expectedAction": "ignore",
+    "description": "Clean lawn in bright morning sunlight"
+  },
+  {
+    "id": "11_negative_lawn_afternoon",
+    "file": "images/11_negative_lawn_afternoon.jpg",
+    "type": "negative",
+    "expectedTarget": "none",
+    "expectedAction": "ignore",
+    "description": "Clean lawn in afternoon lighting"
+  },
+  {
+    "id": "12_negative_lawn_night_dark",
+    "file": "images/12_negative_lawn_night_dark.jpg",
+    "type": "negative",
+    "expectedTarget": "none",
+    "expectedAction": "ignore",
+    "description": "Clean lawn in pitch dark night setting"
+  }
+]

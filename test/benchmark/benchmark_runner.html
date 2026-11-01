@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Benchmark Runner</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
+</head>
+<body style="font-family: monospace; background: #0f172a; color: #f8fafc; padding: 20px;">
+  <h2>🛡️ AI Yard Guardian Benchmark Test</h2>
+  <div id="status">Loading models...</div>
+  <pre id="output" style="background: #1e293b; padding: 15px; border-radius: 8px; font-size: 13px; line-height: 1.5; white-space: pre-wrap;"></pre>
+
+  <script>
+    const IMAGENET_TARGET_MAPPINGS = {
+      cat: ['tabby', 'tiger cat', 'persian cat', 'siamese', 'egyptian cat', 'cat', 'lynx'],
+      dog: ['dog', 'terrier', 'retriever', 'shepherd', 'spaniel', 'hound', 'poodle', 'collie', 'corgi', 'boxer', 'beagle', 'husky', 'pug', 'rottweiler'],
+      bird: ['bird', 'robin', 'magpie', 'jay', 'sparrow', 'pigeon', 'crow', 'owl', 'finch', 'drake', 'duck', 'goose'],
+      porcupine: ['porcupine', 'hedgehog', 'echidna']
+    };
+
+    const DARK_FELINE_PROXIES = [
+      'corgi', 'cardigan', 'pembroke', 'collie', 'border collie', 
+      'kelpie', 'entlebucher', 'appenzeller', 'boston bull', 'boston terrier',
+      'groenendael', 'schipperke', 'newfoundland', 'curly-coated retriever',
+      'capuchin', 'spider monkey', 'howler monkey', 'black bear', 'sloth bear', 'panther'
+    ];
+
+    const INANIMATE_NOISE_CLASSES = [
+      'television', 'screen', 'spotlight', 'lamp', 'pot, flowerpot', 
+      'vase', 'pillow', 'folding chair', 'bench', 'park bench', 'sliding door', 'window shade',
+      'patio', 'wall clock', 'street sign', 'traffic light', 'mailbox', 'umbrella',
+      'lawn mower', 'hay', 'greenhouse', 'worm fence', 'stone wall', 'picket fence',
+      'chainlink fence', 'flagstone', 'birdhouse', 'fountain',
+      'ladder', 'stepladder', 'pole', 'trellis', 'banister', 'bannister', 'handrail', 'radiator'
+    ];
+
+    function isRealisticAnimalGeometry(label, x, y, w, h, targetW, targetH, isScannerCrop = false) {
+      if (label === 'person') return true;
+      const area = w * h;
+      const totalScreenArea = targetW * targetH;
+      if (totalScreenArea <= 0) return true;
+      const areaRatio = area / totalScreenArea;
+
+      if (areaRatio > 0.20) return false;
+      if (w > targetW * 0.40 || h > targetH * 0.40) return false;
+
+      const centerY = y + h * 0.5;
+      if (centerY <= targetH * 0.70) {
+        if (w > targetW * 0.28 || h > targetH * 0.28) return false;
+        if (centerY <= targetH * 0.60 && ['cat', 'dog', 'porcupine'].includes(label) && (h > w * 1.8)) {
+          return false;
+        }
+      }
+
+      if (isScannerCrop && (w > targetW * 0.25 || h > targetH * 0.25)) return false;
+      return true;
+    }
+
+    let cocoModel = null;
+    let mobilenetModel = null;
+
+    async function classifyAnimalRegion(imgEl, x, y, w, h) {
+      if (!mobilenetModel) return null;
+      try {
+        const inputW = imgEl.naturalWidth || imgEl.width;
+        const inputH = imgEl.naturalHeight || imgEl.height;
+        const padX = Math.round(w * 0.15);
+        const padY = Math.round(h * 0.15);
+        const sx = Math.max(0, x - padX);
+        const sy = Math.max(0, y - padY);
+        const sw = Math.min(inputW - sx, w + padX * 2);
+        const sh = Math.min(inputH - sy, h + padY * 2);
+        if (sw < 10 || sh < 10) return null;
+
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = sw;
+        cropCanvas.height = sh;
+        const ctx = cropCanvas.getContext('2d');
+        ctx.drawImage(imgEl, sx, sy, sw, sh, 0, 0, sw, sh);
+
+        const results = await mobilenetModel.classify(cropCanvas, 10);
+        if (!results || results.length === 0) return null;
+
+        const topResult = results[0];
+        const topLower = topResult.className.toLowerCase();
+
+        if (topResult.probability >= 0.20 && INANIMATE_NOISE_CLASSES.some(c => topLower.includes(c))) {
+          return {
+            isTarget: false,
+            isInanimate: true,
+            label: topResult.className.split(',')[0].trim(),
+            confidence: topResult.probability,
+            bbox: [sx, sy, sw, sh],
+            allTop: results.slice(0, 5).map(r => `${r.className.split(',')[0]} (${Math.round(r.probability*100)}%)`)
+          };
+        }
+
+        const cropArea = sw * sh;
+        const isAnimalScaleCrop = (cropArea <= 300000 && sw <= (inputW * 0.40) && sh <= (inputH * 0.40));
+
+        let directScore = 0;
+        let bestDirect = null;
+        let tuxedoScore = 0;
+        let bestTuxedo = null;
+
+        const matchers = IMAGENET_TARGET_MAPPINGS.cat;
+
+        for (const res of results) {
+          const lowerName = res.className.toLowerCase();
+          const isDirect = matchers.some(m => lowerName.includes(m));
+
+          if (isDirect) {
+            directScore += res.probability;
+            if (!bestDirect || res.probability > bestDirect.probability) bestDirect = res;
+          } else if (isAnimalScaleCrop) {
+            if (DARK_FELINE_PROXIES.some(c => lowerName.includes(c))) {
+              tuxedoScore += res.probability;
+              if (!bestTuxedo || res.probability > bestTuxedo.probability) bestTuxedo = res;
+            }
+          }
+        }
+
+        if (bestDirect && (bestDirect.probability >= 0.16 || directScore >= 0.20)) {
+          const displayLabel = bestDirect.className.split(',')[0].trim();
+          const calculatedConf = Math.min(0.95, Math.max(bestDirect.probability, directScore));
+          return {
+            isTarget: true,
+            isTuxedo: false,
+            target: 'cat',
+            label: displayLabel,
+            confidence: calculatedConf,
+            bbox: [sx, sy, sw, sh],
+            allTop: results.slice(0, 5).map(r => `${r.className.split(',')[0]} (${Math.round(r.probability*100)}%)`)
+          };
+        }
+
+        if (bestTuxedo) {
+          const lowerTuxName = bestTuxedo.className.toLowerCase();
+          const isDarkCatLike = ['capuchin', 'monkey', 'bear', 'panther', 'groenendael', 'schipperke', 'newfoundland'].some(k => lowerTuxName.includes(k));
+          const displayLabel = isDarkCatLike ? 'Cat (Black)' : 'Cat (Tuxedo)';
+
+          if (bestTuxedo.probability >= 0.10 || tuxedoScore >= 0.16) {
+            const calculatedConf = Math.min(0.92, Math.max(bestTuxedo.probability * 3.0, tuxedoScore * 2.5, 0.70));
+            return {
+              isTarget: true,
+              isTuxedo: true,
+              target: 'cat',
+              label: displayLabel,
+              confidence: calculatedConf,
+              bbox: [sx, sy, sw, sh],
+              allTop: results.slice(0, 5).map(r => `${r.className.split(',')[0]} (${Math.round(r.probability*100)}%)`)
+            };
+          }
+        }
+
+        return {
+          isTarget: false,
+          isInanimate: false,
+          label: topResult.className.split(',')[0].trim(),
+          confidence: topResult.probability,
+          bbox: [sx, sy, sw, sh],
+          allTop: results.slice(0, 5).map(r => `${r.className.split(',')[0]} (${Math.round(r.probability*100)}%)`)
+        };
+      } catch (e) {
+        return { error: e.message };
+      }
+    }
+
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    }
+
+    // AI Yard Guardian Frame Detection Pipeline
+    async function evaluateYardImage(img) {
+      const W = img.naturalWidth || img.width;
+      const H = img.naturalHeight || img.height;
+
+      // 1. Raw COCO-SSD Detection
+      const rawPreds = await cocoModel.detect(img, 20, 0.08);
+
+      let targetDetected = null;
+      let humanDetected = null;
+      let validDetections = [];
+
+      for (const p of rawPreds) {
+        const [x, y, w, h] = p.bbox;
+        let label = p.class;
+        let score = p.score;
+
+        // Perspective geometry filter
+        if (!isRealisticAnimalGeometry(label, x, y, w, h, W, H)) {
+          continue;
+        }
+
+        // Deep verification check
+        const isCocoQuadrupedMismatch = (label !== 'cat') && ['bear', 'dog', 'cow', 'sheep'].includes(label);
+        const needsDeepVerification = (score < 0.50) || isCocoQuadrupedMismatch;
+
+        if (needsDeepVerification && label !== 'person') {
+          const cropCheck = await classifyAnimalRegion(img, x, y, w, h);
+          if (cropCheck && cropCheck.isInanimate) {
+            continue; // Suppress inanimate object
+          }
+
+          const isGroundPlane = (y + h * 0.5 >= H * 0.28);
+          const isVerifiedMatch = cropCheck && cropCheck.isTarget && (
+            (!cropCheck.isTuxedo && cropCheck.confidence >= 0.50) ||
+            (cropCheck.isTuxedo && isGroundPlane && cropCheck.confidence >= 0.60)
+          );
+
+          if (isVerifiedMatch) {
+            label = cropCheck.target;
+            score = cropCheck.confidence;
+            p.displayLabel = cropCheck.label;
+          } else if (label === 'cat' && score < 0.35) {
+            continue;
+          }
+        }
+
+        // Check if Human (Safety cutoff)
+        if (label === 'person') {
+          if (score >= 0.40) {
+            if (!humanDetected || score > humanDetected.score) {
+              humanDetected = { label: 'person', score, bbox: [x,y,w,h] };
+            }
+            validDetections.push({ class: 'person', score, bbox: [x,y,w,h] });
+          }
+        } else if (label === 'cat') {
+          if (score >= 0.30) {
+            if (!targetDetected || score > targetDetected.score) {
+              targetDetected = { label: 'cat', displayLabel: p.displayLabel || 'cat', score, bbox: [x,y,w,h] };
+            }
+            validDetections.push({ class: 'cat', displayLabel: p.displayLabel || 'cat', score, bbox: [x,y,w,h] });
+          }
+        }
+      }
+
+      // If no target found via full frame, check whole-image classification (e.g. for centered animal photo)
+      if (!targetDetected && !humanDetected) {
+        try {
+          const wholeResults = await mobilenetModel.classify(img, 5);
+          for (const res of wholeResults) {
+            const lower = res.className.toLowerCase();
+            const isCatDirect = IMAGENET_TARGET_MAPPINGS.cat.some(m => lower.includes(m));
+            if (isCatDirect && res.probability >= 0.30) {
+              targetDetected = {
+                label: 'cat',
+                displayLabel: res.className.split(',')[0].trim(),
+                score: res.probability,
+                bbox: [0, 0, W, H]
+              };
+              validDetections.push(targetDetected);
+              break;
+            }
+          }
+        } catch(e){}
+      }
+
+      // Determine final action according to Yard Guardian rules
+      let finalAction = 'ignore';
+      let recognizedTarget = 'none';
+      let confidence = 0;
+
+      if (humanDetected) {
+        finalAction = 'safety_pause';
+        recognizedTarget = 'person';
+        confidence = humanDetected.score;
+      } else if (targetDetected) {
+        finalAction = 'deter';
+        recognizedTarget = 'cat';
+        confidence = targetDetected.score;
+      }
+
+      return {
+        finalAction,
+        recognizedTarget,
+        confidence,
+        rawPredsCount: rawPreds.length,
+        validDetections,
+        targetDetected,
+        humanDetected
+      };
+    }
+
+    async function runBenchmark() {
+      const outputEl = document.getElementById('output');
+      const statusEl = document.getElementById('status');
+      const log = (msg) => {
+        outputEl.textContent += msg + '\n';
+        console.log(msg);
+      };
+
+      try {
+        log('⏳ Loading COCO-SSD (MobileNet v2)...');
+        cocoModel = await cocoSsd.load({ base: 'mobilenet_v2' });
+        log('✅ COCO-SSD loaded.');
+
+        log('⏳ Loading MobileNet (version 2, alpha 0.75)...');
+        mobilenetModel = await mobilenet.load({ version: 2, alpha: 0.75 });
+        log('✅ MobileNet loaded.\n');
+
+        // Fetch benchmark manifest
+        const manifestRes = await fetch('/test/benchmark/benchmark.json');
+        const manifest = await manifestRes.json();
+        log(`📋 Loaded benchmark manifest with ${manifest.length} test cases.\n`);
+
+        const testResults = [];
+        let passCount = 0;
+        let failCount = 0;
+
+        for (const testCase of manifest) {
+          const imgUrl = '/test/benchmark/' + testCase.file;
+          const img = await loadImage(imgUrl);
+          const evalResult = await evaluateYardImage(img);
+
+          const isPass = (evalResult.recognizedTarget === testCase.expectedTarget) &&
+                         (evalResult.finalAction === testCase.expectedAction);
+
+          if (isPass) passCount++;
+          else failCount++;
+
+          const statusIcon = isPass ? '✅ PASS' : '❌ FAIL';
+          log(`${statusIcon} | [${testCase.id}]`);
+          log(`   • Description: ${testCase.description}`);
+          log(`   • Expected: target='${testCase.expectedTarget}', action='${testCase.expectedAction}'`);
+          log(`   • Detected: target='${evalResult.recognizedTarget}', action='${evalResult.finalAction}', conf=${Math.round(evalResult.confidence*100)}%`);
+          if (evalResult.validDetections.length > 0) {
+            log(`   • Detections: ${evalResult.validDetections.map(d => (d.displayLabel||d.class) + ' (' + Math.round(d.score*100) + '%)').join(', ')}`);
+          }
+          log('');
+
+          testResults.push({
+            id: testCase.id,
+            description: testCase.description,
+            type: testCase.type,
+            expectedTarget: testCase.expectedTarget,
+            expectedAction: testCase.expectedAction,
+            actualTarget: evalResult.recognizedTarget,
+            actualAction: evalResult.finalAction,
+            confidence: evalResult.confidence,
+            pass: isPass,
+            details: evalResult
+          });
+        }
+
+        const total = manifest.length;
+        const passRate = Math.round((passCount / total) * 100);
+        log('======================================================');
+        log(`🏁 BENCHMARK SUMMARY: ${passCount}/${total} PASSED (${passRate}%)`);
+        log('======================================================');
+
+        statusEl.textContent = `Completed: ${passCount}/${total} Passed (${passRate}%)`;
+
+        // Report back to Node runner
+        fetch('/api/benchmark-results', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            total,
+            passCount,
+            failCount,
+            passRate,
+            success: (failCount === 0),
+            results: testResults
+          })
+        }).catch(e => console.error(e));
+
+      } catch (err) {
+        log(`❌ Error: ${err.message}`);
+        statusEl.textContent = `❌ Error: ${err.message}`;
+      }
+    }
+
+    window.onload = runBenchmark;
+  </script>
+</body>
+</html>
