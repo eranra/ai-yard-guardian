@@ -1,5 +1,8 @@
 received_events/
 cloudflared.exe
 node_modules/
+offline_verifier.html
+run_offline_verification.js
+test_assets/
 .DS_Store
 Thumbs.db
