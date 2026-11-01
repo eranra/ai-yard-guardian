@@ -37,7 +37,13 @@
     ];
 
     function isRealisticAnimalGeometry(label, x, y, w, h, targetW, targetH, isScannerCrop = false) {
-      if (label === 'person') return true;
+      if (label === 'person') {
+        // Human Perspective & Silhouette Verification (v0.9.20):
+        // Upright standing or walking humans in a yard camera view have a vertical silhouette (h >= w * 1.70).
+        // Wide squarish clusters (h < w * 1.70) on lawns, patios, or fences are inanimate landscape items.
+        if (h < targetH * 0.85 && h < w * 1.70) return false;
+        return true;
+      }
       const area = w * h;
       const totalScreenArea = targetW * targetH;
       if (totalScreenArea <= 0) return true;
@@ -184,7 +190,7 @@
       animalSensitivity: 0.30,    // 30% min animal confidence
       humanSensitivity: 0.40,     // 40% human safety cutoff threshold
       enableHumanSafety: true,    // Human presence triggers safety pause
-      groundPlaneRatio: 0.28      // Lawn perspective horizon (Y >= 28%)
+      groundPlaneRatio: 0.25      // Lawn perspective horizon (Y >= 25%)
     };
 
     // AI Yard Guardian Frame Detection Pipeline (Running Official Application Defaults)

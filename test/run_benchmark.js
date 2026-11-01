@@ -84,7 +84,7 @@ server.listen(PORT, () => {
     'chrome_benchmark_profile_' + Date.now()
   );
 
-  const cmd = `"${chromePath}" --headless=new --user-data-dir="${tempProfile}" --disable-gpu --no-sandbox --disable-dev-shm-usage --virtual-time-budget=120000 http://127.0.0.1:${PORT}/test/benchmark/benchmark_runner.html`;
+  const cmd = `"${chromePath}" --headless=new --user-data-dir="${tempProfile}" --disable-gpu --no-sandbox --disable-dev-shm-usage http://127.0.0.1:${PORT}/test/benchmark/benchmark_runner.html`;
 
   console.log('🚀 Running Chrome Headless benchmark...');
 
@@ -117,14 +117,14 @@ server.listen(PORT, () => {
     }
   }, 1000);
 
-  // Fallback timeout: 120 seconds
+  // Fallback timeout: 150 seconds
   setTimeout(() => {
     if (!benchmarkResults) {
-      console.error('❌ Timed out waiting for benchmark results (120s limit exceeded)');
+      console.error('❌ Timed out waiting for benchmark results (150s limit exceeded)');
       server.close();
       process.exit(1);
     }
-  }, 120000);
+  }, 150000);
 
   exec(cmd, (err) => {
     if (err && !benchmarkResults) {

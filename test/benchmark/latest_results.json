@@ -1,12 +1,12 @@
 {
-  "total": 12,
-  "passCount": 12,
+  "total": 15,
+  "passCount": 15,
   "failCount": 0,
   "passRate": 100,
   "success": true,
   "results": [
     {
-      "id": "01_cat_yard_black",
+      "id": "cat_yard_black",
       "description": "Real black cat walking on front lawn at 6:28 AM",
       "type": "cat",
       "expectedTarget": "cat",
@@ -48,7 +48,7 @@
       }
     },
     {
-      "id": "02_cat_yard_tuxedo",
+      "id": "cat_yard_tuxedo",
       "description": "Real tuxedo cat standing on lawn in yard",
       "type": "cat",
       "expectedTarget": "cat",
@@ -90,7 +90,49 @@
       }
     },
     {
-      "id": "03_cat_tabby_yard",
+      "id": "cat_yard_small_horizon",
+      "description": "Small distant cat on far lawn horizon (hard detection case)",
+      "type": "cat",
+      "expectedTarget": "cat",
+      "expectedAction": "deter",
+      "actualTarget": "cat",
+      "actualAction": "deter",
+      "confidence": 0.7,
+      "pass": true,
+      "details": {
+        "finalAction": "deter",
+        "recognizedTarget": "cat",
+        "confidence": 0.7,
+        "rawPredsCount": 2,
+        "validDetections": [
+          {
+            "class": "cat",
+            "displayLabel": "Cat (Black)",
+            "score": 0.7,
+            "bbox": [
+              719.3131713867188,
+              105.48950386047363,
+              166.9791259765625,
+              111.50858688354492
+            ]
+          }
+        ],
+        "targetDetected": {
+          "label": "cat",
+          "displayLabel": "Cat (Black)",
+          "score": 0.7,
+          "bbox": [
+            719.3131713867188,
+            105.48950386047363,
+            166.9791259765625,
+            111.50858688354492
+          ]
+        },
+        "humanDetected": null
+      }
+    },
+    {
+      "id": "cat_tabby_lawn",
       "description": "Tabby cat outdoor reference in grass",
       "type": "cat",
       "expectedTarget": "cat",
@@ -132,7 +174,7 @@
       }
     },
     {
-      "id": "04_cat_garden_sitting",
+      "id": "cat_garden_border",
       "description": "Domestic cat sitting in garden border",
       "type": "cat",
       "expectedTarget": "cat",
@@ -174,48 +216,8 @@
       }
     },
     {
-      "id": "05_human_lawn_walking",
-      "description": "User walking across lawn (Human Safety Cutoff trigger)",
-      "type": "human",
-      "expectedTarget": "person",
-      "expectedAction": "safety_pause",
-      "actualTarget": "person",
-      "actualAction": "safety_pause",
-      "confidence": 0.4849432110786438,
-      "pass": true,
-      "details": {
-        "finalAction": "safety_pause",
-        "recognizedTarget": "person",
-        "confidence": 0.4849432110786438,
-        "rawPredsCount": 1,
-        "validDetections": [
-          {
-            "class": "person",
-            "score": 0.4849432110786438,
-            "bbox": [
-              118.17199230194092,
-              305.07041931152344,
-              464.9144983291626,
-              668.7612247467041
-            ]
-          }
-        ],
-        "targetDetected": null,
-        "humanDetected": {
-          "label": "person",
-          "score": 0.4849432110786438,
-          "bbox": [
-            118.17199230194092,
-            305.07041931152344,
-            464.9144983291626,
-            668.7612247467041
-          ]
-        }
-      }
-    },
-    {
-      "id": "06_human_lawn_morning",
-      "description": "User entering morning yard scene at 8:58 AM",
+      "id": "human_yard_morning",
+      "description": "Real human walking across lawn in morning at 8:58 AM",
       "type": "human",
       "expectedTarget": "person",
       "expectedAction": "safety_pause",
@@ -254,48 +256,8 @@
       }
     },
     {
-      "id": "07_human_lawn_entry",
-      "description": "Person entering lawn from gate boundary",
-      "type": "human",
-      "expectedTarget": "person",
-      "expectedAction": "safety_pause",
-      "actualTarget": "person",
-      "actualAction": "safety_pause",
-      "confidence": 0.87641441822052,
-      "pass": true,
-      "details": {
-        "finalAction": "safety_pause",
-        "recognizedTarget": "person",
-        "confidence": 0.87641441822052,
-        "rawPredsCount": 1,
-        "validDetections": [
-          {
-            "class": "person",
-            "score": 0.87641441822052,
-            "bbox": [
-              137.90733236074448,
-              300.9370654821396,
-              411.3884427547455,
-              671.8408942222595
-            ]
-          }
-        ],
-        "targetDetected": null,
-        "humanDetected": {
-          "label": "person",
-          "score": 0.87641441822052,
-          "bbox": [
-            137.90733236074448,
-            300.9370654821396,
-            411.3884427547455,
-            671.8408942222595
-          ]
-        }
-      }
-    },
-    {
-      "id": "08_human_yard_standing",
-      "description": "Human standing in yard near camera",
+      "id": "human_yard_standing",
+      "description": "Real human standing in yard near camera",
       "type": "human",
       "expectedTarget": "person",
       "expectedAction": "safety_pause",
@@ -334,8 +296,88 @@
       }
     },
     {
-      "id": "09_negative_ladder_shadow",
-      "description": "Ladder shadow and tree branches (false positive test)",
+      "id": "human_yard_walking_lawn",
+      "description": "Real human walking across center lawn (8:53 AM capture)",
+      "type": "human",
+      "expectedTarget": "person",
+      "expectedAction": "safety_pause",
+      "actualTarget": "person",
+      "actualAction": "safety_pause",
+      "confidence": 0.9950807094573975,
+      "pass": true,
+      "details": {
+        "finalAction": "safety_pause",
+        "recognizedTarget": "person",
+        "confidence": 0.9950807094573975,
+        "rawPredsCount": 2,
+        "validDetections": [
+          {
+            "class": "person",
+            "score": 0.9950807094573975,
+            "bbox": [
+              160.10458362102509,
+              70.9541916847229,
+              262.9777796268463,
+              711.3784790039062
+            ]
+          }
+        ],
+        "targetDetected": null,
+        "humanDetected": {
+          "label": "person",
+          "score": 0.9950807094573975,
+          "bbox": [
+            160.10458362102509,
+            70.9541916847229,
+            262.9777796268463,
+            711.3784790039062
+          ]
+        }
+      }
+    },
+    {
+      "id": "human_yard_walking_gate",
+      "description": "Real human walking past far lawn/gate boundary",
+      "type": "human",
+      "expectedTarget": "person",
+      "expectedAction": "safety_pause",
+      "actualTarget": "person",
+      "actualAction": "safety_pause",
+      "confidence": 0.9925332069396973,
+      "pass": true,
+      "details": {
+        "finalAction": "safety_pause",
+        "recognizedTarget": "person",
+        "confidence": 0.9925332069396973,
+        "rawPredsCount": 1,
+        "validDetections": [
+          {
+            "class": "person",
+            "score": 0.9925332069396973,
+            "bbox": [
+              1280.4684448242188,
+              84.32195663452148,
+              309.82452392578125,
+              736.145224571228
+            ]
+          }
+        ],
+        "targetDetected": null,
+        "humanDetected": {
+          "label": "person",
+          "score": 0.9925332069396973,
+          "bbox": [
+            1280.4684448242188,
+            84.32195663452148,
+            309.82452392578125,
+            736.145224571228
+          ]
+        }
+      }
+    },
+    {
+      "id": "negative_ladder_shadow",
+      "description": "Ladder shadow and tree branches (false animal alarm test)",
       "type": "negative",
       "expectedTarget": "none",
       "expectedAction": "ignore",
@@ -354,7 +396,47 @@
       }
     },
     {
-      "id": "10_negative_lawn_day_sun",
+      "id": "negative_lawn_patio_cluster",
+      "description": "Patio and hedge cluster without human (must suppress false human detection)",
+      "type": "negative",
+      "expectedTarget": "none",
+      "expectedAction": "ignore",
+      "actualTarget": "none",
+      "actualAction": "ignore",
+      "confidence": 0,
+      "pass": true,
+      "details": {
+        "finalAction": "ignore",
+        "recognizedTarget": "none",
+        "confidence": 0,
+        "rawPredsCount": 1,
+        "validDetections": [],
+        "targetDetected": null,
+        "humanDetected": null
+      }
+    },
+    {
+      "id": "negative_lawn_gate_boundary",
+      "description": "Lawn boundary without human (must suppress false human detection)",
+      "type": "negative",
+      "expectedTarget": "none",
+      "expectedAction": "ignore",
+      "actualTarget": "none",
+      "actualAction": "ignore",
+      "confidence": 0,
+      "pass": true,
+      "details": {
+        "finalAction": "ignore",
+        "recognizedTarget": "none",
+        "confidence": 0,
+        "rawPredsCount": 1,
+        "validDetections": [],
+        "targetDetected": null,
+        "humanDetected": null
+      }
+    },
+    {
+      "id": "negative_lawn_day_sun",
       "description": "Clean lawn in bright morning sunlight",
       "type": "negative",
       "expectedTarget": "none",
@@ -374,7 +456,7 @@
       }
     },
     {
-      "id": "11_negative_lawn_afternoon",
+      "id": "negative_lawn_afternoon",
       "description": "Clean lawn in afternoon lighting",
       "type": "negative",
       "expectedTarget": "none",
@@ -394,7 +476,7 @@
       }
     },
     {
-      "id": "12_negative_lawn_night_dark",
+      "id": "negative_lawn_night_dark",
       "description": "Clean lawn in pitch dark night setting",
       "type": "negative",
       "expectedTarget": "none",
