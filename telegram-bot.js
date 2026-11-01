@@ -21,7 +21,7 @@
 
   const DEFAULT_KEYBOARD = {
     keyboard: [
-      [{ text: '📸 Snapshot' }, { text: '💦 Spray Test' }],
+      [{ text: '📸 Snapshot' }, { text: '🔍 Focus' }, { text: '💦 Spray Test' }],
       [{ text: '🛡️ Arm' }, { text: '⏸️ Disarm' }, { text: '🔦 Torch' }],
       [{ text: '🌙 Screen' }, { text: '📊 Status' }, { text: '⚙️ Config' }, { text: '🔄 Refresh' }]
     ],
@@ -332,6 +332,8 @@
           firstWord = '/torch';
         } else if (lowerFull.includes('screen') || lowerFull.includes('stealth') || lowerFull.includes('🌙')) {
           firstWord = '/screen';
+        } else if (lowerFull.includes('focus') || lowerFull.includes('🔍')) {
+          firstWord = '/focus';
         } else if (lowerFull.includes('rotate') || lowerFull.includes('orientation')) {
           firstWord = '/rotate';
         } else if (lowerFull.includes('status') || lowerFull.includes('📊')) {
@@ -358,6 +360,7 @@
             '🤖 <b>AI Yard Guardian Remote Menu</b>\n\n' +
             '<b>Quick Actions:</b>\n' +
             '📸 <code>/snap</code> — Take a live photo now\n' +
+            '🔍 <code>/focus [kick|smart|far|auto]</code> — Smart Anti-Window focus &amp; Far-Pulse\n' +
             '🔄 <code>/rotate</code> — Rotate camera 90° &amp; check snapshot\n' +
             '💦 <code>/spray</code> — Trigger water deterrent\n' +
             '🛡️ <code>/arm</code> — Start AI detection\n' +
@@ -399,6 +402,8 @@
           break;
 
         case '/status':
+        case '/focus':
+        case '/autofocus':
         case '/snap':
         case '/photo':
         case '/rotate':
